@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en-SG">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0f6e66">
+  <meta name="description" content="Book MINDS volunteering sessions, show your volunteer pass and log your hours.">
+  <title>MINDS Volunteers</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/png" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="min-h-dvh">
+  <div id="offline-bar" class="sticky top-0 z-30 bg-ink px-4 py-1.5 text-center text-sm text-white" role="status" hidden>
+    You're offline. Showing what was saved on this phone.
+  </div>
+
+  <header id="topbar" class="mx-auto flex max-w-md items-center justify-between px-4 pt-4" hidden>
+    <a href="#/" class="flex items-center gap-2 font-bold">
+      <img src="icons/icon-192.png" alt="" class="size-8 rounded-lg">
+      <span id="topbar-title">MINDS Volunteers</span>
+    </a>
+    <span id="topbar-mode" class="chip bg-strap-tint text-ink" hidden>Leader view</span>
+  </header>
+
+  <main id="view" class="mx-auto max-w-md px-4 pb-32 pt-4" tabindex="-1"></main>
+
+  <nav id="tabbar" class="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur" aria-label="Main" hidden>
+    <ul id="tabbar-list" class="mx-auto grid max-w-md grid-cols-4"></ul>
+  </nav>
+
+  <div id="toast" class="pointer-events-none fixed inset-x-0 bottom-24 z-40 flex justify-center px-4" role="status" aria-live="polite"></div>
+
+  <noscript><p class="p-6">This app needs JavaScript turned on.</p></noscript>
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

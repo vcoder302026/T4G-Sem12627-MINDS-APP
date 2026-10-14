@@ -115,3 +115,4 @@ account, no user management; not production-ready.
 | --- | --- | --- |
 | 2026-10-10 | 1 | Implemented complete Prototype 1 per PLAN.md (all phases), 23-test suite, README, verified startup/persistence/origin rules. |
 | 2026-10-10 | 2 | Diagnosed and fixed login-screen visibility CSS bug; added PROTOTYPE1-APP-USAGE-GUIDE.md and PROGRESS.md; pushed to GitHub. |
+| 2026-10-14 | 3 | Added `volunteer-app/` (separate from Prototype 1, which is unchanged): Apps Script backend over an existing Google Sheet (header-mapped tabs, additive `setup()`), volunteer registration/booking/trainee pairing/feedback, signed daily QR passes with leader scanning (offline queue, walk-ins, manual fallback), PWA frontend for GitHub Pages, local mock server, 21 backend tests, Playwright phone walkthrough, CI workflows for Pages and clasp. See volunteer-app/README.md and DESIGN-NOTES.md. |

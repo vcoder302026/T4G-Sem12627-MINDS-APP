@@ -1,0 +1,19 @@
+{
+  "name": "minds-volunteer-app",
+  "version": "0.1.0",
+  "private": true,
+  "description": "MINDS volunteer management PWA: Google Apps Script API over an existing Google Sheet, with QR clock-in/out.",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "node dev/mock-server.js",
+    "test": "node --test tests/gas.test.js",
+    "build:css": "npx --yes @tailwindcss/cli@4 -i web/src/input.css -o web/styles.css --minify",
+    "watch:css": "npx --yes @tailwindcss/cli@4 -i web/src/input.css -o web/styles.css --watch",
+    "clasp:login": "npx --yes @google/clasp@2.4.2 login",
+    "gas:push": "npx --yes @google/clasp@2.4.2 push --force",
+    "gas:deploy": "npx --yes @google/clasp@2.4.2 deploy"
+  }
+}

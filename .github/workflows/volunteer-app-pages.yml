@@ -1,0 +1,53 @@
+# Publishes volunteer-app/web to GitHub Pages.
+# One-time setup: repo Settings → Pages → Source: "GitHub Actions".
+# Optional: Settings → Secrets and variables → Actions → Variables →
+#   GAS_WEB_APP_URL = your Apps Script web app URL (…/exec), so config.js
+#   doesn't need editing by hand.
+name: Volunteer app · deploy web
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'volunteer-app/web/**'
+      - '.github/workflows/volunteer-app-pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    defaults:
+      run:
+        working-directory: volunteer-app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Build Tailwind CSS
+        run: npx --yes @tailwindcss/cli@4 -i web/src/input.css -o web/styles.css --minify
+      - name: Give this deploy a fresh offline cache
+        run: sed -i "s/__BUILD__/${GITHUB_SHA::8}/" web/sw.js
+      - name: Point the app at the Apps Script API
+        if: ${{ vars.GAS_WEB_APP_URL != '' }}
+        env:
+          GAS_WEB_APP_URL: ${{ vars.GAS_WEB_APP_URL }}
+        run: sed -i "s#https://script.google.com/macros/s/PASTE_YOUR_DEPLOYMENT_ID_HERE/exec#${GAS_WEB_APP_URL}#" web/js/config.js
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: volunteer-app/web
+      - id: deployment
+        uses: actions/deploy-pages@v4

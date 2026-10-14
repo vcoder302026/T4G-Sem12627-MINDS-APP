@@ -1,0 +1,68 @@
+# Tests the Apps Script backend, then pushes it with clasp and updates the
+# existing web app deployment in place (the /exec URL never changes, so
+# volunteers' phones keep working: zero-downtime update).
+#
+# One-time setup (Settings → Secrets and variables → Actions → Secrets):
+#   CLASPRC_JSON       contents of ~/.clasprc.json after `npm run clasp:login`
+#                      (use the Google account that owns the script)
+#   GAS_SCRIPT_ID      Apps Script editor → Project Settings → Script ID
+#   GAS_DEPLOYMENT_ID  Deploy → Manage deployments → the web app's Deployment ID
+# Without the secrets, the workflow still runs the tests and skips deploying.
+name: Volunteer app · test and deploy Apps Script
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'volunteer-app/gas/**'
+      - 'volunteer-app/tests/**'
+      - 'volunteer-app/dev/gas-harness.js'
+      - '.github/workflows/volunteer-app-gas.yml'
+  pull_request:
+    paths:
+      - 'volunteer-app/**'
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: volunteer-app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm test
+
+  deploy:
+    needs: test
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    env:
+      CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+      SCRIPT_ID: ${{ secrets.GAS_SCRIPT_ID }}
+      DEPLOYMENT_ID: ${{ secrets.GAS_DEPLOYMENT_ID }}
+    defaults:
+      run:
+        working-directory: volunteer-app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Skip notice
+        if: env.CLASPRC_JSON == '' || env.SCRIPT_ID == ''
+        run: echo "::notice::Add the CLASPRC_JSON and GAS_SCRIPT_ID secrets to enable automatic Apps Script deploys."
+      - name: Write clasp credentials
+        if: env.CLASPRC_JSON != '' && env.SCRIPT_ID != ''
+        run: |
+          printf '%s' "$CLASPRC_JSON" > ~/.clasprc.json
+          printf '{"scriptId":"%s","rootDir":"gas"}' "$SCRIPT_ID" > .clasp.json
+      - name: Push code to Apps Script
+        if: env.CLASPRC_JSON != '' && env.SCRIPT_ID != ''
+        run: npx --yes @google/clasp@2.4.2 push --force
+      - name: Update the live web app deployment
+        if: env.CLASPRC_JSON != '' && env.SCRIPT_ID != '' && env.DEPLOYMENT_ID != ''
+        run: npx --yes @google/clasp@2.4.2 deploy --deploymentId "$DEPLOYMENT_ID" --description "CI ${GITHUB_SHA::8}"
