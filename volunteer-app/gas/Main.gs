@@ -18,22 +18,43 @@ function routes_() {
 
     me: { auth: 'user', fn: me_ },
     changePassword: { auth: 'user', write: true, fn: changePassword_ },
+    updateProfile: { auth: 'user', write: true, fn: updateProfile_ },
     volunteerHome: { auth: 'user', fn: volunteerHome_ },
     bookSession: { auth: 'user', write: true, fn: bookSession_ },
     cancelBooking: { auth: 'user', write: true, fn: cancelBooking_ },
     submitFeedback: { auth: 'user', write: true, fn: submitFeedback_ },
+    guide: { auth: 'user', fn: guide_ },
+    acknowledgeGuide: { auth: 'user', write: true, fn: acknowledgeGuide_ },
 
     adminHome: { auth: 'admin', fn: adminHome_ },
     createSession: { auth: 'admin', write: true, fn: createSession_ },
     updateSession: { auth: 'admin', write: true, fn: updateSession_ },
     sessionDetail: { auth: 'admin', fn: sessionDetail_ },
     updateBooking: { auth: 'admin', write: true, fn: updateBooking_ },
+    confirmAll: { auth: 'admin', write: true, fn: confirmAll_ },
     scan: { auth: 'admin', write: true, fn: scan_ },
     scanBatch: { auth: 'admin', write: true, fn: scanBatch_ },
     manualClock: { auth: 'admin', write: true, fn: manualClock_ },
     listPeople: { auth: 'admin', fn: listPeople_ },
     setRole: { auth: 'admin', write: true, fn: setRole_ },
+    personDetail: { auth: 'admin', fn: personDetail_ },
+    updatePerson: { auth: 'admin', write: true, fn: updatePerson_ },
     resetPassword: { auth: 'admin', write: true, fn: resetPassword_ },
+
+    listTrainees: { auth: 'admin', fn: listTrainees_ },
+    traineeDetail: { auth: 'admin', fn: traineeDetail_ },
+    addTraineeNote: { auth: 'admin', write: true, fn: addTraineeNote_ },
+    setNoteStatus: { auth: 'admin', write: true, fn: setNoteStatus_ },
+    reviewQueue: { auth: 'admin', fn: reviewQueue_ },
+    reviewObservation: { auth: 'admin', write: true, fn: reviewObservation_ },
+
+    leaderContent: { auth: 'admin', fn: contentForLeaders_ },
+    listVenues: { auth: 'admin', fn: listVenues_ },
+    saveVenue: { auth: 'admin', write: true, fn: saveVenue_ },
+    saveProject: { auth: 'admin', write: true, fn: saveProject_ },
+    saveGuideSection: { auth: 'admin', write: true, fn: saveGuideSection_ },
+    deleteGuideSection: { auth: 'admin', write: true, fn: deleteGuideSection_ },
+    moveContent: { auth: 'admin', write: true, fn: moveContent_ },
   };
 }
 

@@ -24,6 +24,7 @@ function publicUser_(u) {
     emergencyRelation: u.emergencyRelation,
     role: u.role === 'admin' ? 'admin' : 'volunteer',
     createdAt: u.createdAt,
+    guideReadAt: u.guideReadAt || '',
   };
 }
 

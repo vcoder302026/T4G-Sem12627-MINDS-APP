@@ -47,7 +47,7 @@ export const session = {
     storage.set(TOKEN_KEY, value);
   },
   clear() {
-    ['minds.token', 'minds.user', 'minds.vhome', 'minds.ahome', 'minds.mode'].forEach((k) => storage.remove(k));
+    ['minds.token', 'minds.user', 'minds.vhome', 'minds.ahome', 'minds.mode', 'minds.guide'].forEach((k) => storage.remove(k));
   },
 };
 

@@ -1,0 +1,185 @@
+/**
+ * Profile.gs — editing a person's details in the app.
+ *
+ *   updateProfile   a volunteer (or leader) edits their own details under Me.
+ *                   Changing the sign-in email needs their current password.
+ *   personDetail    a leader opens anyone in People (volunteers and leaders).
+ *   updatePerson    a leader edits anyone's details, role or active status.
+ *
+ * Both use the same checks as registration. Each save writes only the cells
+ * that changed and stamps "Details Updated By / At" on the person's row.
+ */
+
+const PROFILE_FIELDS = ['name', 'birthday', 'email', 'phone', 'telegram', 'emergencyName', 'emergencyPhone', 'emergencyRelation'];
+
+const PROFILE_LABELS = {
+  name: 'name',
+  birthday: 'birthday',
+  email: 'email',
+  phone: 'phone',
+  telegram: 'Telegram',
+  emergencyName: 'emergency contact',
+  emergencyPhone: 'emergency phone',
+  emergencyRelation: 'relationship',
+  role: 'role',
+  status: 'status',
+};
+
+/** Validates whichever profile fields were sent (same rules as registration). */
+function profilePatch_(p) {
+  const has = (k) => Object.prototype.hasOwnProperty.call(p, k);
+  const patch = {};
+  if (has('name')) patch.name = str_(p.name, 'Full name', { required: true, max: LIMITS.SHORT });
+  if (has('birthday')) {
+    patch.birthday = date_(p.birthday, 'Birthday');
+    if (patch.birthday > todayStr_()) throw err_.validation('Birthday cannot be in the future.');
+  }
+  if (has('email')) patch.email = email_(p.email);
+  if (has('phone')) patch.phone = phone_(p.phone, 'Phone');
+  if (has('telegram')) patch.telegram = telegram_(p.telegram);
+  if (has('emergencyName')) patch.emergencyName = str_(p.emergencyName, 'Emergency contact name', { required: true, max: LIMITS.SHORT });
+  if (has('emergencyPhone')) patch.emergencyPhone = phone_(p.emergencyPhone, 'Emergency contact phone');
+  if (has('emergencyRelation')) patch.emergencyRelation = str_(p.emergencyRelation, 'Relationship', { max: 50 });
+  return patch;
+}
+
+/** Keeps only the fields whose value actually changes. */
+function changedOnly_(row, patch) {
+  const out = {};
+  Object.keys(patch).forEach((k) => {
+    if (String(row[k] === undefined ? '' : row[k]) !== String(patch[k])) out[k] = patch[k];
+  });
+  return out;
+}
+
+function assertEmailFree_(users, email, userId) {
+  const clash = users.find((u) => u.userId !== userId && String(u.email).trim().toLowerCase() === email);
+  if (clash) throw err_.conflict('Another account already uses this email.');
+}
+
+function changedMessage_(changes, prefix) {
+  const keys = Object.keys(changes);
+  if (!keys.length) return 'No changes to save.';
+  const names = keys.map((k) => PROFILE_LABELS[k] || k);
+  const list = names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}` : names[0];
+  return `${prefix} ${list}.`;
+}
+
+/**
+ * Volunteers see the volunteer name on their open bookings (and leaders see it
+ * on session lists), so a new name is copied to today's and future bookings.
+ * Past bookings and attendance keep the name used at the time.
+ */
+function renameInOpenBookings_(userId, name) {
+  const bookings = table_('bookings');
+  const today = todayStr_();
+  bookings.filter((b) => b.userId === userId && b.status !== 'cancelled' && String(b.sessionDate) >= today)
+    .forEach((b) => bookings.update(b, { volunteerName: name }));
+}
+
+function applyProfileChanges_(users, target, changes, editor) {
+  if (!Object.keys(changes).length) return target;
+  const stamped = Object.assign({}, changes, { updatedBy: editor.name, updatedAt: fmtDateTime_(now_()) });
+  users.update(target, stamped);
+  if (changes.name) renameInOpenBookings_(target.userId, changes.name);
+  return target;
+}
+
+/* ---------- self-service ---------- */
+
+function updateProfile_(p, user) {
+  onlyFields_(p, PROFILE_FIELDS.concat(['currentPassword']));
+  const users = table_('users');
+  const target = users.find((u) => u.userId === user.userId);
+  const changes = changedOnly_(target, profilePatch_(p));
+  if (changes.email) {
+    const authRow = table_('auth').find((a) => a.userId === user.userId);
+    if (typeof p.currentPassword !== 'string' || !p.currentPassword
+      || !safeEqual_(hashPassword_(p.currentPassword, authRow.salt), authRow.passwordHash)) {
+      throw err_.validation('Enter your current password to change the email you sign in with.');
+    }
+    assertEmailFree_(users, changes.email, user.userId);
+  }
+  applyProfileChanges_(users, target, changes, user);
+  return {
+    user: publicUser_(target),
+    changed: Object.keys(changes),
+    message: changes.email
+      ? `Saved. Sign in with ${changes.email} from now on.`
+      : changedMessage_(changes, 'Saved your new'),
+  };
+}
+
+/* ---------- leaders ---------- */
+
+function personOut_(u, hasAccount) {
+  return Object.assign(publicUser_(u), {
+    status: u.status === 'inactive' ? 'inactive' : 'active',
+    hasAccount: Boolean(hasAccount),
+    updatedBy: u.updatedBy || '',
+    updatedAt: u.updatedAt || '',
+  });
+}
+
+function personDetail_(p) {
+  onlyFields_(p, ['userId']);
+  const target = table_('users').find((u) => u.userId === id_(p.userId, 'User'));
+  if (!target) throw err_.notFound('Person not found.');
+  const hasAccount = Boolean(table_('auth').find((a) => a.userId === target.userId));
+  const attendance = table_('attendance').filter((a) => a.userId === target.userId);
+  const done = attendance.filter((a) => a.clockOut);
+  const hours = Math.round(done.reduce((sum, a) => sum + (Number(a.hours) || 0), 0) * 100) / 100;
+  const sessionsById = byKey_(table_('sessions').rows(), 'sessionId');
+  const recent = sortBy_(done, (a) => `${a.date} ${a.clockIn}`).reverse().slice(0, 5).map((a) => ({
+    date: a.date,
+    title: (sessionsById[a.sessionId] || {}).title || 'Session',
+    hours: Number(a.hours) || 0,
+  }));
+  const upcoming = table_('bookings').filter((b) => b.userId === target.userId && b.status !== 'cancelled' && String(b.sessionDate) >= todayStr_());
+  return {
+    person: personOut_(target, hasAccount),
+    stats: { hours, sessions: done.length, upcoming: upcoming.length },
+    recent,
+  };
+}
+
+function updatePerson_(p, admin) {
+  onlyFields_(p, ['userId'].concat(PROFILE_FIELDS, ['role', 'status']));
+  const users = table_('users');
+  const target = users.find((u) => u.userId === id_(p.userId, 'User'));
+  if (!target) throw err_.notFound('Person not found.');
+  const fields = {};
+  PROFILE_FIELDS.forEach((k) => { if (Object.prototype.hasOwnProperty.call(p, k)) fields[k] = p[k]; });
+  const patch = profilePatch_(fields);
+  if (p.role !== undefined) patch.role = oneOf_(p.role, 'Role', ['volunteer', 'admin']);
+  if (p.status !== undefined) patch.status = oneOf_(p.status, 'Status', ['active', 'inactive']);
+  const current = Object.assign({}, target, {
+    role: target.role === 'admin' ? 'admin' : 'volunteer',
+    status: target.status === 'inactive' ? 'inactive' : 'active',
+  });
+  const changes = changedOnly_(current, patch);
+
+  const self = target.userId === admin.userId;
+  if (self && changes.role === 'volunteer') throw err_.conflict('You cannot remove your own leader access. Ask another leader.');
+  if (self && changes.status === 'inactive') throw err_.conflict('You cannot deactivate your own account. Ask another leader.');
+  const losesLeader = current.role === 'admin' && current.status === 'active'
+    && (changes.role === 'volunteer' || changes.status === 'inactive');
+  if (losesLeader) {
+    const others = users.filter((u) => u.userId !== target.userId && u.role === 'admin' && u.status !== 'inactive');
+    if (!others.length) throw err_.conflict('There must be at least one active volunteer leader.');
+  }
+  if (changes.email) assertEmailFree_(users, changes.email, target.userId);
+
+  const oldName = target.name;
+  applyProfileChanges_(users, target, changes, admin);
+  const profileChanges = {};
+  Object.keys(changes).filter((k) => PROFILE_FIELDS.indexOf(k) >= 0).forEach((k) => { profileChanges[k] = changes[k]; });
+  const parts = [];
+  if (Object.keys(profileChanges).length) parts.push(changedMessage_(profileChanges, `Updated ${oldName}'s`));
+  if (changes.role) parts.push(`${target.name} is now ${changes.role === 'admin' ? 'a volunteer leader' : 'a volunteer'}.`);
+  if (changes.status) parts.push(changes.status === 'inactive' ? `${target.name} is deactivated and can no longer sign in.` : `${target.name} is active again.`);
+  if (changes.email) parts.push(`They now sign in with ${changes.email}.`);
+  const message = parts.join(' ') || 'No changes to save.';
+  const hasAccount = Boolean(table_('auth').find((a) => a.userId === target.userId));
+  return { person: personOut_(target, hasAccount), changed: Object.keys(changes), message };
+}

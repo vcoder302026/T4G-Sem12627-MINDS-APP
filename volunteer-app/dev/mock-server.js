@@ -25,42 +25,81 @@ export const DEMO = {
 export function createDemoRuntime() {
   const rt = createGasRuntime();
   rt.createSpreadsheet('demo-sheet', 'MINDS Volunteer Data (local demo)');
-  // Stands in for the partner's existing trainee list (fictional people).
+  // Stands in for the partner's existing trainee list. Fictional people only.
   rt.fillTab('demo-sheet', 'Trainees', [
-    ['Name', 'Preferred Name', 'Programme', 'Interests', 'Communication Tips', 'Support Needs', 'Medical Notes', 'Caregiver Name', 'Caregiver Phone'],
-    ['Alex Tan Wei Ming', 'Alex', 'Day Activity Centre', 'Music, jigsaw puzzles, trains', 'Speak slowly; short sentences. Likes high-fives.', 'Needs reminders to drink water', 'Epilepsy care plan on file', 'Mdm Tan', '91234567'],
-    ['Bea Lim', 'Bea', 'Day Activity Centre', 'Drawing, K-pop', 'Prefers pictures to words', 'Gets anxious in loud rooms', '', 'Mr Lim', '92345678'],
-    ['Chris Ng', '', 'Employment Development', 'Football, cooking', 'Chatty; enjoys being given jobs', '', 'Asthma inhaler in bag', 'Mrs Ng', '93456789'],
-    ['Dana Goh', 'Dana', 'Day Activity Centre', 'Dancing, colouring', 'Uses some sign language', 'Wheelchair user', '', 'Ms Goh', '94567890'],
+    ['Name', 'Preferred Name', 'Gender', 'Programme', 'Communication', 'Behaviours', 'Things to Take Note', 'Interests', 'Support Needs', 'Medical Notes', 'Caregiver Name', 'Caregiver Phone', 'Active'],
+    ['Alex Tan Wei Ming', 'Alex', 'Male', 'Day Activity Centre', 'Verbal: short sentences, speak slowly', 'Likes routine; may walk away when tired', 'Gets anxious with loud noises: offer ear muffs', 'Music, jigsaw puzzles, trains', 'Reminders to drink water', 'Epilepsy care plan on file', 'Mdm Tan', '91234567', 'Yes'],
+    ['Bea Lim', 'Bea', 'Female', 'Day Activity Centre', 'Non-verbal: uses gestures and picture cards', 'Friendly, loves high-fives', 'Allergic to peanuts: no outside snacks', 'Drawing, K-pop', 'Hand-over-hand help with scissors', '', 'Mr Lim', '92345678', 'Yes'],
+    ['Chris Ng', '', 'Male', 'Employment Development', 'Verbal, very chatty', 'Enjoys being given jobs', '', 'Football, cooking', '', 'Asthma inhaler in bag', 'Mrs Ng', '93456789', 'Yes'],
+    ['Dana Goh', 'Dana', 'Female', 'Day Activity Centre', 'A few words plus some sign language', 'Shy at first; warms up with music', 'Wheelchair user: check the room layout first', 'Dancing, colouring', 'Wheelchair user', '', 'Ms Goh', '94567890', 'Yes'],
+    ['Evan Lee', '', 'Male', 'Day Activity Centre', 'Verbal', '', '', 'Lego', '', '', 'Mr Lee', '95678901', 'No'],
   ]);
   rt.props.set('SPREADSHEET_ID', 'demo-sheet');
-  rt.run('setup');
+  rt.run('setup'); // also adds the starter venue (MINDS Woodlands Gardens School), guide and project
 
-  const reg = (name, email, password) => rt.call('register', {
+  const reg = (name, email, password, extra = {}) => rt.call('register', {
     name, email, password, birthday: '2000-01-15', phone: '+65 9000 0000', telegram: '',
-    emergencyName: 'Demo Contact', emergencyPhone: '+65 8000 0000', emergencyRelation: 'Parent', consent: true,
+    emergencyName: 'Demo Contact', emergencyPhone: '+65 8000 0000', emergencyRelation: 'Parent', consent: true, ...extra,
   });
   reg('Leader Lee', DEMO.leader.email, DEMO.leader.password);
   rt.props.set('FIRST_ADMIN_EMAIL', DEMO.leader.email);
   rt.run('makeFirstAdmin');
-  const volunteer = reg('Vera Volunteer', DEMO.volunteer.email, DEMO.volunteer.password).data;
-  reg('Sam Siva', 'sam@example.com', 'VolunteerDemo123');
+  const vera = reg('Vera Volunteer', DEMO.volunteer.email, DEMO.volunteer.password, { telegram: 'vera_volunteers' }).data;
+  const sam = reg('Sam Siva', 'sam@example.com', 'VolunteerDemo123', { phone: '+65 9111 2222' }).data;
+  // Both demo volunteers have read the Volunteer Guide; a newly registered account has not.
+  rt.call('acknowledgeGuide', {}, vera.token);
+  rt.call('acknowledgeGuide', {}, sam.token);
 
   const leader = rt.call('login', DEMO.leader).data.token;
+  const SCHOOL = 'MINDS Woodlands Gardens School';
+  const PROJECT = 'School activity support';
   const today = rt.context.todayStr_();
   const day = (n) => rt.context.addDays_(today, n);
-  const mk = (title, date, startTime, endTime, venue, capacity, notes = '') =>
-    rt.call('createSession', { title, date, startTime, endTime, venue, capacity, notes }, leader).data.session;
-  const art = mk('Art & Craft', today, '10:00', '12:00', 'MINDS Clementi DAC', 6, 'Aprons provided. Wear covered shoes.');
-  mk('Bowling buddies', today, '14:00', '16:00', 'Superbowl Jurong', 4);
-  const baking = mk('Baking: banana muffins', day(3), '09:30', '11:30', 'MINDS Clementi DAC', 5);
-  mk('Sports carnival helpers', day(7), '08:00', '13:00', 'Jurong West Sports Centre', 20, 'Bring a water bottle and cap.');
+  const mk = (title, date, startTime, endTime, capacity, notes = '', extra = {}) =>
+    rt.call('createSession', { title, date, startTime, endTime, venue: SCHOOL, project: PROJECT, capacity, notes, ...extra }, leader).data.session;
+  const bookingOf = (res, sessionId) => res.data.home.upcoming.find((u) => u.session.sessionId === sessionId).bookingId;
 
-  const b1 = rt.call('bookSession', { sessionId: art.sessionId }, volunteer.token).data.home.upcoming[0].bookingId;
-  rt.call('updateBooking', { bookingId: b1, status: 'confirmed', traineeId: 'T-0001' }, leader);
-  rt.call('bookSession', { sessionId: baking.sessionId }, volunteer.token);
-  const sam = rt.call('login', { email: 'sam@example.com', password: 'VolunteerDemo123' }).data.token;
-  rt.call('bookSession', { sessionId: art.sessionId }, sam);
+  // Yesterday: Vera with Alex and Sam with Bea, both finished and gave feedback.
+  const yesterday = day(-1);
+  rt.setNow(`${yesterday}T09:00:00+08:00`);
+  const past = mk('Music & movement', yesterday, '10:00', '12:00', 4);
+  const pv = bookingOf(rt.call('bookSession', { sessionId: past.sessionId }, vera.token), past.sessionId);
+  const ps = bookingOf(rt.call('bookSession', { sessionId: past.sessionId }, sam.token), past.sessionId);
+  rt.call('updateBooking', { bookingId: pv, status: 'confirmed', traineeId: 'T-0001' }, leader);
+  rt.call('updateBooking', { bookingId: ps, status: 'confirmed', traineeId: 'T-0002' }, leader);
+  rt.setNow(`${yesterday}T10:00:00+08:00`);
+  rt.call('manualClock', { bookingId: pv }, leader);
+  rt.call('manualClock', { bookingId: ps }, leader);
+  rt.setNow(`${yesterday}T12:00:00+08:00`);
+  rt.call('manualClock', { bookingId: pv }, leader);
+  rt.call('manualClock', { bookingId: ps }, leader);
+  rt.call('submitFeedback', {
+    bookingId: pv, rating: 4, sessionFeedback: 'Good session, the playlist worked well.',
+    traineeObservation: 'Alex was calmer when I showed him the picture card for the next activity before we moved on. He loved the drumming.',
+  }, vera.token);
+  rt.call('submitFeedback', {
+    bookingId: ps, rating: 5, sessionFeedback: '',
+    traineeObservation: 'Bea points to the picture cards to choose colours. Give her two choices at a time.',
+  }, sam.token);
+  rt.setNow(null);
+
+  // A leader shares Sam's observation (it becomes a note for future volunteers); Vera's waits for review.
+  const queue = rt.call('reviewQueue', {}, leader).data.items;
+  const samNote = queue.find((q) => q.volunteerName === 'Sam Siva');
+  rt.call('reviewObservation', { feedbackId: samNote.feedbackId, decision: 'share' }, leader);
+  rt.call('addTraineeNote', { traineeId: 'T-0001', note: 'Uses a picture schedule. Show the next activity card before changing activity.' }, leader);
+
+  // Today and coming up.
+  const art = mk('Art & Craft', today, '10:00', '12:00', 6, 'Aprons provided. Wear covered shoes.');
+  mk('Sports & games', today, '14:00', '16:00', 4, 'Meet at the school hall.');
+  const baking = mk('Baking: banana muffins', day(3), '09:30', '11:30', 5);
+  mk('Sports carnival helpers', day(7), '08:00', '13:00', 20, 'Bring a water bottle and cap.', { traineeIds: ['T-0003', 'T-0004'] });
+
+  // Vera is confirmed and paired automatically (with Alex: they were paired before).
+  const b1 = bookingOf(rt.call('bookSession', { sessionId: art.sessionId }, vera.token), art.sessionId);
+  rt.call('updateBooking', { bookingId: b1, status: 'confirmed' }, leader);
+  rt.call('bookSession', { sessionId: baking.sessionId }, vera.token);
+  rt.call('bookSession', { sessionId: art.sessionId }, sam.token); // pending: try "Confirm all & pair trainees"
   return rt;
 }
 
