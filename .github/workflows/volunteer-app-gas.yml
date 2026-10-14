@@ -4,7 +4,8 @@
 #
 # One-time setup (Settings → Secrets and variables → Actions → Secrets):
 #   CLASPRC_JSON       contents of ~/.clasprc.json after `npm run clasp:login`
-#                      (use the Google account that owns the script)
+#                      (use the Google account that owns the script; the same
+#                      secret format your other WERONE apps already use works)
 #   GAS_SCRIPT_ID      Apps Script editor → Project Settings → Script ID
 #   GAS_DEPLOYMENT_ID  Deploy → Manage deployments → the web app's Deployment ID
 # Without the secrets, the workflow still runs the tests and skips deploying.
@@ -55,10 +56,30 @@ jobs:
       - name: Skip notice
         if: env.CLASPRC_JSON == '' || env.SCRIPT_ID == ''
         run: echo "::notice::Add the CLASPRC_JSON and GAS_SCRIPT_ID secrets to enable automatic Apps Script deploys."
+      # Same credential handling as the other WERONE apps' deploy-gas.yml: accepts
+      # either the classic clasp format ({"token": …}) or the newer
+      # {"tokens": {"default": …}} format and writes the classic one.
       - name: Write clasp credentials
         if: env.CLASPRC_JSON != '' && env.SCRIPT_ID != ''
         run: |
-          printf '%s' "$CLASPRC_JSON" > ~/.clasprc.json
+          node -e '
+            const fs = require("fs"), os = require("os"), path = require("path");
+            const parsed = JSON.parse(process.env.CLASPRC_JSON);
+            let out;
+            if (parsed.tokens && parsed.tokens.default) {
+              const t = parsed.tokens.default;
+              out = {
+                token: { access_token: t.access_token, refresh_token: t.refresh_token, token_type: "Bearer", expiry_date: 0 },
+                oauth2ClientSettings: { clientId: t.client_id, clientSecret: t.client_secret, redirectUri: "http://localhost" },
+                isLocalCreds: false,
+              };
+            } else if (parsed.token) {
+              out = parsed;
+            } else {
+              throw new Error("CLASPRC_JSON has neither tokens.default nor token.");
+            }
+            fs.writeFileSync(path.join(os.homedir(), ".clasprc.json"), JSON.stringify(out));
+          '
           printf '{"scriptId":"%s","rootDir":"gas"}' "$SCRIPT_ID" > .clasp.json
       - name: Push code to Apps Script
         if: env.CLASPRC_JSON != '' && env.SCRIPT_ID != ''

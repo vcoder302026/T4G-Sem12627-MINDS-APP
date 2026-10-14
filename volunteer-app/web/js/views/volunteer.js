@@ -1,11 +1,11 @@
-// Volunteer screens: Home, Pass (QR), Sessions, Me, Feedback.
+// Volunteer screens: Home, QR pass, Sessions, Me, Feedback.
 // Every screen draws instantly from what's saved on the phone, then refreshes.
 
 import { call, isNetworkError } from '../api.js';
 import { drawQr } from '../qr.js';
 import {
-  backLink, busy, chip, clockTime, el, errorBlock, fmtDay, fmtHours, fmtTimes, formData, icon, loading, mount,
-  statusChip, toast, todaySG,
+  backLink, badge, busy, clockTime, el, errorBlock, field, fmtDay, fmtHours, fmtTimes, formData, icon, initials,
+  likert, loading, mount, section, statusBadge, toast, todaySG,
 } from '../ui.js';
 
 /** Draw from cache, then from the server. `draw` gets the volunteerHome payload. */
@@ -25,29 +25,50 @@ async function withHome(root, app, ctx, draw) {
 
 const firstName = (name) => String(name || '').trim().split(/\s+/)[0];
 
-function panel(...children) {
-  return el('div', { class: 'divide-y divide-line overflow-hidden rounded-xl border border-line bg-white' }, ...children);
+function list(...rows) {
+  return el('div', { class: 'card divide-y divide-slate-100 overflow-hidden dark:divide-neutral-900' }, ...rows);
+}
+
+function emptyState(iconName, title, text, action) {
+  return el('div', { class: 'flex flex-col items-center rounded-2xl border border-dashed border-slate-200 px-6 py-10 text-center muted dark:border-neutral-800' },
+    icon(iconName, 'mb-3 size-12 text-slate-300 dark:text-neutral-700'),
+    el('p', { class: 'font-medium text-slate-900 dark:text-white' }, title),
+    el('p', { class: 'mt-1 text-sm' }, text),
+    action || null);
+}
+
+function sessionMeta(s) {
+  return [
+    el('p', { class: 'mt-1 flex items-center gap-1.5 text-sm text-slate-700 dark:text-neutral-300' }, icon('clock', 'size-4 text-slate-400'), fmtTimes(s)),
+    el('p', { class: 'mt-0.5 flex items-center gap-1.5 text-sm muted' }, icon('pin', 'size-4 text-slate-400'), s.venue || 'Venue to be confirmed'),
+  ];
 }
 
 function traineeBlock(trainee) {
   if (!trainee) return null;
-  return el('div', { class: 'mt-3 border-l-4 border-strap pl-3' },
-    el('p', { class: 'font-bold' }, `You're paired with ${trainee.name}`),
+  return el('div', { class: 'well mt-4 p-4' },
+    el('p', { class: 'text-xs font-bold uppercase tracking-wider muted' }, 'Your trainee'),
+    el('p', { class: 'mt-0.5 text-lg font-bold text-slate-900 dark:text-white' }, trainee.name),
     trainee.fields.length
-      ? el('dl', { class: 'mt-1 space-y-1 text-sm' }, trainee.fields.map((f) =>
-        el('div', {}, el('dt', { class: 'inline font-bold' }, `${f.label}: `), el('dd', { class: 'inline' }, f.value))))
+      ? el('dl', { class: 'mt-2 space-y-1.5 text-sm' }, trainee.fields.map((f) =>
+        el('div', {}, el('dt', { class: 'inline font-bold text-slate-700 dark:text-neutral-200' }, `${f.label}: `), el('dd', { class: 'inline text-slate-600 dark:text-neutral-400' }, f.value))))
       : null);
 }
 
-function attendanceLine(a) {
+function attendanceBox(a) {
   if (!a) return null;
-  if (a.clockOut) return el('p', { class: 'mt-2 flex items-center gap-1.5 font-bold text-out' }, icon('check', 'size-5'), `Done: ${clockTime(a.clockIn)}–${clockTime(a.clockOut)}, ${fmtHours(a.hours)}`);
-  return el('p', { class: 'mt-2 flex items-center gap-1.5 font-bold text-go' }, icon('clock', 'size-5'), `Clocked in at ${clockTime(a.clockIn)}`);
+  return el('div', { class: 'alert alert-success mt-4 text-center' },
+    a.clockOut
+      ? badge('Clocked out', 'emerald', 'check')
+      : badge('Clocked in today', 'emerald', 'check'),
+    el('p', { class: 'mt-1.5 text-xs text-slate-600 dark:text-neutral-400' }, a.clockOut
+      ? `${clockTime(a.clockIn)}–${clockTime(a.clockOut)}, ${fmtHours(a.hours)} recorded in Google Sheets.`
+      : `Your clock-in was recorded at ${clockTime(a.clockIn)}. Show your pass again at the end to clock out.`));
 }
 
 function cancelButton(app, booking, redraw) {
   if (!booking.canCancel) return null;
-  const btn = el('button', { class: 'text-sm font-bold text-stop underline underline-offset-4' }, 'Cancel booking');
+  const btn = el('button', { class: 'text-sm font-bold text-red-600 hover:underline dark:text-red-400' }, 'Cancel booking');
   btn.addEventListener('click', () => {
     if (!confirm(`Cancel your booking for ${booking.session.title}?`)) return;
     busy(btn, 'Cancelling…', async () => {
@@ -68,55 +89,53 @@ export function renderHome(root, app, ctx) {
     const todays = h.upcoming.filter((u) => u.session.date === today);
     const later = h.upcoming.filter((u) => u.session.date !== today);
 
-    mount(root, 
-      el('h1', { class: 'text-2xl font-bold' }, `Hi ${firstName(h.user.name)}`),
-      el('p', { class: 'text-ink-soft' }, h.totals.sessions
+    mount(root,
+      el('h1', { class: 'page-title' }, `Welcome, ${firstName(h.user.name)}!`),
+      el('p', { class: 'mt-1 text-sm muted' }, h.totals.sessions
         ? `You've volunteered ${fmtHours(h.totals.hours)} over ${h.totals.sessions} session${h.totals.sessions === 1 ? '' : 's'}.`
         : 'Your volunteering hours will show here after your first session.'),
 
-      h.pendingFeedback.map((f) => el('a', {
-        href: `#/feedback/${f.bookingId}`,
-        class: 'mt-4 block rounded-xl bg-strap-tint p-4 ring-1 ring-strap/40',
-      },
-      el('p', { class: 'font-bold' }, `How did ${f.sessionTitle} go?`),
-      el('p', { class: 'text-sm' }, f.traineeName
-        ? `A minute of feedback helps MINDS staff support ${f.traineeName}.`
-        : 'A minute of feedback helps the team plan better sessions.'),
-      el('span', { class: 'btn btn-go btn-sm mt-3' }, 'Give feedback'))),
+      h.pendingFeedback.map((f) => el('div', { class: 'card mt-4 border-l-4 border-l-amber-400 p-4' },
+        badge('Feedback needed', 'amber', 'message'),
+        el('p', { class: 'mt-2 font-bold text-slate-900 dark:text-white' }, `How did ${f.sessionTitle} go?`),
+        el('p', { class: 'text-sm muted' }, f.traineeName
+          ? `A minute of feedback helps MINDS staff support ${f.traineeName}.`
+          : 'A minute of feedback helps the team plan better sessions.'),
+        el('a', { href: `#/feedback/${f.bookingId}`, class: 'btn btn-primary btn-sm mt-3' }, 'Give feedback'))),
 
-      todays.length ? el('h2', { class: 'section-title' }, 'Today') : null,
-      todays.map((u) => el('article', { class: 'mb-3 rounded-xl border-2 border-go bg-white p-4' },
+      todays.length ? el('h2', { class: 'group-label' }, 'Today') : null,
+      todays.map((u) => el('article', { class: 'card mb-3 border-t-4 border-t-indigo-500 p-5' },
         el('div', { class: 'flex items-start justify-between gap-3' },
-          el('div', {},
-            el('h3', { class: 'text-xl font-bold leading-snug' }, u.session.title),
-            el('p', { class: 'mt-0.5' }, fmtTimes(u.session)),
-            el('p', { class: 'flex items-center gap-1 text-sm text-ink-soft' }, icon('pin', 'size-4'), u.session.venue || 'Venue to be confirmed')),
-          u.attendance ? null : statusChip(u.status)),
-        attendanceLine(u.attendance),
+          el('div', { class: 'min-w-0' },
+            el('h3', { class: 'text-xl font-extrabold leading-snug text-slate-900 dark:text-white' }, u.session.title),
+            sessionMeta(u.session)),
+          u.attendance ? null : statusBadge(u.status)),
+        attendanceBox(u.attendance),
         traineeBlock(u.trainee),
-        u.status === 'pending' ? el('p', { class: 'mt-3 text-sm text-ink-soft' }, "You can still come: your leader will confirm you when they scan your pass.") : null,
+        u.status === 'pending' && !u.attendance
+          ? el('p', { class: 'alert alert-info mt-4' }, 'You can still come: your leader confirms you when they scan your pass.')
+          : null,
         u.attendance && u.attendance.clockOut ? null
-          : el('a', { href: '#/pass', class: 'btn btn-go mt-4 w-full' }, icon('pass', 'size-5'), 'Show my pass'))),
+          : el('a', { href: '#/pass', class: 'btn btn-primary mt-4 w-full' }, icon('qr'), 'Show my QR pass'))),
 
-      el('h2', { class: 'section-title' }, 'Coming up'),
+      el('h2', { class: 'group-label' }, 'Coming up'),
       later.length
-        ? panel(later.map((u) => el('div', { class: 'p-4' },
+        ? list(later.map((u) => el('div', { class: 'p-4' },
           el('div', { class: 'flex items-start justify-between gap-3' },
-            el('div', {},
-              el('p', { class: 'text-sm font-bold text-go' }, fmtDay(u.session.date, today)),
-              el('h3', { class: 'font-bold' }, u.session.title),
-              el('p', { class: 'text-sm text-ink-soft' }, `${fmtTimes(u.session)}, ${u.session.venue}`)),
-            statusChip(u.status)),
+            el('div', { class: 'min-w-0' },
+              el('p', { class: 'text-sm font-bold text-indigo-600 dark:text-indigo-400' }, fmtDay(u.session.date, today)),
+              el('h3', { class: 'font-bold text-slate-900 dark:text-white' }, u.session.title),
+              el('p', { class: 'text-sm muted' }, `${fmtTimes(u.session)}, ${u.session.venue}`)),
+            statusBadge(u.status)),
           traineeBlock(u.trainee),
           el('div', { class: 'mt-2' }, cancelButton(app, u, draw)))))
-        : el('div', { class: 'rounded-xl border border-dashed border-line p-6 text-center' },
-          el('p', { class: 'mb-3 text-ink-soft' }, 'No sessions booked yet.'),
-          el('a', { href: '#/sessions', class: 'btn btn-go' }, 'Find a session')));
+        : emptyState('calendar', 'No sessions booked yet', 'Find a session that suits you and book a slot.',
+          el('a', { href: '#/sessions', class: 'btn btn-primary mt-5' }, 'Find a session')));
   };
   return withHome(root, app, ctx, draw);
 }
 
-/* ---------------- Pass ---------------- */
+/* ---------------- QR pass ---------------- */
 
 export function renderPass(root, app, ctx) {
   let shown = '';
@@ -127,31 +146,33 @@ export function renderPass(root, app, ctx) {
     const today = todaySG();
     const entry = (h.qr || []).find((q) => q.date === today);
     const todays = h.upcoming.filter((u) => u.session.date === today);
-    const canvas = el('canvas', { class: 'mx-auto my-3 rounded', role: 'img', 'aria-label': 'Your volunteer QR code', dataset: { qr: entry ? entry.code : '' } });
     const att = todays.map((u) => u.attendance).find(Boolean);
-    const done = todays.length && todays.every((u) => u.attendance && u.attendance.clockOut);
+    const done = todays.length > 0 && todays.every((u) => u.attendance && u.attendance.clockOut);
+    const canvas = el('canvas', { class: 'size-full', role: 'img', 'aria-label': 'Your volunteer QR code', dataset: { qr: entry ? entry.code : '' } });
 
-    mount(root, el('div', { class: 'mx-auto max-w-xs pt-2' },
-      el('div', { class: 'pass-strap mx-auto h-14 w-20 rounded-t-md', 'aria-hidden': 'true' }),
-      el('section', { class: 'overflow-hidden rounded-2xl bg-white shadow-xl ring-1 ring-line', 'aria-label': 'Volunteer pass' },
-        el('div', { class: 'pass-hole mx-auto mt-3 h-2.5 w-14 rounded-full bg-paper', 'aria-hidden': 'true' }),
-        el('div', { class: 'px-5 pb-5 pt-3 text-center' },
-          el('p', { class: 'text-sm font-bold text-go' }, 'MINDS volunteer'),
-          el('h1', { class: 'text-2xl font-bold leading-tight' }, h.user.name),
-          entry ? canvas : el('p', { class: 'my-8 rounded-lg bg-strap-tint p-3 text-sm font-bold' }, "Today's pass isn't saved on this phone yet. Connect to the internet and reopen this page."),
-          el('p', { class: 'font-bold' }, fmtDay(today, today)),
-          todays.length
-            ? todays.map((u) => el('p', { class: 'text-sm text-ink-soft' }, `${u.session.title}, ${fmtTimes(u.session)}`))
-            : el('p', { class: 'text-sm text-ink-soft' }, 'No session booked today. A leader can still add you as a walk-in.'),
-          att ? el('div', { class: 'mt-2' }, att.clockOut ? chip(`Clocked out, ${fmtHours(att.hours)}`, 'out') : chip(`Clocked in at ${clockTime(att.clockIn)}`, 'go')) : null),
-        el('p', { class: 'bg-go px-5 py-3 text-center text-sm font-bold text-white' },
-          done ? 'All done for today. Thank you!' : 'Show this to your volunteer leader to clock in and out.')),
-      done && h.pendingFeedback.length
-        ? el('a', { href: `#/feedback/${h.pendingFeedback[0].bookingId}`, class: 'btn btn-go mt-4 w-full' }, 'Give feedback')
-        : el('p', { class: 'mt-4 text-center text-sm text-ink-soft' }, 'Turn your screen brightness up if the scan is slow.')));
+    mount(root, el('div', { class: 'mx-auto max-w-sm text-center' },
+      el('h1', { class: 'text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white' }, 'Your QR pass'),
+      el('p', { class: 'mt-1 text-sm font-bold text-slate-700 dark:text-neutral-200' }, h.user.name),
+      el('p', { class: 'font-mono text-xs muted' }, h.user.email),
+      // QR stays dark-on-white in dark mode too, so cameras read it reliably.
+      el('div', { class: 'mx-auto mt-5 flex aspect-square w-full max-w-[290px] items-center justify-center rounded-3xl border border-slate-200 bg-white p-4 shadow-2xl dark:border-neutral-800' },
+        entry ? canvas : el('p', { class: 'p-4 text-sm font-bold text-amber-700' }, "Today's pass isn't saved on this phone yet. Connect to the internet and reopen this page.")),
+      el('p', { class: 'mt-5 font-bold text-slate-900 dark:text-white' }, fmtDay(today, today)),
+      todays.length
+        ? todays.map((u) => el('p', { class: 'text-sm muted' }, `${u.session.title}, ${fmtTimes(u.session)}`))
+        : el('p', { class: 'text-sm muted' }, 'No session booked today. A leader can still add you as a walk-in.'),
+      att ? el('div', { class: 'mt-3' }, att.clockOut
+        ? badge(`Clocked out, ${fmtHours(att.hours)}`, 'indigo', 'check')
+        : badge(`Clocked in at ${clockTime(att.clockIn)}`, 'emerald', 'check')) : null,
+      done
+        ? el('div', { class: 'mt-4 space-y-3' },
+          el('p', { class: 'alert alert-success' }, 'All done for today. Thank you for volunteering!'),
+          h.pendingFeedback.length ? el('a', { href: `#/feedback/${h.pendingFeedback[0].bookingId}`, class: 'btn btn-primary w-full' }, 'Give feedback') : null)
+        : el('p', { class: 'alert alert-info mt-4' }, 'Show this to your volunteer leader to clock in, and again to clock out.'),
+      el('p', { class: 'mt-3 text-xs muted' }, 'Turn your screen brightness up if the scan is slow.')));
 
     if (entry) {
-      drawQr(canvas, entry.code, 248).catch((err) => canvas.replaceWith(el('p', { class: 'my-6 text-sm font-bold text-stop' }, err.message)));
+      drawQr(canvas, entry.code, 250).catch((err) => canvas.replaceWith(el('p', { class: 'text-sm font-bold text-red-600' }, err.message)));
     }
   };
 
@@ -177,33 +198,37 @@ export function renderSessions(root, app, ctx) {
     const byDate = {};
     h.openSessions.forEach((s) => { (byDate[s.date] = byDate[s.date] || []).push(s); });
     const dates = Object.keys(byDate).sort();
-    mount(root, 
-      el('h1', { class: 'text-2xl font-bold' }, 'Find a session'),
-      el('p', { class: 'text-ink-soft' }, 'Tap Book to ask for a slot. A leader confirms it and pairs you with a trainee.'),
-      dates.length ? null : el('p', { class: 'mt-8 rounded-xl border border-dashed border-line p-6 text-center text-ink-soft' }, 'No sessions are open for booking right now. Check back soon.'),
+    mount(root,
+      el('h1', { class: 'page-title' }, 'Find a session'),
+      el('p', { class: 'mt-1 text-sm muted' }, 'Tap Book to ask for a slot. A leader confirms it and pairs you with a trainee.'),
+      dates.length ? null : el('div', { class: 'mt-6' }, emptyState('calendar', 'No sessions open right now', 'New sessions appear here as soon as a leader posts them.')),
       dates.map((date) => [
-        el('h2', { class: 'section-title' }, fmtDay(date, h.today)),
-        panel(byDate[date].map((s) => {
+        el('h2', { class: 'group-label' }, fmtDay(date, h.today)),
+        list(byDate[date].map((s) => {
           const full = s.spotsLeft === 0 && !s.myStatus;
           let action;
           if (s.myStatus) {
-            action = statusChip(s.myStatus);
+            action = statusBadge(s.myStatus);
           } else {
-            action = el('button', { class: 'btn btn-go btn-sm shrink-0', disabled: full }, full ? 'Full' : 'Book');
-            action.addEventListener('click', () => busy(action, 'Booking…', async () => {
+            action = el('button', { class: 'btn btn-primary btn-sm shrink-0', disabled: full }, full ? 'Full' : 'Book');
+            action.addEventListener('click', () => busy(action, '', async () => {
               const res = await call('bookSession', { sessionId: s.sessionId });
               app.saveHome(res.home);
               draw(res.home);
               toast(res.message);
             }));
           }
+          let spots = null;
+          if (s.spotsLeft !== null && !s.myStatus) {
+            spots = s.spotsLeft === 0 ? badge('No spots left', 'red')
+              : badge(`${s.spotsLeft} spot${s.spotsLeft === 1 ? '' : 's'} left`, s.spotsLeft <= 2 ? 'amber' : 'emerald');
+          }
           return el('div', { class: 'flex items-start justify-between gap-3 p-4' },
             el('div', { class: 'min-w-0' },
-              el('h3', { class: 'font-bold' }, s.title),
-              el('p', { class: 'text-sm' }, `${fmtTimes(s)}, ${s.venue}`),
-              s.notes ? el('p', { class: 'mt-1 text-sm text-ink-soft' }, s.notes) : null,
-              s.spotsLeft !== null && !s.myStatus ? el('p', { class: `mt-1 text-sm font-bold ${s.spotsLeft <= 2 ? 'text-stop' : 'text-go'}` },
-                s.spotsLeft === 0 ? 'No spots left' : `${s.spotsLeft} spot${s.spotsLeft === 1 ? '' : 's'} left`) : null),
+              el('h3', { class: 'font-bold text-slate-900 dark:text-white' }, s.title),
+              el('p', { class: 'text-sm text-slate-700 dark:text-neutral-300' }, `${fmtTimes(s)}, ${s.venue}`),
+              s.notes ? el('p', { class: 'mt-1 text-sm muted' }, s.notes) : null,
+              spots ? el('div', { class: 'mt-2' }, spots) : null),
             action);
         })),
       ]));
@@ -213,18 +238,23 @@ export function renderSessions(root, app, ctx) {
 
 /* ---------------- Me ---------------- */
 
+function accordion(title, colour, ...body) {
+  return el('details', { class: 'card group mt-3 overflow-hidden' },
+    el('summary', { class: `section-head section-${colour} cursor-pointer list-none select-none` },
+      title, icon('down', 'size-5 transition-transform duration-200 group-open:rotate-180')),
+    el('div', { class: 'p-4' }, ...body));
+}
+
 export function renderMe(root, app, ctx) {
   const draw = (h) => {
     const u = h.user;
-    const pwForm = el('form', { class: 'mt-3 space-y-3', novalidate: true },
-      el('div', {}, el('label', { class: 'label', for: 'pw-current' }, 'Current password'),
-        el('input', { id: 'pw-current', name: 'currentPassword', type: 'password', class: 'field', autocomplete: 'current-password' })),
-      el('div', {}, el('label', { class: 'label', for: 'pw-new' }, 'New password'),
-        el('input', { id: 'pw-new', name: 'newPassword', type: 'password', class: 'field', autocomplete: 'new-password' })),
-      el('button', { type: 'submit', class: 'btn btn-quiet w-full' }, 'Change password'));
+    const pwForm = el('form', { class: 'space-y-4', novalidate: true },
+      field('currentPassword', 'Current password', { type: 'password', autocomplete: 'current-password' }),
+      field('newPassword', 'New password', { type: 'password', autocomplete: 'new-password', hint: 'At least 8 characters. Other devices will be signed out.' }),
+      el('button', { type: 'submit', class: 'btn btn-primary w-full' }, 'Change password'));
     pwForm.addEventListener('submit', (e) => {
       e.preventDefault();
-      busy(pwForm.querySelector('button'), 'Saving…', async () => {
+      busy(pwForm.querySelector('button[type=submit]'), 'Saving…', async () => {
         const res = await call('changePassword', { currentPassword: pwForm.currentPassword.value, newPassword: pwForm.newPassword.value });
         app.setToken(res.token);
         pwForm.reset();
@@ -232,34 +262,38 @@ export function renderMe(root, app, ctx) {
       });
     });
     const detail = (label, value) => el('div', { class: 'flex justify-between gap-4 py-2' },
-      el('dt', { class: 'text-ink-soft' }, label), el('dd', { class: 'text-right font-bold' }, value || '—'));
+      el('dt', { class: 'muted' }, label), el('dd', { class: 'text-right font-bold' }, value || '—'));
 
-    mount(root, 
-      el('h1', { class: 'text-2xl font-bold' }, u.name),
-      el('p', { class: 'text-ink-soft' }, u.email),
-      el('div', { class: 'mt-4 grid grid-cols-2 gap-3' },
-        el('div', { class: 'rounded-xl bg-white p-4 ring-1 ring-line' }, el('p', { class: 'text-3xl font-bold text-go' }, fmtHours(h.totals.hours)), el('p', { class: 'text-sm text-ink-soft' }, 'volunteered')),
-        el('div', { class: 'rounded-xl bg-white p-4 ring-1 ring-line' }, el('p', { class: 'text-3xl font-bold' }, String(h.totals.sessions)), el('p', { class: 'text-sm text-ink-soft' }, h.totals.sessions === 1 ? 'session' : 'sessions'))),
-      el('h2', { class: 'section-title' }, 'History'),
+    mount(root,
+      el('div', { class: 'card flex items-center gap-4 p-5' },
+        el('div', { class: 'flex size-14 shrink-0 items-center justify-center rounded-2xl bg-indigo-100 text-xl font-extrabold text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300' }, initials(u.name)),
+        el('div', { class: 'min-w-0' },
+          el('h1', { class: 'truncate text-xl font-extrabold text-slate-900 dark:text-white' }, u.name),
+          el('p', { class: 'truncate font-mono text-xs muted' }, u.email),
+          el('div', { class: 'mt-1.5' }, u.role === 'admin' ? badge('Volunteer leader', 'purple', 'shield') : badge('Volunteer', 'indigo')))),
+      el('div', { class: 'mt-3 grid grid-cols-2 gap-3' },
+        el('div', { class: 'card p-4' }, el('p', { class: 'text-3xl font-extrabold text-indigo-600 dark:text-indigo-400' }, fmtHours(h.totals.hours)), el('p', { class: 'mt-1 text-xs font-bold uppercase tracking-wider muted' }, 'Hours volunteered')),
+        el('div', { class: 'card p-4' }, el('p', { class: 'text-3xl font-extrabold text-emerald-600 dark:text-emerald-400' }, String(h.totals.sessions)), el('p', { class: 'mt-1 text-xs font-bold uppercase tracking-wider muted' }, h.totals.sessions === 1 ? 'Session' : 'Sessions'))),
+      el('h2', { class: 'group-label' }, 'History'),
       h.history.length
-        ? panel(h.history.map((a) => el('div', { class: 'flex items-center justify-between gap-3 p-3' },
-          el('div', {}, el('p', { class: 'font-bold' }, a.sessionTitle), el('p', { class: 'text-sm text-ink-soft' }, `${fmtDay(a.date, h.today)}, ${clockTime(a.clockIn)}–${clockTime(a.clockOut)}`)),
-          el('p', { class: 'font-bold' }, fmtHours(a.hours)))))
-        : el('p', { class: 'text-ink-soft' }, 'Completed sessions will be listed here.'),
-      el('details', { class: 'mt-6 rounded-xl bg-white p-4 ring-1 ring-line' },
-        el('summary', { class: 'cursor-pointer font-bold' }, 'My details'),
-        el('dl', { class: 'mt-2 divide-y divide-line text-sm' },
+        ? list(h.history.map((a) => el('div', { class: 'flex items-center justify-between gap-3 p-4' },
+          el('div', { class: 'min-w-0' },
+            el('p', { class: 'font-bold text-slate-900 dark:text-white' }, a.sessionTitle),
+            el('p', { class: 'text-sm muted' }, `${fmtDay(a.date, h.today)}, ${clockTime(a.clockIn)}–${clockTime(a.clockOut)}`)),
+          badge(fmtHours(a.hours), 'indigo'))))
+        : emptyState('clock', 'No completed sessions yet', 'Sessions you finish will be listed here with your hours.'),
+      el('h2', { class: 'group-label' }, 'Account'),
+      accordion('My details', 'blue',
+        el('dl', { class: 'divide-y divide-slate-100 text-sm dark:divide-neutral-800' },
           detail('Phone', u.phone), detail('Telegram', u.telegram ? `@${u.telegram}` : ''), detail('Birthday', u.birthday),
           detail('Emergency contact', `${u.emergencyName}${u.emergencyRelation ? ` (${u.emergencyRelation})` : ''}`),
           detail('Emergency phone', u.emergencyPhone)),
-        el('p', { class: 'mt-2 text-sm text-ink-soft' }, 'To change these, ask a volunteer leader.')),
-      el('details', { class: 'mt-3 rounded-xl bg-white p-4 ring-1 ring-line' },
-        el('summary', { class: 'cursor-pointer font-bold' }, 'Change password'), pwForm),
+        el('p', { class: 'hint' }, 'To change these, ask a volunteer leader.')),
+      accordion('Change password', 'indigo', pwForm),
       u.role === 'admin'
-        ? el('button', { class: 'btn btn-quiet mt-6 w-full', onclick: () => app.setMode(app.mode === 'leader' ? 'volunteer' : 'leader') },
-          app.mode === 'leader' ? 'Switch to volunteer view (to book sessions yourself)' : 'Switch to leader view')
+        ? el('a', { href: '#/mode', class: 'btn btn-secondary mt-6 w-full' }, icon('dashboard'), 'Switch mode')
         : null,
-      el('button', { class: 'btn btn-stop mt-3 w-full', onclick: () => app.signOut() }, 'Sign out'));
+      el('button', { class: 'btn btn-danger mt-3 w-full', onclick: () => app.signOut() }, icon('logout'), 'Sign out'));
   };
   return withHome(root, app, ctx, draw);
 }
@@ -270,26 +304,21 @@ export function renderFeedback(root, app, ctx, bookingId) {
   const draw = (h) => {
     const item = h.pendingFeedback.find((f) => f.bookingId === bookingId);
     if (!item) {
-      mount(root, backLink('#/home'), el('p', { class: 'text-ink-soft' }, 'Feedback for this session is already done. Thank you!'));
+      mount(root, backLink('#/home'), el('p', { class: 'alert alert-success' }, 'Feedback for this session is already done. Thank you!'));
       return;
     }
-    const scale = [[1, 'Hard'], [2, ''], [3, 'OK'], [4, ''], [5, 'Great']];
-    const form = el('form', { novalidate: true },
-      el('fieldset', { class: 'mt-6' },
-        el('legend', { class: 'label' }, 'Overall, how was the session?'),
-        el('div', { class: 'grid grid-cols-5 gap-2' }, scale.map(([n, word]) => el('label', { class: 'cursor-pointer' },
-          el('input', { type: 'radio', name: 'rating', value: n, class: 'peer sr-only' }),
-          el('span', { class: 'flex h-16 flex-col items-center justify-center rounded-lg border-2 border-line bg-white font-bold peer-checked:border-go peer-checked:bg-go-tint peer-focus-visible:ring-2 peer-focus-visible:ring-strap' },
-            el('span', { class: 'text-xl' }, String(n)), word ? el('span', { class: 'text-xs font-normal' }, word) : null))))),
-      el('label', { class: 'label mt-6', for: 'fb-session' }, 'What went well, or what could be better?'),
-      el('textarea', { id: 'fb-session', name: 'sessionFeedback', rows: 3, class: 'field', maxlength: 5000 }),
-      item.traineeName ? [
-        el('label', { class: 'label mt-6', for: 'fb-trainee' }, `Anything you noticed about ${item.traineeName}?`),
-        el('p', { class: 'mb-2 text-sm text-ink-soft' }, `New skills, mood, what helped or upset them. MINDS staff use this to update ${item.traineeName}'s records.`),
-        el('textarea', { id: 'fb-trainee', name: 'traineeObservation', rows: 4, class: 'field', maxlength: 5000 }),
-      ] : null,
-      el('button', { type: 'submit', class: 'btn btn-go mt-6 w-full' }, 'Send feedback'),
-      el('a', { href: '#/home', class: 'btn btn-quiet mt-3 w-full' }, 'Not now'));
+    const submit = el('button', { type: 'submit', class: 'btn btn-primary flex-1' }, 'Send feedback');
+    const form = el('form', { novalidate: true, class: 'space-y-6' },
+      section('How did it go?', 'blue',
+        el('div', {}, el('p', { class: 'label' }, 'Overall, how was the session?'), likert('rating', 'Very difficult', 'Went really well')),
+        field('sessionFeedback', 'What went well, or what could be better?', { type: 'textarea', optional: true, maxlength: 5000 })),
+      item.traineeName ? section(`About ${item.traineeName}`, 'green',
+        field('traineeObservation', `Anything you noticed about ${item.traineeName}?`, {
+          type: 'textarea', optional: true, rows: 4, maxlength: 5000,
+          hint: `New skills, mood, what helped or upset them. MINDS staff use this to update ${item.traineeName}'s records.`,
+        })) : null,
+      el('div', { class: 'action-bar' }, el('div', { class: 'mx-auto flex max-w-2xl gap-3' },
+        el('a', { href: '#/home', class: 'btn btn-secondary' }, 'Not now'), submit)));
 
     form.addEventListener('submit', (e) => {
       e.preventDefault();
@@ -298,7 +327,7 @@ export function renderFeedback(root, app, ctx, bookingId) {
         toast('Pick a rating or write a comment first.', 'warn');
         return;
       }
-      busy(form.querySelector('button[type=submit]'), 'Sending…', async () => {
+      busy(submit, 'Sending…', async () => {
         const res = await call('submitFeedback', {
           bookingId,
           rating: d.rating ? Number(d.rating) : '',
@@ -311,13 +340,13 @@ export function renderFeedback(root, app, ctx, bookingId) {
       });
     });
 
-    mount(root, 
+    mount(root,
       backLink('#/home'),
-      el('h1', { class: 'text-2xl font-bold' }, 'How did it go?'),
-      el('p', { class: 'text-ink-soft' }, `${item.sessionTitle}, ${fmtDay(item.date, h.today)}${item.traineeName ? `, with ${item.traineeName}` : ''}`),
+      el('h1', { class: 'page-title' }, 'Session feedback'),
+      el('p', { class: 'mb-6 mt-1 muted' }, `${item.sessionTitle}, ${fmtDay(item.date, h.today)}${item.traineeName ? `, with ${item.traineeName}` : ''}`),
       form);
   };
-  // Feedback is a form: draw once from cache (or fetch once) so typing is never interrupted.
+  // A form: draw once from cache (or fetch once) so typing is never interrupted.
   const cached = app.cachedHome();
   if (cached && cached.pendingFeedback.some((f) => f.bookingId === bookingId)) {
     draw(cached);

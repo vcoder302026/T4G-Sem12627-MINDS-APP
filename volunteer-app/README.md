@@ -11,6 +11,10 @@ clock-out and hours figure is written to the sheet the moment it happens.
 Built to the WERONE architecture: **Google Apps Script** as the backend API,
 **Google Sheets** as the database, **HTML + vanilla JavaScript + Tailwind** as
 the frontend, installable as a **PWA**, deployed by **GitHub Actions + clasp**.
+The interface follows the existing WERONE apps (CSL Attendance, Trainee House
+Visit, Overseas Trip Planner): same header with refresh / 🌗 dark mode / sign-out
+buttons, purple "Experimentation" bar in Exp builds, cards, buttons, badges and
+colours. See [DESIGN-NOTES.md](DESIGN-NOTES.md#matching-the-werone-apps).
 
 ```mermaid
 flowchart LR
@@ -89,9 +93,11 @@ It never deletes, reorders or overwrites existing data and is safe to re-run.
 **Me** → Who has access **Anyone** → Deploy, and authorise. Copy the Web app
 URL (ends in `/exec`).
 
-**6. Publish the app.** Paste the URL into `web/js/config.js`, or add it as a
-repository variable `GAS_WEB_APP_URL`. Repo Settings → Pages → Source:
-**GitHub Actions**. Pushing to `main` runs
+**6. Publish the app.** In `web/js/config.js` (same convention as the other
+apps' `backend/config.js`) set `APP_ENVIRONMENT` (`Exp`, `Dev` or `Prod`) and
+paste the URL into `EXP_API_URL` / `PROD_API_URL`. Or leave the file alone and
+add repository variables `APP_ENVIRONMENT`, `GAS_EXP_URL`, `GAS_PROD_URL`.
+Repo Settings → Pages → Source: **GitHub Actions**. Pushing to `main` runs
 `.github/workflows/volunteer-app-pages.yml` and publishes `web/`.
 
 **7. Make yourself the first leader.** Register in the app, then in Script
@@ -113,11 +119,12 @@ of `.github/workflows/volunteer-app-gas.yml`. Each push then runs the tests,
 | --- | --- | --- |
 | Book a session | Sessions → **Book** (2) | |
 | Confirm + pair with a trainee | | Session → pick trainee → **Confirm** (3) |
-| Clock in / out at the venue | **My pass** (1) | **Scan** → point camera (1) |
+| Clock in / out at the venue | **QR pass** (1) | **Scan** → point camera (1) |
 | Volunteer's phone is flat | | Session → **Clock in by hand** (2) |
 | Walk-in who didn't book | show pass | scan → **Add as walk-in** (2) |
 | Feedback after the session | **Give feedback** prompt → rate → send | |
 | Promote a volunteer | | People → name → **Make volunteer leader** |
+| Book a session yourself as a leader | | 🏠 icon → **Choose Mode** → Volunteer |
 
 Details worth knowing:
 - **One scan toggles**: first scan clocks in, the next clocks out. A repeat

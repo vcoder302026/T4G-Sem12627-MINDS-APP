@@ -118,6 +118,30 @@ This is possible, but it is more moving parts than the Apps Script route:
 The trade-off: SQLite stays the real source of truth and the sheet becomes a
 copy, which is exactly the drift problem the Apps Script version avoids.
 
+## Matching the WERONE apps
+
+The interface was aligned with three existing WERONE apps so staff and
+volunteers meet the same patterns everywhere:
+
+| Borrowed from | What the volunteer app uses |
+| --- | --- |
+| All three | White sticky header with refresh ("update app"), 🌗 dark-mode toggle saved as `theme` in localStorage, red sign-out icon; Tailwind slate/neutral greys with full dark mode; system font; top-centre toasts |
+| All three (`backend/config.js`) | `APP_ENVIRONMENT` = `Exp` / `Dev` / `Prod` with separate Exp and Prod API URLs; purple **Experimentation** bar for Exp, red **Testing** bar for Dev, nothing in Prod |
+| CSL Attendance | Indigo icon tile + extrabold title + small uppercase subtitle; segmented tab bar; rounded-2xl cards and rounded-xl indigo buttons; login card with password eye; **Choose Mode** screen (here: Volunteer Leader / Volunteer); QR card; "Successful clock in!" result with emerald for clock-in and indigo for clock-out; lucide-style icons |
+| Trainee House Visit | Coloured uppercase section headers on forms; 1–5 Likert buttons for the session rating; fixed bottom Submit bar; green/red toasts |
+| Overseas Trip Planner | Landing page: "Welcome", a green-topped "New volunteer? Register now" card, then a "Secure Login" card; uppercase small group labels; spinner inside buttons while saving |
+| `deploy-gas.yml` | Same secret names (`CLASPRC_JSON`, `GAS_SCRIPT_ID`, `GAS_DEPLOYMENT_ID`) and the same handling of both clasp credential formats, so the secret you already use works |
+
+Deliberate differences, kept for good reasons:
+- **Zoom stays enabled.** The other apps set `user-scalable=no`; that stops people
+  with low vision from zooming, so this app doesn't (inputs are 16px, so iOS
+  still won't auto-zoom into fields).
+- **The QR code stays dark-on-white in dark mode**, so every phone camera reads it.
+- **The service worker is kept.** Trip Planner unregisters service workers on
+  load; this app needs one so the QR pass and scanner work with no signal.
+- **No `document.write` cache-busting.** The service worker cache is versioned per
+  deploy instead (the Pages workflow stamps it with the commit SHA).
+
 ## Next steps worth considering
 
 - Telegram reminders the day before a session (Apps Script time-driven trigger
