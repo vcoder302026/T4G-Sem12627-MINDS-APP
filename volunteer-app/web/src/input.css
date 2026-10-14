@@ -1,0 +1,93 @@
+/* Tailwind source. Build with:  npm run build:css   (outputs web/styles.css)
+   GitHub Actions rebuilds it on every deploy.
+
+   Styling follows the WERONE apps (CSL Attendance, Trainee House Visit,
+   Overseas Trip Planner): slate/neutral greys, class-based dark mode toggled
+   by the 🌗 button, white rounded-2xl cards, rounded-xl bold buttons,
+   indigo primary, emerald for success / clock-in. */
+@import "tailwindcss" source(none);
+@source "../index.html";
+@source "../js";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --color-primary: #4f46e5;
+}
+
+@layer base {
+  html { -webkit-tap-highlight-color: transparent; }
+  body { @apply bg-slate-50 font-sans text-slate-900 antialiased transition-colors dark:bg-black dark:text-neutral-100; }
+  [hidden] { display: none !important; }
+  input, select, textarea { font-size: 16px; } /* stops iOS zooming into fields */
+  textarea { resize: vertical; }
+  :focus-visible { outline: 2px solid var(--color-indigo-500); outline-offset: 2px; }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+  }
+}
+
+@layer components {
+  /* surfaces */
+  .card { @apply rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-neutral-900 dark:bg-neutral-950; }
+  .well { @apply rounded-2xl border border-slate-200 bg-slate-50 dark:border-neutral-800 dark:bg-neutral-900; }
+  .muted { @apply text-slate-500 dark:text-neutral-400; }
+  .group-label { @apply mb-2 mt-6 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-neutral-400; }
+  .page-title { @apply text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white; }
+
+  /* buttons (class="btn btn-primary") */
+  .btn { @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-3 font-bold transition-all active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50; }
+  .btn-primary { @apply bg-indigo-600 text-white shadow-lg hover:bg-indigo-700 hover:shadow-xl hover:shadow-indigo-500/20; }
+  .btn-success { @apply bg-emerald-500 text-white shadow-lg hover:bg-emerald-600 hover:shadow-xl hover:shadow-emerald-500/20; }
+  .btn-secondary { @apply border border-slate-200 bg-white text-slate-700 shadow-sm hover:text-indigo-600 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-200 dark:hover:text-indigo-400; }
+  .btn-danger { @apply border border-red-200 bg-white text-red-600 hover:bg-red-50 dark:border-red-900/60 dark:bg-neutral-900 dark:text-red-400 dark:hover:bg-red-900/20; }
+  .btn-dark { @apply bg-slate-900 text-white shadow-md hover:shadow-lg dark:bg-white dark:text-neutral-900; }
+  .btn-sm { @apply rounded-lg px-3 py-2 text-sm; }
+  .icon-btn { @apply flex size-9 items-center justify-center rounded-lg text-slate-500 transition-all hover:scale-110 hover:text-slate-900 active:scale-95 dark:text-neutral-400 dark:hover:text-white; }
+  .link { @apply font-bold text-indigo-600 hover:underline dark:text-indigo-400; }
+
+  /* forms */
+  .input { @apply w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20 dark:border-neutral-800 dark:bg-neutral-900 dark:text-white dark:placeholder:text-neutral-500; }
+  .label { @apply mb-1.5 block text-sm font-bold text-slate-700 dark:text-neutral-300; }
+  .hint { @apply mt-1 text-xs text-slate-500 dark:text-neutral-400; }
+
+  /* House Visit style section header (class="section-head section-blue") */
+  .section-head { @apply flex items-center justify-between gap-3 border-b px-4 py-3 text-sm font-bold uppercase tracking-wide dark:border-neutral-800; }
+  .section-blue { @apply border-blue-100 bg-blue-50 text-blue-700 dark:bg-blue-900/40 dark:text-blue-200; }
+  .section-red { @apply border-red-100 bg-red-50 text-red-700 dark:bg-red-900/40 dark:text-red-200; }
+  .section-indigo { @apply border-indigo-100 bg-indigo-50 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-200; }
+  .section-green { @apply border-green-100 bg-green-50 text-green-700 dark:bg-green-900/40 dark:text-green-200; }
+  .section-purple { @apply border-purple-100 bg-purple-50 text-purple-700 dark:bg-purple-900/40 dark:text-purple-200; }
+
+  /* badges */
+  .badge { @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-bold whitespace-nowrap; }
+  .badge-indigo { @apply bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300; }
+  .badge-emerald { @apply bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300; }
+  .badge-amber { @apply bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300; }
+  .badge-red { @apply bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300; }
+  .badge-slate { @apply bg-slate-100 text-slate-600 dark:bg-neutral-800 dark:text-neutral-300; }
+  .badge-purple { @apply bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300; }
+
+  /* alerts */
+  .alert { @apply rounded-xl border p-3 text-sm font-medium; }
+  .alert-error { @apply border-red-200 bg-red-50 text-red-600 dark:border-red-800/50 dark:bg-red-900/20 dark:text-red-400; }
+  .alert-info { @apply border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-800/60 dark:bg-indigo-950/40 dark:text-indigo-300; }
+  .alert-success { @apply border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-800/60 dark:bg-emerald-950/40 dark:text-emerald-300; }
+  .alert-warn { @apply border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-800/60 dark:bg-amber-950/40 dark:text-amber-300; }
+
+  /* CSL Attendance style segmented tabs */
+  .seg { @apply flex gap-1 rounded-xl bg-slate-200/50 p-1.5 dark:bg-neutral-900/50; }
+  .seg-item { @apply relative flex flex-1 flex-col items-center justify-center gap-0.5 rounded-lg px-1 py-1.5 text-xs font-semibold whitespace-nowrap text-slate-500 transition-all hover:text-slate-900 sm:flex-row sm:gap-1.5 sm:py-2 sm:text-sm dark:text-neutral-400 dark:hover:text-white; }
+  .seg-item[aria-current="page"] { @apply bg-white text-indigo-700 shadow-sm dark:bg-neutral-700 dark:text-indigo-300; }
+
+  /* spinner (Trip Planner / CSL) */
+  .spinner { @apply inline-block size-5 animate-spin rounded-full border-2 border-indigo-600/20 border-t-indigo-600 dark:border-white/20 dark:border-t-white; }
+  .spinner-white { @apply border-white/20 border-t-white; }
+
+  /* House Visit style fixed bottom action bar */
+  .action-bar { @apply fixed inset-x-0 bottom-0 z-20 border-t border-slate-200 bg-white p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-lg dark:border-neutral-800 dark:bg-black; }
+}
+
+@keyframes pop-in { from { transform: scale(0.96); opacity: 0.4; } to { transform: scale(1); opacity: 1; } }
+.pop-in { animation: pop-in 200ms ease-out; }

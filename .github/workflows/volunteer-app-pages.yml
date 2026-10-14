@@ -1,0 +1,60 @@
+# Publishes volunteer-app/web to GitHub Pages.
+# One-time setup: repo Settings → Pages → Source: "GitHub Actions".
+# Optional repository variables (Settings → Secrets and variables → Actions →
+# Variables), so web/js/config.js doesn't need editing by hand:
+#   APP_ENVIRONMENT  Exp | Dev | Prod   (same convention as the other WERONE apps)
+#   GAS_EXP_URL      Apps Script web app URL for Exp/Dev  (…/exec)
+#   GAS_PROD_URL     Apps Script web app URL for Prod     (…/exec)
+name: Volunteer app · deploy web
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'volunteer-app/web/**'
+      - '.github/workflows/volunteer-app-pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    defaults:
+      run:
+        working-directory: volunteer-app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Build Tailwind CSS
+        run: npx --yes @tailwindcss/cli@4 -i web/src/input.css -o web/styles.css --minify
+      - name: Give this deploy a fresh offline cache
+        run: sed -i "s/__BUILD__/${GITHUB_SHA::8}/" web/sw.js
+      - name: Apply environment and Apps Script URLs
+        env:
+          APP_ENVIRONMENT: ${{ vars.APP_ENVIRONMENT }}
+          GAS_EXP_URL: ${{ vars.GAS_EXP_URL }}
+          GAS_PROD_URL: ${{ vars.GAS_PROD_URL }}
+        run: |
+          if [ -n "$APP_ENVIRONMENT" ]; then sed -i "s/^const APP_ENVIRONMENT = '[A-Za-z]*';/const APP_ENVIRONMENT = '${APP_ENVIRONMENT}';/" web/js/config.js; fi
+          if [ -n "$GAS_EXP_URL" ]; then sed -i "s#https://script.google.com/macros/s/PASTE_EXP_DEPLOYMENT_ID/exec#${GAS_EXP_URL}#" web/js/config.js; fi
+          if [ -n "$GAS_PROD_URL" ]; then sed -i "s#https://script.google.com/macros/s/PASTE_PROD_DEPLOYMENT_ID/exec#${GAS_PROD_URL}#" web/js/config.js; fi
+          grep -n "APP_ENVIRONMENT = \|_API_URL = " web/js/config.js
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: volunteer-app/web
+      - id: deployment
+        uses: actions/deploy-pages@v4

@@ -1,5 +1,11 @@
 # MINDS Admin — Local Staff Prototype
 
+> **New: [`volunteer-app/`](volunteer-app/README.md)** is the volunteer-facing app
+> (registration, session booking, trainee pairing, QR clock-in/out, feedback),
+> built on Google Apps Script with an existing Google Sheet as the database.
+> It is separate from the local staff prototype described below; see
+> [`volunteer-app/DESIGN-NOTES.md`](volunteer-app/DESIGN-NOTES.md) for why.
+
 A desktop browser application that MINDS staff can clone, install and run locally. One login
 and one dashboard provide access to Attendance, Fundraising, Outings, Overseas Trips and
 House Visits, plus shared Volunteers and Trainees directories.
