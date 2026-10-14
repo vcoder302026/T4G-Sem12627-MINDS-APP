@@ -1,7 +1,7 @@
 # Prototype 1 — App Usage Guide
 
 A practical guide for MINDS staff using the local MINDS Admin prototype in a desktop browser.
-For setup instructions, see the [README](README.md).
+For setup instructions, see the [Prototype 1 README](README.md).
 
 ## Signing in
 
