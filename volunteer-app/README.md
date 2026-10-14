@@ -1,188 +1,206 @@
-# MINDS Volunteer App
+# T4G × MINDS: volunteer management
 
-A phone-first web app (PWA) for MINDS volunteering: volunteers register, book
-sessions, see their assigned trainee, show a QR pass to clock in and out, and
-give feedback. Volunteer leaders post sessions, confirm bookings and pair
-trainees, scan passes, and promote other volunteers to leaders.
+NTU Tech for Good (Semester 1, AY2026/27) prototypes for **MINDS**, built to
+replace manual logging of volunteer hours and attendance.
 
-Everything is stored in **your existing Google Sheet**. Every clock-in,
-clock-out and hours figure is written to the sheet the moment it happens.
-
-Built to the WERONE architecture: **Google Apps Script** as the backend API,
-**Google Sheets** as the database, **HTML + vanilla JavaScript + Tailwind** as
-the frontend, installable as a **PWA**, deployed by **GitHub Actions + clasp**.
-The interface follows the existing WERONE apps (CSL Attendance, Trainee House
-Visit, Overseas Trip Planner): same header with refresh / 🌗 dark mode / sign-out
-buttons, purple "Experimentation" bar in Exp builds, cards, buttons, badges and
-colours. See [DESIGN-NOTES.md](DESIGN-NOTES.md#matching-the-werone-apps).
-
-```mermaid
-flowchart LR
-  V[Volunteer phone<br/>PWA on GitHub Pages] -- "POST {action, token, payload}" --> G[Apps Script web app<br/>gas/*.gs]
-  L[Leader phone<br/>camera scanner] -- "scan / scanBatch" --> G
-  G -- "read/write by header name" --> S[(Your Google Sheet<br/>Volunteers · Sessions · Bookings<br/>Attendance · Feedback · Trainees)]
-```
-
-> Why the frontend is not served by Apps Script: since around February 2026,
-> pages served from Apps Script can no longer get camera permission (its iframe
-> blocks it), so a QR scanner there fails. Hosting the PWA on GitHub Pages and
-> calling Apps Script as an API avoids that and is what makes PWA install possible.
+| App | What it is | Stack |
+| --- | --- | --- |
+| **[Volunteer app](volunteer-app/README.md)** (current) | Phone app for volunteers and volunteer leaders: registration, a guide for new volunteers, session booking, automatic trainee pairing, QR clock-in/out, feedback and trainee notes | Google Apps Script + Google Sheets, HTML/JS/Tailwind PWA on GitHub Pages |
+| [Prototype 1](docs/prototype-1/README.md) (earlier) | Local, offline staff app: attendance, fundraising, outings, overseas trips and house visits | Node.js 24, Express, SQLite |
 
 ---
 
-## Try it locally (1 minute, no Google account needed)
+## Before you start
+
+You need two things installed:
+
+| Tool | Check it with | Version needed | Get it |
+| --- | --- | --- | --- |
+| Git | `git --version` | any | Mac: run `xcode-select --install`. Windows: [git-scm.com](https://git-scm.com) |
+| Node.js | `node -v` | **20+** for the volunteer app, **24+** for Prototype 1 | [nodejs.org](https://nodejs.org) (pick the LTS installer) |
+
+On a Mac, run the commands below in **Terminal** (Cmd+Space, then type "Terminal").
+On Windows, use **PowerShell** or **Git Bash**.
+
+## Get the code
+
+```bash
+cd ~
+git clone https://github.com/vcoder302026/T4G-Sem12627-MINDS-APP.git
+cd T4G-Sem12627-MINDS-APP
+```
+
+This creates the folder `~/T4G-Sem12627-MINDS-APP`. Every command below starts from
+there. If you downloaded a ZIP from GitHub instead, unzip it and `cd` into the
+unzipped folder, which might be named something like `T4G-Sem12627-MINDS-APP-main`.
+
+> **Tip:** if a folder name has a space in it (for example `T4G-Sem12627-MINDS-APP 2`),
+> put the path in quotes: `cd "/Users/you/Downloads/T4G-Sem12627-MINDS-APP 2"`.
+> You can also type `cd ` with a trailing space and drag the folder from Finder into
+> Terminal to paste its path.
+
+---
+
+## Testing the volunteer app
+
+There are three levels of testing. Start with level 1. It needs no Google account and
+takes about a minute.
+
+### 1. Run the automated tests
 
 ```bash
 cd volunteer-app
+npm test
+```
+
+Expected result: `# tests 37`, `# pass 37`, `# fail 0`. These tests run the real
+Apps Script backend code (`gas/*.gs`) against an in-memory spreadsheet. They cover
+the whole flow: register, read the guide, book, pair a trainee, scan in and out,
+give feedback, and write trainee notes.
+
+There's nothing to install first, because the volunteer app has no npm dependencies.
+
+### 2. Try the app in your browser (local demo)
+
+From the `volunteer-app` folder:
+
+```bash
 npm run dev
 ```
 
-Open <http://localhost:5173>. A phone on the same Wi-Fi can open
-`http://<your-computer's-IP>:5173` to try the screens; the camera needs HTTPS,
-so test real scanning on the deployed GitHub Pages site.
+You should see:
+
+```
+MINDS Volunteer app (local mock) → http://localhost:5173
+  Leader:    leader@example.com / LeaderDemo123
+  Volunteer: volunteer@example.com / VolunteerDemo123
+  Sheet view: http://localhost:5173/__sheet
+```
+
+Open **<http://localhost:5173>** and sign in:
 
 | Role | Email | Password |
 | --- | --- | --- |
 | Volunteer leader | `leader@example.com` | `LeaderDemo123` |
 | Volunteer | `volunteer@example.com` | `VolunteerDemo123` |
+| Second volunteer | `sam@example.com` | `VolunteerDemo123` |
 
-The local server runs the **real** `gas/*.gs` code against an in-memory copy of
-a spreadsheet. Open <http://localhost:5173/__sheet> to watch what would be
-written to Google Sheets. Data resets when you stop the server. All demo
-people are fictional.
+Open **<http://localhost:5173/__sheet>** in another tab to see what the app would write
+to Google Sheets. Refresh it after each action.
+
+The demo data lives in memory and **resets when you stop the server**. To stop it,
+press **Ctrl+C** in Terminal. To use a different port, run `PORT=5174 npm run dev`.
+
+#### Suggested test walkthrough
+
+Use a normal window for the volunteer and a private or incognito window for the leader,
+so you can be signed in as both at once.
+
+1. **New volunteer:** click Register and create an account with fictional details.
+   Check that you're asked to read the Volunteer Guide, and that you can't book until
+   you tap **I've read the guide**.
+2. **Booking:** as `volunteer@example.com`, book an upcoming session.
+3. **Leader confirms:** as `leader@example.com`, open the session, confirm the booking,
+   and check that a trainee is paired automatically.
+4. **Clock in/out:** as the volunteer, open the QR pass. As the leader, use the manual
+   clock-in option. Camera scanning needs HTTPS, so test that on the live site (level 3).
+5. **Feedback and notes:** as the volunteer, submit feedback with a trainee observation.
+   As the leader, review it and share it as a trainee note.
+6. **Profile and venues:** edit your details under **Me**, and try adding a new venue
+   from the venue dropdown.
+7. Check **/__sheet** to confirm each step created the rows you expected.
+
+#### Check the phone layout
+
+- **Chrome:** press Cmd+Option+I (Windows: F12), then click the phone icon in the panel.
+- **Safari:** choose **Develop → Enter Responsive Design Mode**. If there's no Develop
+  menu, turn it on in Safari → Settings → Advanced.
+- **On a real phone:** connect the phone to the same Wi-Fi as your computer. Find your
+  computer's IP address (Mac: `ipconfig getifaddr en0`; Windows: `ipconfig`) and open
+  `http://<that-IP>:5173` on the phone. Everything works except the camera.
+
+### 3. Test the live website (GitHub Pages + Google)
+
+This is where you test **QR scanning with real phones**, because browsers only allow
+the camera on HTTPS sites. The live site needs a Google Apps Script backend. Until one
+is set up, the page loads but signing in fails.
+
+1. Make a **test Google Sheet with fictional data only**, then follow
+   [volunteer-app/README.md → Set it up on Google](volunteer-app/README.md#set-it-up-on-google)
+   to create the Apps Script project, run `setup()`, and deploy it as a web app.
+2. In this repo, go to **Settings → Secrets and variables → Actions → Variables** and add
+   `GAS_EXP_URL` with your web app URL (ending in `/exec`).
+3. Make sure **Settings → Pages → Source** is set to **GitHub Actions**. Then rerun
+   **Volunteer app · deploy web** from the **Actions** tab.
+4. Open the site (the link is under Settings → Pages). It looks like
+   `https://vcoder302026.github.io/T4G-Sem12627-MINDS-APP/`.
+5. Register an account and make yourself the first leader with `makeFirstAdmin()`
+   (see the volunteer-app README). Then test clock-in with two phones: one shows the
+   volunteer's QR pass, and the leader's phone scans it.
+
+If it works locally (level 2) but not live, the problem is almost always setup:
+a wrong or missing URL, web app access not set to **Anyone**, or a code change that
+wasn't published as a **New version** of the deployment.
+
+---
+
+## Testing Prototype 1 (staff app)
+
+Prototype 1 needs **Node.js 24 or later**. Run these from the repository root, not inside
+`volunteer-app`:
 
 ```bash
-npm test          # 21 end-to-end backend tests (register → book → pair → scan → feedback)
-npm run build:css # rebuild web/styles.css after changing Tailwind classes
+npm install
+npm test        # expected: 23 tests, all passing
+npm start       # → http://localhost:3000
 ```
 
----
-
-## Link it to your existing Google Sheet
-
-**1. Create the Apps Script project.** Either
-- **No tools:** open the sheet → Extensions → Apps Script. Create one script
-  file per file in `gas/` (same names) and paste the contents. In Project
-  Settings tick "Show appsscript.json manifest" and paste `gas/appsscript.json`.
-- **With clasp** (what CI uses): `npm run clasp:login`, create a project, copy
-  `.clasp.json.example` to `.clasp.json` with your Script ID, then `npm run gas:push`.
-
-**2. Tell it which sheet to use.** Project Settings → Script properties → add
-`SPREADSHEET_ID` = the long ID in the sheet URL
-(`docs.google.com/spreadsheets/d/`**`THIS_PART`**`/edit`). If trainees are in a
-different file, also add `TRAINEE_SPREADSHEET_ID`.
-
-**3. Map your trainee columns.** In `gas/Config.gs` → `TRAINEES.columns`,
-change the header text on the right to match row 1 of your trainee tab (e.g.
-`name: 'Trainee Name'`). Only an ID column and a name column are required;
-order doesn't matter and unknown columns are left alone. `volunteerVisible`
-controls what volunteers can see (keep medical and caregiver details out).
-
-**4. Preview, then set up.** In the editor run `checkConfig()` (read-only: it
-lists what would change), then `setup()`. Setup:
-- creates the app tabs that are missing (Volunteers, Sessions, Bookings,
-  Attendance, Feedback, hidden `_Auth`), or appends missing columns to
-  same-named tabs you already have;
-- adds a `Trainee ID` column to your trainee tab if there isn't one and fills
-  IDs (T-0001…), plus two columns for volunteer observations;
-- creates `APP_SECRET`, which signs logins and QR codes.
-
-It never deletes, reorders or overwrites existing data and is safe to re-run.
-
-**5. Deploy the API.** Deploy → New deployment → type **Web app** → Execute as
-**Me** → Who has access **Anyone** → Deploy, and authorise. Copy the Web app
-URL (ends in `/exec`).
-
-**6. Publish the app.** In `web/js/config.js` (same convention as the other
-apps' `backend/config.js`) set `APP_ENVIRONMENT` (`Exp`, `Dev` or `Prod`) and
-paste the URL into `EXP_API_URL` / `PROD_API_URL`. Or leave the file alone and
-add repository variables `APP_ENVIRONMENT`, `GAS_EXP_URL`, `GAS_PROD_URL`.
-Repo Settings → Pages → Source: **GitHub Actions**. Pushing to `main` runs
-`.github/workflows/volunteer-app-pages.yml` and publishes `web/`.
-
-**7. Make yourself the first leader.** Register in the app, then in Script
-properties add `FIRST_ADMIN_EMAIL` = that email and run `makeFirstAdmin()`.
-From then on, leaders promote others in the app (People → Make volunteer leader).
-
-**Automatic backend deploys (optional):** add the secrets described at the top
-of `.github/workflows/volunteer-app-gas.yml`. Each push then runs the tests,
-`clasp push`es the code and updates the same deployment, so the URL never changes.
-
-> Changed the `.gs` code by hand? Deploy → Manage deployments → edit (pencil) →
-> Version: **New version**. Otherwise the live URL keeps serving the old code.
+Sign in with `admin` / `MindsDemo123!`. Data is saved in `data/minds.sqlite`. To reset
+it, stop the server and delete the `data` folder. For more, see
+[docs/prototype-1/README.md](docs/prototype-1/README.md) and the
+[usage guide](docs/prototype-1/USAGE-GUIDE.md).
 
 ---
-
-## How it works for each role
-
-| Task | Volunteer taps | Leader taps |
-| --- | --- | --- |
-| Book a session | Sessions → **Book** (2) | |
-| Confirm + pair with a trainee | | Session → pick trainee → **Confirm** (3) |
-| Clock in / out at the venue | **QR pass** (1) | **Scan** → point camera (1) |
-| Volunteer's phone is flat | | Session → **Clock in by hand** (2) |
-| Walk-in who didn't book | show pass | scan → **Add as walk-in** (2) |
-| Feedback after the session | **Give feedback** prompt → rate → send | |
-| Promote a volunteer | | People → name → **Make volunteer leader** |
-| Book a session yourself as a leader | | 🏠 icon → **Choose Mode** → Volunteer |
-
-Details worth knowing:
-- **One scan toggles**: first scan clocks in, the next clocks out. A repeat
-  scan within 2 minutes is ignored, so a camera reading the same code twice
-  can't clock someone straight back out.
-- **Pending bookings are confirmed by scanning**: if someone shows up before a
-  leader confirmed them, the scan confirms and clocks them in.
-- **QR codes are signed and dated.** A code only works on its own date and
-  can't be edited or forged without `APP_SECRET`. Phones pre-load codes for the
-  next 14 days of booked sessions, so the pass shows with no signal.
-- **Leader phones work offline too.** No signal → the scan and its exact time
-  are saved on the phone and uploaded automatically later (marked `QR (offline)`).
-- **Feedback updates the trainee record.** Each submission is a row in
-  Feedback (full history). The latest observation is also copied into
-  "Latest Volunteer Observation" on the trainee's own row.
-- **Forgotten passwords**: a leader taps People → name → Reset password and
-  passes on the temporary password. The volunteer changes it under Me.
-
-## What's in the sheet
-
-| Tab | One row per | Notes |
-| --- | --- | --- |
-| Volunteers | person | profile, emergency contact, Role (`volunteer`/`admin`), Status (`active`/`inactive` to block sign-in) |
-| _Auth (hidden) | person | salted password hashes; never shown in the app |
-| Sessions | session | Status `open` / `closed` (no new bookings) / `cancelled` |
-| Bookings | booking | `pending` → `confirmed` (with trainee) or `cancelled`; Walk-in = Yes |
-| Attendance | clock record | Clock In, Clock Out, Hours (2 dp), who scanned, Method |
-| Feedback | submission | rating 1–5, session feedback, trainee observation |
-| Trainees (yours) | trainee | read by the app; only Trainee ID + 2 observation columns are ever written |
-
-Staff can edit the sheet directly (e.g. fix a wrong clock-out time); the app
-re-reads it on every request. Don't rename the header row without updating
-`Config.gs`.
 
 ## Troubleshooting
 
-| Symptom | Fix |
+| What you see | What it means and how to fix it |
 | --- | --- |
-| App says "Couldn't reach the server" everywhere | Web app access must be **Anyone** (not "Anyone with Google account"); redeploy as a new version; check the URL in `config.js` ends in `/exec`. |
-| `CONFIG_ERROR … SPREADSHEET_ID is not set` / `tab was not found` | Add the script property; run `setup()`. |
-| Camera doesn't start | The site must be HTTPS (GitHub Pages is); allow camera for the site in browser settings; close other camera apps. |
-| "This QR code is for 2026-…" | The volunteer is showing an old screenshot. Reopen the app's pass. |
-| Changed code isn't live | Make a **new version** of the existing deployment (see the note after step 7). |
+| `cd: no such file or directory` | The folder isn't where you typed. Find it with `find ~ -maxdepth 4 -type d -name volunteer-app`, then `cd` to the path it prints. Use quotes if the path has spaces. |
+| `npm error enoent Could not read package.json` | You're in the wrong folder, usually your home folder after a failed `cd`. Run `pwd` to check, then `cd` into `volunteer-app` (or the repo root for Prototype 1). |
+| `npm: command not found` / `node: command not found` | Node.js isn't installed. Install the LTS version from [nodejs.org](https://nodejs.org), then open a new Terminal window. |
+| Prototype 1 fails with an error about `node:sqlite` | Your Node.js is older than 24. Run `node -v` and upgrade. |
+| `EADDRINUSE` / port already in use | The server is already running in another window. Stop it with Ctrl+C, or use another port: `PORT=5174 npm run dev`. |
+| Demo data disappeared | Expected. The local demo resets every time the server stops. |
+| Live site: "Couldn't reach the server" | `GAS_EXP_URL` is missing or wrong, or the Apps Script web app isn't shared with **Anyone**. |
+| Camera doesn't start | Use the HTTPS GitHub Pages site, not `http://` on your computer, and allow camera access in the browser. |
 
-## Limits of this prototype
+More fixes for the volunteer app are in
+[volunteer-app/README.md → Troubleshooting](volunteer-app/README.md#troubleshooting).
 
-- Passwords use iterated HMAC-SHA256 with a secret pepper (Apps Script has no
-  bcrypt/scrypt); fine for a prototype, review before real launch.
-- Apps Script handles roughly 30 simultaneous executions and each request takes
-  1–2 s; plenty for session-sized groups, not for thousands of concurrent users.
-- Volunteers can't edit their own profile in the app yet (leaders edit the sheet).
-- Emails aren't verified. Someone who registers first with an email that is
-  already on your Volunteers list links to that row (always as a volunteer,
-  never a leader). Before launch, consider emailing a one-time code with
-  `MailApp` during registration.
-- The scanner library (`html5-qrcode` 2.3.8) is stable but no longer actively
-  maintained; it is loaded from a CDN with a fallback and cached for offline use.
-- Get MINDS's sign-off on which trainee fields volunteers may see (PDPA).
+---
 
-See [DESIGN-NOTES.md](DESIGN-NOTES.md) for why it's built this way and how it
-relates to the Node prototype in the repository root.
+## Repository layout
+
+```
+volunteer-app/        the volunteer app (backend in gas/, phone app in web/)
+  README.md           features, setup on Google, configuration, development
+  DESIGN-NOTES.md     why it's built this way
+  docs/USER-GUIDE.md  how volunteers and leaders use it
+.github/workflows/    publish the volunteer app (GitHub Pages) and deploy its backend (clasp)
+server/ public/ tests/  Prototype 1 (local staff app)
+docs/prototype-1/     Prototype 1 README and usage guide
+PLAN.md, AGENTS.md    Prototype 1's build plan and coding-agent rules
+PROGRESS.md           progress log for both apps
+```
+
+## Working together
+
+- Make changes on a branch and open a pull request into `main`. Merging to `main`
+  publishes the volunteer app.
+- Before opening a PR, run the tests: `cd volunteer-app && npm test` (37 tests), plus
+  `npm test` at the root if you touched Prototype 1 (23 tests). The volunteer-app tests
+  also run automatically on every pull request.
+- Use fictional data only. Never commit real volunteer or trainee details,
+  `.clasprc.json`, `.clasp.json`, or Apps Script URLs and Sheet IDs. Put URLs in the
+  repository variables instead.
