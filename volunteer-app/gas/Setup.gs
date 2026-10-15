@@ -53,14 +53,19 @@ function setupInternal_(dryRun) {
       throw new Error(`The "${t.tab}" tab has no "${t.columns.name}" column. Change CONFIG.TRAINEES.columns.name in Config.gs to your sheet's header.`);
     }
     const missingVisible = t.volunteerVisible.filter((k) => existing.indexOf(String(t.columns[k]).toLowerCase()) === -1);
-    if (missingVisible.length) {
+    if (missingVisible.length && !CONFIG.ADD_MISSING_TRAINEE_COLUMNS) {
       report.push(`Note: "${t.tab}" has no ${missingVisible.map((k) => `"${t.columns[k]}"`).join(', ')} column(s); volunteers simply won't see those fields.`);
     }
-    // Only the ID and write-back columns are ever added to the trainee tab.
-    const required = [t.columns.id].concat(t.writeBack ? Object.keys(t.writeBack).map((k) => t.writeBack[k]) : []);
+    // Added to the trainee tab: the ID column, the two write-back columns and
+    // (if ADD_MISSING_TRAINEE_COLUMNS) empty columns for volunteer-visible fields, for staff to fill.
+    const required = [t.columns.id]
+      .concat(CONFIG.ADD_MISSING_TRAINEE_COLUMNS ? missingVisible.map((k) => t.columns[k]) : [])
+      .concat(t.writeBack ? Object.keys(t.writeBack).map((k) => t.writeBack[k]) : []);
     report.push(describeTab_(tss, t.tab, required, dryRun, {}));
     if (!dryRun) report.push(fillTraineeIds_());
   }
+  if (!dryRun) seedContent_().forEach((line) => report.push(line));
+  else report.push('Would add starter venues, Volunteer Guide sections and projects to any of those tabs that are empty.');
   const text = report.join('\n');
   console.log(text);
   return text;

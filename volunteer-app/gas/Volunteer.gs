@@ -7,6 +7,7 @@
  */
 
 function sessionOut_(s) {
+  const venue = s.venue ? venueByName_(s.venue) : null;
   return {
     sessionId: s.sessionId,
     title: s.title,
@@ -14,8 +15,11 @@ function sessionOut_(s) {
     startTime: s.startTime,
     endTime: s.endTime,
     venue: s.venue,
+    venueAddress: venue ? venue.address : '',
+    project: s.project || '',
     capacity: Number(s.capacity) || 0,
     notes: s.notes,
+    traineeIds: parseIds_(s.traineeIds),
     status: s.status || 'open',
   };
 }
@@ -105,6 +109,7 @@ function volunteerHome_(p, user) {
   return {
     user: publicUser_(user),
     today,
+    guideRead: Boolean(user.guideReadAt),
     upcoming,
     openSessions,
     pendingFeedback,
@@ -123,6 +128,9 @@ function ownBooking_(bookingId, user) {
 function bookSession_(p, user) {
   onlyFields_(p, ['sessionId']);
   const sessionId = id_(p.sessionId, 'Session');
+  if (CONFIG.REQUIRE_GUIDE_BEFORE_BOOKING && !user.guideReadAt) {
+    throw new AppError('GUIDE_REQUIRED', 'Please read the Volunteer Guide before booking your first session.');
+  }
   const s = table_('sessions').find((x) => x.sessionId === sessionId);
   if (!s || s.status === 'cancelled') throw err_.notFound('Session not found.');
   if (s.status !== 'open') throw err_.conflict('Bookings for this session are closed.');
@@ -142,7 +150,7 @@ function bookSession_(p, user) {
     status: 'pending',
     bookedAt: fmtDateTime_(now_()),
   });
-  return { message: 'Booked! A volunteer leader will confirm your slot and pair you with a trainee.', home: volunteerHome_({}, user) };
+  return { message: "Booked! Once a leader confirms it, you'll see your trainee here.", home: volunteerHome_({}, user) };
 }
 
 function cancelBooking_(p, user) {
@@ -170,7 +178,8 @@ function submitFeedback_(p, user) {
   const traineeObservation = str_(p.traineeObservation, 'Trainee observation', { max: LIMITS.NOTES });
   if (rating === '' && !sessionFeedback && !traineeObservation) throw err_.validation('Add a rating or a comment before submitting.');
 
-  feedback.insert({
+  const shareNow = Boolean(traineeObservation && booking.traineeId && CONFIG.AUTO_SHARE_OBSERVATIONS);
+  const fb = feedback.insert({
     feedbackId: newId_('F'),
     sessionId: booking.sessionId,
     bookingId: booking.bookingId,
@@ -182,10 +191,16 @@ function submitFeedback_(p, user) {
     rating,
     sessionFeedback,
     traineeObservation,
+    noteStatus: traineeObservation && booking.traineeId ? (shareNow ? 'shared' : 'pending') : 'none',
     submittedAt: fmtDateTime_(now_()),
   });
-  const traineeUpdated = booking.traineeId && traineeObservation
-    ? recordTraineeObservation_(booking.traineeId, traineeObservation, user.name, att.date)
-    : false;
-  return { message: 'Thank you for your feedback!', traineeUpdated, home: volunteerHome_({}, user) };
+  if (shareNow) {
+    const trainee = traineeById_(booking.traineeId);
+    if (trainee) addNote_(trainee, traineeObservation, user.name, 'Volunteer feedback', 'automatic', fb.feedbackId, att.date);
+  }
+  return {
+    message: 'Thank you for your feedback!',
+    noteStatus: fb.noteStatus,
+    home: volunteerHome_({}, user),
+  };
 }

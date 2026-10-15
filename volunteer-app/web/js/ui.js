@@ -59,6 +59,17 @@ const ICONS = {
   userPlus: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/>',
   shield: '<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>',
   message: '<path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/>',
+  book: '<path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>',
+  pencil: '<path d="M21.17 6.81a1 1 0 0 0-3.98-3.98L3.84 16.17a2 2 0 0 0-.5.83l-1.32 4.35a.5.5 0 0 0 .62.62l4.35-1.32a2 2 0 0 0 .83-.5z"/><path d="m15 5 4 4"/>',
+  trash: '<path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>',
+  up: '<path d="m18 15-6-6-6 6"/>',
+  sparkle: '<path d="M9.94 15.5A2 2 0 0 0 8.5 14.06l-6.13-1.58a.5.5 0 0 1 0-.96L8.5 9.94A2 2 0 0 0 9.94 8.5l1.58-6.13a.5.5 0 0 1 .96 0L14.06 8.5A2 2 0 0 0 15.5 9.94l6.13 1.58a.5.5 0 0 1 0 .96L15.5 14.06a2 2 0 0 0-1.44 1.44l-1.58 6.13a.5.5 0 0 1-.96 0z"/>',
+  inbox: '<path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/>',
+  building: '<rect width="16" height="20" x="4" y="2" rx="2"/><path d="M9 22v-4h6v4M8 6h.01M16 6h.01M12 6h.01M12 10h.01M12 14h.01M16 10h.01M16 14h.01M8 10h.01M8 14h.01"/>',
+  info: '<circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/>',
+  heart: '<path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>',
+  ear: '<path d="M6 8.5a6.5 6.5 0 1 1 13 0c0 6-6 6-6 10a3.5 3.5 0 1 1-7 0"/><path d="M15 8.5a2.5 2.5 0 0 0-5 0v1a2 2 0 1 1 0 4"/>',
+  shirt: '<path d="M20.38 3.46 16 2a4 4 0 0 1-8 0L3.62 3.46a2 2 0 0 0-1.34 2.23l.58 3.47a1 1 0 0 0 .99.84H6v10c0 1.1.9 2 2 2h8a2 2 0 0 0 2-2V10h2.15a1 1 0 0 0 .99-.84l.58-3.47a2 2 0 0 0-1.34-2.23z"/>',
 };
 
 export function icon(name, cls = 'size-5') {
@@ -207,3 +218,283 @@ export function formData(form) {
   });
   return data;
 }
+
+/* ---------- fuzzy search (used by every search box and picker) ---------- */
+
+const fold = (s) => String(s ?? '').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '');
+export const normalizeText = (s) => fold(s).replace(/[^a-z0-9@.+]+/g, ' ').trim();
+
+/** True when a and b are within `max` edits (insert, delete, change, swap two neighbours). */
+function withinEdits(a, b, max) {
+  if (Math.abs(a.length - b.length) > max) return false;
+  let prev2 = null;
+  let prev = Array.from({ length: b.length + 1 }, (_, j) => j);
+  for (let i = 1; i <= a.length; i++) {
+    const cur = [i];
+    let rowMin = i;
+    for (let j = 1; j <= b.length; j++) {
+      let v = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+      if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) v = Math.min(v, prev2[j - 2] + 1);
+      cur[j] = v;
+      rowMin = Math.min(rowMin, v);
+    }
+    if (rowMin > max) return false;
+    prev2 = prev;
+    prev = cur;
+  }
+  return prev[b.length] <= max;
+}
+
+function inOrder(needle, hay) {
+  let i = 0;
+  for (const ch of hay) if (ch === needle[i]) i += 1;
+  return i === needle.length;
+}
+
+function tokenScore(tok, words, digits, acronym) {
+  let best = 0;
+  for (const w of words) {
+    if (w === tok) return 100;
+    if (w.startsWith(tok)) best = Math.max(best, 90);
+    else if (tok.length >= 2 && w.includes(tok)) best = Math.max(best, 70);
+    else if (tok.length >= 3 && (withinEdits(tok, w.slice(0, tok.length), tok.length <= 4 ? 1 : 2) || withinEdits(tok, w, tok.length <= 4 ? 1 : 2))) {
+      best = Math.max(best, 60); // typo: "veera" → vera, "wodlands" → woodlands
+    } else if (tok.length >= 2 && tok[0] === w[0] && inOrder(tok, w)) {
+      best = Math.max(best, 40); // letters skipped: "lm" → lim, "bkng" → baking
+    }
+  }
+  if (!best && /^\d{3,}$/.test(tok) && digits.includes(tok)) best = 80;
+  if (!best && tok.length >= 2 && acronym.includes(tok)) best = 50; // "wgs" → Woodlands Gardens School
+  return best;
+}
+
+/** 0 = no match; higher = better. Every word typed must match something (typos allowed). */
+export function fuzzyScore(query, ...fields) {
+  const q = normalizeText(query);
+  if (!q) return 1;
+  const raw = fields.filter(Boolean).join(' ');
+  const text = normalizeText(raw);
+  if (!text) return 0;
+  if (text.includes(q)) return 200;
+  const words = text.split(/[\s@.+]+/).filter(Boolean);
+  const digits = raw.replace(/\D/g, '');
+  const acronym = text.split(' ').map((w) => w[0]).join('');
+  const toks = q.split(' ');
+  let total = 0;
+  for (const tok of toks) {
+    const s = tokenScore(tok, words, digits, acronym);
+    if (!s) return 0;
+    total += s;
+  }
+  return total / toks.length;
+}
+
+/** Items matching the query, best first; fieldsOf(item) returns the strings to search. */
+export function fuzzyFilter(items, query, fieldsOf) {
+  if (!normalizeText(query)) return items.slice();
+  return items
+    .map((item, i) => ({ item, i, score: fuzzyScore(query, ...fieldsOf(item)) }))
+    .filter((x) => x.score > 0)
+    .sort((a, b) => b.score - a.score || a.i - b.i)
+    .map((x) => x.item);
+}
+
+/** Search box with a magnifying-glass icon; calls onQuery(text) as the person types. */
+export function searchBox(placeholder, onQuery, label) {
+  const input = el('input', { type: 'search', class: 'input pl-10', placeholder, 'aria-label': label || placeholder, autocomplete: 'off' });
+  input.addEventListener('input', () => onQuery(input.value));
+  return el('div', { class: 'relative' },
+    el('span', { class: 'pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400' }, icon('search')),
+    input);
+}
+
+let pickerSeq = 0;
+
+/**
+ * Dropdown with fuzzy search (type to filter, arrow keys, Enter, Escape).
+ * options: [{ value, label, hint }]. Submits its value through a hidden input called `name`.
+ * onAdd(text) adds a "+ <addLabel>" row at the bottom of the list.
+ */
+export function combobox({ name, options, value = '', placeholder = 'Type to search', emptyText = 'No matches', onChange, addLabel, onAdd, emptyOption }) {
+  const id = `cb${++pickerSeq}`;
+  let opts = options.slice();
+  let selected = value || '';
+  let active = -1;
+  const hidden = el('input', { type: 'hidden', name, value: selected });
+  const input = el('input', {
+    type: 'text', class: 'input pr-10', role: 'combobox', autocomplete: 'off', placeholder,
+    'aria-expanded': 'false', 'aria-controls': `${id}-list`, 'aria-autocomplete': 'list',
+  });
+  const list = el('ul', { id: `${id}-list`, role: 'listbox', class: 'card absolute inset-x-0 top-full z-30 mt-1 max-h-64 overflow-y-auto p-1 shadow-xl', hidden: true });
+  const labelOf = (v) => {
+    if (!v) return '';
+    const o = opts.find((x) => String(x.value) === String(v));
+    return o ? o.label : String(v);
+  };
+  const showSelected = () => { input.value = labelOf(selected); };
+  const close = () => { list.hidden = true; input.setAttribute('aria-expanded', 'false'); input.removeAttribute('aria-activedescendant'); active = -1; };
+  const choose = (o) => {
+    if (String(o.value) === String(selected)) { showSelected(); close(); return; } // same choice: nothing to save
+    selected = o.value;
+    hidden.value = o.value;
+    showSelected();
+    close();
+    if (onChange) onChange(o.value, o);
+  };
+  let rows = [];
+  const render = () => {
+    const q = input.value === labelOf(selected) ? '' : input.value;
+    rows = [];
+    if (emptyOption && !q) rows.push({ value: '', label: emptyOption, kind: 'empty' });
+    fuzzyFilter(opts, q, (o) => [o.label, o.hint]).forEach((o) => rows.push(o));
+    if (onAdd) rows.push({ kind: 'add', label: q.trim() ? `${addLabel}: "${q.trim()}"` : addLabel, text: q.trim() });
+    const items = rows.map((o, i) => el('li', {
+      id: `${id}-o${i}`, role: 'option', 'aria-selected': o.kind !== 'add' && String(o.value) === String(selected) ? 'true' : 'false',
+      class: `flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-sm ${i === active ? 'bg-indigo-50 dark:bg-indigo-900/40' : 'hover:bg-slate-50 dark:hover:bg-neutral-900'} ${o.kind === 'add' ? 'font-bold text-indigo-600 dark:text-indigo-400' : ''}`,
+      onmousedown: (e) => { e.preventDefault(); pick(i); },
+    },
+    o.kind === 'add' ? icon('plus', 'size-4') : null,
+    el('span', { class: 'min-w-0 flex-1' },
+      el('span', { class: `block truncate ${o.kind === 'empty' ? 'muted' : 'font-bold text-slate-900 dark:text-white'}` }, o.label),
+      o.hint ? el('span', { class: 'block truncate text-xs muted' }, o.hint) : null),
+    o.kind !== 'add' && String(o.value) === String(selected) && selected ? icon('tick', 'size-4 text-indigo-600') : null));
+    const matches = rows.filter((r) => !r.kind).length;
+    mount(list, items, !matches && q ? el('li', { class: 'px-3 py-2 text-sm muted' }, emptyText) : null);
+    if (active >= 0) input.setAttribute('aria-activedescendant', `${id}-o${active}`);
+  };
+  const pick = (i) => {
+    const o = rows[i];
+    if (!o) return;
+    if (o.kind === 'add') {
+      close();
+      showSelected();
+      onAdd(o.text);
+    } else choose(o);
+  };
+  const open = () => { list.hidden = false; input.setAttribute('aria-expanded', 'true'); render(); };
+  input.addEventListener('focus', () => { input.select(); open(); });
+  input.addEventListener('input', () => { active = 0; open(); });
+  input.addEventListener('blur', () => setTimeout(() => { if (document.activeElement !== input) { close(); showSelected(); } }, 150));
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowDown') { e.preventDefault(); if (list.hidden) open(); active = Math.min(active + 1, rows.length - 1); render(); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); active = Math.max(active - 1, 0); render(); }
+    else if (e.key === 'Enter' && !list.hidden && active >= 0) { e.preventDefault(); pick(active); }
+    else if (e.key === 'Escape') { close(); showSelected(); }
+  });
+  showSelected();
+  return {
+    el: el('div', { class: 'relative' }, input, el('span', { class: 'pointer-events-none absolute inset-y-0 right-3 flex items-center text-slate-400' }, icon('down', 'size-4')), list, hidden),
+    input,
+    get value() { return selected; },
+    set value(v) { selected = v || ''; hidden.value = selected; showSelected(); },
+    setOptions(next) { opts = next.slice(); showSelected(); },
+  };
+}
+
+/** Checklist with fuzzy search, for choosing several items (e.g. trainees attending). */
+export function multiPick({ name, options, values = [], placeholder = 'Search', emptyText = 'No matches' }) {
+  const chosen = new Set(values.map(String));
+  const hidden = el('input', { type: 'hidden', name, value: [...chosen].join(',') });
+  const count = el('span', { class: 'text-xs font-bold muted' });
+  const listHost = el('div', { class: 'well max-h-56 divide-y divide-slate-200 overflow-y-auto dark:divide-neutral-800' });
+  let query = '';
+  const sync = () => {
+    hidden.value = [...chosen].join(',');
+    count.textContent = chosen.size ? `${chosen.size} selected` : 'None selected: any trainee can be paired';
+  };
+  const draw = () => {
+    const shown = fuzzyFilter(options, query, (o) => [o.label, o.hint]);
+    mount(listHost, shown.length ? shown.map((o) => {
+      const box = el('input', { type: 'checkbox', class: 'size-5 shrink-0 accent-indigo-600', checked: chosen.has(String(o.value)) });
+      box.addEventListener('change', () => { if (box.checked) chosen.add(String(o.value)); else chosen.delete(String(o.value)); sync(); });
+      return el('label', { class: 'flex cursor-pointer items-center gap-3 px-3 py-2.5 text-sm' }, box,
+        el('span', { class: 'min-w-0' }, el('span', { class: 'block font-bold' }, o.label), o.hint ? el('span', { class: 'block text-xs muted' }, o.hint) : null));
+    }) : el('p', { class: 'px-3 py-2 text-sm muted' }, emptyText));
+  };
+  const search = searchBox(placeholder, (q) => { query = q; draw(); });
+  const clear = el('button', { type: 'button', class: 'text-xs font-bold text-indigo-600 hover:underline dark:text-indigo-400' }, 'Clear');
+  clear.addEventListener('click', () => { chosen.clear(); sync(); draw(); });
+  sync();
+  draw();
+  return {
+    el: el('div', { class: 'space-y-2' }, search, listHost, el('div', { class: 'flex items-center justify-between' }, count, clear), hidden),
+    get values() { return [...chosen]; },
+  };
+}
+
+/** Renders leader-written text safely: "- " lines become bullets, "1. " lines numbered steps. */
+export function richText(body) {
+  const blocks = [];
+  let para = [];
+  let listEl = null;
+  let listKind = '';
+  const flushPara = () => {
+    if (para.length) blocks.push(el('p', {}, para.flatMap((line, i) => (i ? [el('br'), line] : [line]))));
+    para = [];
+  };
+  String(body || '').split(/\r?\n/).forEach((raw) => {
+    const line = raw.trim();
+    const bullet = /^[-•*]\s+(.*)$/.exec(line);
+    const numbered = /^\d+[.)]\s+(.*)$/.exec(line);
+    const kind = bullet ? 'ul' : numbered ? 'ol' : '';
+    if (kind) {
+      flushPara();
+      if (!listEl || listKind !== kind) {
+        listEl = el(kind, { class: kind === 'ul' ? 'list-disc space-y-1 pl-5' : 'list-decimal space-y-1 pl-5' });
+        listKind = kind;
+        blocks.push(listEl);
+      }
+      listEl.append(el('li', {}, (bullet || numbered)[1]));
+      return;
+    }
+    listEl = null;
+    if (!line) flushPara();
+    else para.push(line);
+  });
+  flushPara();
+  return el('div', { class: 'space-y-3 text-[15px] leading-relaxed text-slate-700 dark:text-neutral-300' }, blocks);
+}
+
+/**
+ * Small pop-up window (native <dialog>, so Escape and focus trapping work).
+ * body: nodes; returns { close }. onClose runs however it was closed.
+ */
+export function modal(title, body, onClose) {
+  const dlg = el('dialog', { class: 'card m-auto w-[min(32rem,calc(100vw-2rem))] p-0 text-slate-900 shadow-2xl backdrop:bg-black/50 dark:text-neutral-100' });
+  const closeBtn = el('button', { type: 'button', class: 'icon-btn', 'aria-label': 'Close' }, icon('x'));
+  mount(dlg,
+    el('div', { class: 'flex items-center justify-between gap-3 border-b border-slate-100 px-5 py-3 dark:border-neutral-800' },
+      el('h2', { class: 'text-lg font-extrabold' }, title), closeBtn),
+    el('div', { class: 'max-h-[75vh] overflow-y-auto p-5' }, body));
+  const close = () => { if (dlg.open) dlg.close(); };
+  closeBtn.addEventListener('click', close);
+  dlg.addEventListener('click', (e) => { if (e.target === dlg) close(); });
+  dlg.addEventListener('close', () => { dlg.remove(); if (onClose) onClose(); });
+  document.body.append(dlg);
+  dlg.showModal();
+  const first = dlg.querySelector('input:not([type=hidden]), textarea, select');
+  if (first) first.focus();
+  return { close, el: dlg };
+}
+
+/** <select> with a label, for short fixed lists. options: [{ value, label }] */
+export function selectField(name, label, options, value, attrs = {}) {
+  const { hint, optional, ...rest } = attrs;
+  const id = `f-${name}`;
+  return el('div', {},
+    el('label', { class: 'label', for: id }, label, optional ? el('span', { class: 'font-normal text-slate-400' }, ' (optional)') : null),
+    el('select', { id, name, class: 'input', ...rest },
+      options.map((o) => el('option', { value: o.value, selected: String(o.value) === String(value ?? '') }, o.label))),
+    hint ? el('p', { class: 'hint' }, hint) : null);
+}
+
+/** Label + any control (combobox, multiPick…) laid out like field(). */
+export function labelled(label, control, { hint, optional } = {}) {
+  return el('div', {},
+    el('p', { class: 'label' }, label, optional ? el('span', { class: 'font-normal text-slate-400' }, ' (optional)') : null),
+    control,
+    hint ? el('p', { class: 'hint' }, hint) : null);
+}
+
+/** Google Maps search link for an address (opens the Maps app on phones). */
+export const mapsLink = (place) => `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place)}`;

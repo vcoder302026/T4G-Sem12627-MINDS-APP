@@ -1,10 +1,26 @@
-# PROGRESS.md — Master Progress Tracker (MINDS Admin Prototype)
+# PROGRESS.md — Progress tracker
 
-This is the project's master progress tracker, maintained for session hand-off. Update it at
-the end of every working session. Sources of truth: [PLAN.md](PLAN.md) (contract) and
-[AGENTS.md](AGENTS.md) (working rules). If anything here conflicts with PLAN.md, PLAN.md wins.
+Session hand-off log for the repository's two apps. Update it at the end of every working
+session; the [session log](#session-log) at the bottom covers both.
 
-## Project snapshot
+## Volunteer app (`volunteer-app/`) — current work
+
+| Item | Value |
+| --- | --- |
+| Goal | Volunteer management PWA for MINDS: registration, Volunteer Guide, booking, automatic trainee pairing, QR clock-in/out, feedback → trainee notes, venues, profile editing |
+| Stack | Google Apps Script API + Google Sheets; HTML / vanilla JS / Tailwind PWA on GitHub Pages; GitHub Actions + clasp |
+| Run locally | `cd volunteer-app && npm run dev` → http://localhost:5173 (real `gas/*.gs` against an in-memory sheet) |
+| Tests | `cd volunteer-app && npm test` → 37 backend tests |
+| Docs | [README](volunteer-app/README.md), [USER-GUIDE](volunteer-app/docs/USER-GUIDE.md), [DESIGN-NOTES](volunteer-app/DESIGN-NOTES.md) |
+| Status | Working prototype, tested locally and in a phone-sized browser; not yet run end to end on real Google Apps Script with real phones |
+
+## Prototype 1 (repository root) — complete
+
+Sources of truth for Prototype 1: [PLAN.md](PLAN.md) (contract) and [AGENTS.md](AGENTS.md)
+(working rules). If anything below conflicts with PLAN.md, PLAN.md wins.
+README: [docs/prototype-1/README.md](docs/prototype-1/README.md).
+
+### Project snapshot
 
 | Item | Value |
 | --- | --- |
@@ -16,12 +32,12 @@ the end of every working session. Sources of truth: [PLAN.md](PLAN.md) (contract
 | Data | `data/minds.sqlite` (gitignored, auto-created + seeded on first start; reset = stop server, delete file) |
 | Tests | `npm test` → node:test integration suite, temp DB + ephemeral port |
 
-## Current status: **Prototype 1 COMPLETE** (as of 2026-10-10)
+### Current status: **Prototype 1 COMPLETE** (as of 2026-10-10)
 
 All five modules plus directories, auth and dashboard are implemented, tested and pushed.
 `npm test` passes 23/23.
 
-### Implemented (backend + frontend)
+#### Implemented (backend + frontend)
 
 - [x] Scaffold: package.json (start/dev/test scripts), .gitignore, Express entry with
       `createApp({databasePath})` factory + separate `startServer()` CLI path
@@ -67,7 +83,7 @@ All five modules plus directories, auth and dashboard are implemented, tested an
       rewrite, no sleeps), order totals + rejections, outing duplicate/edit, trip range/
       snapshot/logistics/expenses, visits + filter, unknown API 404, malformed JSON 400.
 
-### Key design decisions (interpretations of PLAN.md — keep consistent)
+#### Key design decisions (interpretations of PLAN.md — keep consistent)
 
 - Money is integer cents everywhere; UI converts `5.50` → 500.
 - Timestamps stored UTC ISO; displayed Asia/Singapore; calendar dates stored YYYY-MM-DD.
@@ -81,31 +97,31 @@ All five modules plus directories, auth and dashboard are implemented, tested an
   attendance summary rows `{volunteerId, volunteerName, completedSessions, hours}`.
 - No deletes, no attendance-timestamp or submitted-order editing (v1 scope).
 
-### Bugs found and fixed
+#### Bugs found and fixed
 
 | Date | Bug | Fix |
 | --- | --- | --- |
 | 2026-10-10 | Login appeared to do nothing: password cleared, no screen change. Cause: `.login-wrap{display:flex}` / `.shell{display:grid}` overrode the HTML `hidden` attribute, so the login card never hid (login was actually succeeding). | Added `[hidden]{display:none !important}` to styles.css. Verified JS module graph loads cleanly via DOM-shim import test. |
 
-## Validation status
+### Validation status
 
 - Automated: `npm test` 23/23 pass. Full API walkthrough via curl covering every module
   workflow, invalid inputs, logout → restart → re-login persistence, no duplicate seeding.
 - NOT performed by a human: visual browser walkthrough (no browser tool in dev environment;
   module graph, asset serving, MIME types, API flows were verified automatically). Recommend
-  a quick human pass of the usage guide (PROTOTYPE1-APP-USAGE-GUIDE.md) against the live app.
+  a quick human pass of the usage guide (docs/prototype-1/USAGE-GUIDE.md) against the live app.
 - No external network calls in runtime code (grep-verified over public/ and server/).
 
-## Known limitations (by design, v1 reduced scope)
+### Known limitations (by design, v1 reduced scope)
 
 No record deletion; no attendance timestamp or order editing (status updates only); no
 volunteer-facing registration/booking; no Google/email/WhatsApp/payments; no QR, uploads,
 mobile/PWA; no sync between staff computers (every clone has its own DB); single demo admin
 account, no user management; not production-ready.
 
-## Suggested next steps (not requested yet — do not start without user instruction)
+### Suggested next steps (not requested yet — do not start without user instruction)
 
-1. Human visual walkthrough of all screens (use PROTOTYPE1-APP-USAGE-GUIDE.md as checklist).
+1. Human visual walkthrough of all screens (use docs/prototype-1/USAGE-GUIDE.md as checklist).
 2. Optional v2 candidates per user direction: record deletion with confirmation, CSV export,
    more demo data, pagination.
 
@@ -114,5 +130,7 @@ account, no user management; not production-ready.
 | Date | Session | Summary |
 | --- | --- | --- |
 | 2026-10-10 | 1 | Implemented complete Prototype 1 per PLAN.md (all phases), 23-test suite, README, verified startup/persistence/origin rules. |
-| 2026-10-10 | 2 | Diagnosed and fixed login-screen visibility CSS bug; added PROTOTYPE1-APP-USAGE-GUIDE.md and PROGRESS.md; pushed to GitHub. |
+| 2026-10-10 | 2 | Diagnosed and fixed login-screen visibility CSS bug; added the Prototype 1 usage guide (now docs/prototype-1/USAGE-GUIDE.md) and PROGRESS.md; pushed to GitHub. |
 | 2026-10-14 | 3 | Added `volunteer-app/` (separate from Prototype 1, which is unchanged): Apps Script backend over an existing Google Sheet (header-mapped tabs, additive `setup()`), volunteer registration/booking/trainee pairing/feedback, signed daily QR passes with leader scanning (offline queue, walk-ins, manual fallback), PWA frontend for GitHub Pages, local mock server, 21 backend tests, Playwright phone walkthrough, CI workflows for Pages and clasp. See volunteer-app/README.md and DESIGN-NOTES.md. |
+| 2026-10-14 | 4 | volunteer-app: automatic trainee pairing on confirm (continuity first, then fewest pairings; "Confirm all & pair"), richer trainee card for volunteers (gender, communication, behaviours, things to take note, notes from previous volunteers), Volunteer Guide + projects shown to new volunteers before first booking (leader-editable), volunteer feedback → leader review → Trainee Notes, venue dropdown with MINDS Woodlands Gardens School and add/rename/archive venues, fuzzy search everywhere, volunteers edit their own details and leaders edit anyone (incl. other leaders, deactivate). 37 backend tests; Playwright walkthrough of all new flows. |
+| 2026-10-14 | 5 | Repo tidy-up: new root README (index of both apps), Prototype 1 README and usage guide moved to `docs/prototype-1/`, `push_test.txt` removed, volunteer-app README restructured with screenshots, new `volunteer-app/docs/USER-GUIDE.md`. |

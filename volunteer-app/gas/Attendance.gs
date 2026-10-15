@@ -190,6 +190,8 @@ function clock_(user, o) {
     bookings.update(booking, { status: 'confirmed', decidedBy: o.admin.name, decidedAt: fmtDateTime_(now_()) });
     note = ' Booking was pending, so it has been confirmed.';
   }
+  const paired = autoPair_(booking, session);
+  if (paired) note += ` Paired with ${paired.traineeName}.`;
   const record = attendance.insert({
     attendanceId: newId_('A'),
     sessionId: session.sessionId,

@@ -4,9 +4,11 @@
 import { call, isNetworkError } from '../api.js';
 import { startScanner } from '../qr.js';
 import {
-  backLink, badge, busy, clockTime, el, errorBlock, field, fmtDay, fmtHours, fmtTimes, formData, icon, initials,
-  loading, mount, section, statusBadge, toast, todaySG,
+  backLink, badge, busy, clockTime, combobox, el, errorBlock, field, fmtDay, fmtHours, fmtTimes, formData, fuzzyFilter,
+  icon, initials, labelled, loading, mapsLink, mount, multiPick, searchBox, section, statusBadge, toast, todaySG,
 } from '../ui.js';
+import { projectPicker, venuePicker } from './content.js';
+import { traineeList } from './trainees.js';
 
 function list(...rows) {
   return el('div', { class: 'card divide-y divide-slate-100 overflow-hidden dark:divide-neutral-900' }, ...rows);
@@ -24,6 +26,56 @@ async function withAdminHome(root, app, ctx, draw) {
     if (!cached) mount(root, errorBlock(err, () => app.rerender()));
     else if (!isNetworkError(err)) toast(err.message, 'error');
   }
+}
+
+const traineeHint = (t) => [t.preferredName ? `Goes by ${t.preferredName}` : '', t.gender].filter(Boolean).join(', ');
+
+/**
+ * The session fields shared by "New session" and "Edit session":
+ * venue dropdown (with add-a-venue), project dropdown and trainees attending.
+ */
+function sessionFormFields(app, s, ref) {
+  const venue = venuePicker(app, ref.venues || [], s.venue);
+  const project = projectPicker(ref.projects || [], s.project || '');
+  const trainees = multiPick({
+    name: 'traineeIds',
+    options: (ref.trainees || []).map((t) => ({ value: t.id, label: t.name, hint: traineeHint(t) })),
+    values: s.traineeIds || [],
+    placeholder: 'Search trainees',
+  });
+  return {
+    venue: labelled('Venue', venue.el, { hint: "Not in the list? Type the name and choose “Add a new venue”." }),
+    project: labelled('Project', project.el, { optional: true }),
+    trainees: labelled('Trainees attending', trainees.el, {
+      optional: true,
+      hint: 'Volunteers are paired with these trainees when you confirm them. Leave empty to pair from all active trainees.',
+    }),
+  };
+}
+
+/** Form values → createSession/updateSession payload. Returns null (and warns) if something is missing. */
+function sessionPayload(form) {
+  const f = formData(form);
+  if (!f.title) {
+    toast('Give the session a title.', 'warn');
+    form.title.focus();
+    return null;
+  }
+  if (!f.venue) {
+    toast('Choose a venue, or add a new one.', 'warn');
+    return null;
+  }
+  return {
+    title: f.title,
+    date: f.date,
+    startTime: f.startTime,
+    endTime: f.endTime,
+    venue: f.venue,
+    project: f.project || '',
+    capacity: f.capacity === '' ? 0 : Number(f.capacity),
+    notes: f.notes || '',
+    traineeIds: f.traineeIds ? f.traineeIds.split(',').filter(Boolean) : [],
+  };
 }
 
 /* ---------------- Choose mode (CSL Attendance "Choose Mode") ---------------- */
@@ -51,16 +103,20 @@ export function renderMode(root, app) {
 /* ---------------- Sessions overview ---------------- */
 
 export function renderToday(root, app, ctx) {
+  let query = '';
+  let latest = null;
+  const host = el('div', {});
   const row = (s, today) => {
     const st = s.stats;
     return el('div', { class: 'flex items-center gap-3 p-4' },
       el('a', { href: `#/session/${s.sessionId}`, class: 'min-w-0 flex-1' },
         el('p', { class: 'text-sm font-bold text-indigo-600 dark:text-indigo-400' }, s.date === today ? fmtTimes(s) : `${fmtDay(s.date, today)}, ${fmtTimes(s)}`),
         el('h3', { class: 'font-bold leading-snug text-slate-900 dark:text-white' }, s.title),
-        el('p', { class: 'truncate text-sm muted' }, s.venue),
+        el('p', { class: 'truncate text-sm muted' }, [s.venue, s.project].filter(Boolean).join(' · ')),
         el('div', { class: 'mt-2 flex flex-wrap items-center gap-1.5' },
           badge(`${st.booked}${s.capacity ? `/${s.capacity}` : ''} booked`, 'slate'),
           st.pending ? badge(`${st.pending} to confirm`, 'amber') : null,
+          st.unpaired ? badge(`${st.unpaired} need${st.unpaired === 1 ? 's' : ''} a trainee`, 'amber') : null,
           st.onSite ? badge(`${st.onSite} on site`, 'emerald') : null,
           st.done ? badge(`${st.done} done`, 'indigo') : null,
           s.status === 'closed' ? badge('Bookings closed', 'red') : null)),
@@ -69,17 +125,27 @@ export function renderToday(root, app, ctx) {
         : icon('chevron', 'size-5 text-slate-300 dark:text-neutral-700'));
   };
 
-  const draw = (a) => {
+  const drawList = () => {
+    const a = latest;
+    if (!a) return;
     const today = a.today;
+    const alerts = [
+      a.pendingTotal ? el('p', { class: 'alert alert-warn mt-4 flex items-center gap-2' }, icon('alert', 'size-4'),
+        `${a.pendingTotal} booking${a.pendingTotal === 1 ? ' is' : 's are'} waiting for you to confirm.`) : null,
+      a.reviewCount ? el('a', { href: '#/review', class: 'alert alert-info mt-3 flex items-center gap-2' }, icon('inbox', 'size-4'),
+        el('span', { class: 'flex-1' }, `${a.reviewCount} volunteer note${a.reviewCount === 1 ? '' : 's'} about trainees to review`), icon('chevron', 'size-4')) : null,
+    ];
+    if (query.trim()) {
+      const shown = fuzzyFilter(a.sessions, query, (s) => [s.title, s.venue, s.project, s.notes, fmtDay(s.date, today), s.date]);
+      mount(host, alerts,
+        el('h2', { class: 'group-label' }, `${shown.length} match${shown.length === 1 ? '' : 'es'}`),
+        shown.length ? list(shown.map((s) => row(s, today))) : el('p', { class: 'text-sm muted' }, 'No session matches that search.'));
+      return;
+    }
     const todays = a.sessions.filter((s) => s.date === today);
     const upcoming = a.sessions.filter((s) => s.date > today);
     const past = a.sessions.filter((s) => s.date < today).reverse();
-    mount(root,
-      el('div', { class: 'flex items-center justify-between gap-3' },
-        el('h1', { class: 'page-title' }, 'Sessions'),
-        el('a', { href: '#/new-session', class: 'btn btn-primary btn-sm' }, icon('plus', 'size-4'), 'New session')),
-      a.pendingTotal ? el('p', { class: 'alert alert-warn mt-4 flex items-center gap-2' }, icon('alert', 'size-4'),
-        `${a.pendingTotal} booking${a.pendingTotal === 1 ? ' is' : 's are'} waiting for you to confirm.`) : null,
+    mount(host, alerts,
       el('h2', { class: 'group-label' }, fmtDay(today, today)),
       todays.length ? list(todays.map((s) => row(s, today))) : el('p', { class: 'text-sm muted' }, 'No sessions today.'),
       el('h2', { class: 'group-label' }, 'Coming up'),
@@ -88,7 +154,14 @@ export function renderToday(root, app, ctx) {
         el('summary', { class: 'group-label cursor-pointer' }, `Past week (${past.length})`),
         list(past.map((s) => row(s, today)))) : null);
   };
-  return withAdminHome(root, app, ctx, draw);
+
+  mount(root,
+    el('div', { class: 'flex items-center justify-between gap-3' },
+      el('h1', { class: 'page-title' }, 'Sessions'),
+      el('a', { href: '#/new-session', class: 'btn btn-primary btn-sm' }, icon('plus', 'size-4'), 'New session')),
+    el('div', { class: 'mt-4' }, searchBox('Search sessions by title, venue, project or date', (q) => { query = q; drawList(); })),
+    host);
+  return withAdminHome(host, app, ctx, (a) => { latest = a; drawList(); });
 }
 
 /* ---------------- Session detail ---------------- */
@@ -99,6 +172,8 @@ export function renderSession(root, app, ctx, sessionId) {
     const isToday = s.date === d.today;
     const active = d.bookings.filter((b) => b.status !== 'cancelled');
     const cancelled = d.bookings.filter((b) => b.status === 'cancelled');
+    const attending = new Set(s.traineeIds || []);
+    const traineeName = Object.fromEntries(d.trainees.map((t) => [t.id, t.name]));
     const pairedWith = {};
     active.forEach((b) => { if (b.trainee) pairedWith[b.trainee.id] = b.volunteer.name; });
     const apply = (res) => {
@@ -107,29 +182,52 @@ export function renderSession(root, app, ctx, sessionId) {
       if (ctx.alive()) draw(res.detail);
     };
 
+    const traineeOptions = (b) => {
+      const mine = b.trainee ? b.trainee.id : '';
+      const opts = d.trainees.map((t) => {
+        const other = pairedWith[t.id] && t.id !== mine ? pairedWith[t.id] : '';
+        let hint = traineeHint(t);
+        if (attending.has(t.id)) hint = ['Attending', hint].filter(Boolean).join(', ');
+        if (other) hint = `With ${other}`;
+        return { value: t.id, label: t.name, hint };
+      });
+      if (attending.size) opts.sort((x, y) => Number(attending.has(y.value)) - Number(attending.has(x.value)));
+      if (b.trainee && !opts.some((o) => o.value === mine)) opts.unshift({ value: mine, label: b.trainee.name, hint: 'Not on the active trainee list' });
+      return opts;
+    };
+
     const bookingRow = (b) => {
       const v = b.volunteer;
-      const select = el('select', { class: 'input py-2.5', 'aria-label': `Trainee for ${v.name}` },
-        el('option', { value: '' }, 'No trainee yet'),
-        d.trainees.map((t) => el('option', { value: t.id, selected: b.trainee && b.trainee.id === t.id },
-          pairedWith[t.id] && !(b.trainee && b.trainee.id === t.id) ? `${t.name} (with ${pairedWith[t.id]})` : t.name)));
+      const pending = b.status === 'pending';
+      const picker = combobox({
+        name: `trainee-${b.bookingId}`,
+        options: traineeOptions(b),
+        value: b.trainee ? b.trainee.id : '',
+        placeholder: 'Type a trainee name',
+        emptyOption: pending ? 'Pair automatically when confirmed' : 'No trainee',
+        emptyText: 'No trainee matches',
+        onChange: pending ? null : (value) => {
+          picker.input.disabled = true;
+          call('updateBooking', { bookingId: b.bookingId, traineeId: value })
+            .then((res) => {
+              apply(res);
+              toast(value ? `${v.name} is now paired with ${traineeName[value] || 'the trainee'}.` : `Pairing removed for ${v.name}.`);
+            })
+            .catch((err) => { toast(err.message, 'error'); draw(d); });
+        },
+      });
+      picker.input.setAttribute('aria-label', `Trainee for ${v.name}`);
 
       let primary = null;
-      if (b.status === 'pending') {
-        primary = el('button', { class: 'btn btn-success btn-sm' }, icon('tick', 'size-4'), 'Confirm');
+      if (pending) {
+        primary = el('button', { class: 'btn btn-success btn-sm' }, icon('tick', 'size-4'), picker.value ? 'Confirm' : 'Confirm & pair');
         primary.addEventListener('click', () => busy(primary, 'Saving…', async () => {
           const payload = { bookingId: b.bookingId, status: 'confirmed' };
-          if (select.value) payload.traineeId = select.value;
-          apply(await call('updateBooking', payload));
-          toast(`${v.name} confirmed${select.value ? ` and paired with ${select.selectedOptions[0].textContent}` : ''}.`);
+          if (picker.value) payload.traineeId = picker.value;
+          const res = await call('updateBooking', payload);
+          apply(res);
+          toast(res.message, res.detail.bookings.find((x) => x.bookingId === b.bookingId)?.trainee ? 'ok' : 'warn');
         }));
-      } else {
-        select.addEventListener('change', () => {
-          select.disabled = true;
-          call('updateBooking', { bookingId: b.bookingId, traineeId: select.value })
-            .then((res) => { apply(res); toast(select.value ? 'Pairing saved.' : 'Pairing removed.'); })
-            .catch((err) => { toast(err.message, 'error'); draw(d); });
-        });
       }
 
       // CSL convention: clock in = emerald, clock out = indigo.
@@ -155,19 +253,26 @@ export function renderSession(root, app, ctx, sessionId) {
         remove = el('button', { class: 'text-sm font-bold text-red-600 hover:underline dark:text-red-400' }, 'Remove');
         remove.addEventListener('click', () => {
           if (!confirm(`Remove ${v.name} from ${s.title}?`)) return;
-          busy(remove, 'Removing…', async () => apply(await call('updateBooking', { bookingId: b.bookingId, status: 'cancelled' })));
+          busy(remove, 'Removing…', async () => { const res = await call('updateBooking', { bookingId: b.bookingId, status: 'cancelled' }); apply(res); toast(res.message); });
         });
       }
       const contact = (href, iconName, text, danger) => el('a', { href, class: `inline-flex items-center gap-1 font-bold ${danger ? 'text-red-600 dark:text-red-400' : 'text-indigo-600 dark:text-indigo-400'}` }, icon(iconName, 'size-4'), text);
 
       return el('div', { class: 'p-4' },
         el('div', { class: 'flex items-center gap-3' },
-          el('span', { class: 'flex size-10 shrink-0 items-center justify-center rounded-xl bg-indigo-100 text-sm font-extrabold text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300' }, initials(v.name)),
+          el('a', { href: `#/person/${v.userId}`, class: 'flex size-10 shrink-0 items-center justify-center rounded-xl bg-indigo-100 text-sm font-extrabold text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300', 'aria-label': `Open ${v.name}` }, initials(v.name)),
           el('div', { class: 'min-w-0 flex-1' },
             el('h3', { class: 'truncate font-bold text-slate-900 dark:text-white' }, v.name),
             el('div', { class: 'mt-0.5 flex flex-wrap gap-1' },
-              statusBadge(b.status), b.walkIn ? badge('Walk-in', 'purple') : null, b.feedbackGiven ? badge('Feedback in', 'indigo') : null))),
-        el('label', { class: 'mt-3 block text-xs font-bold uppercase tracking-wider muted' }, 'Trainee', el('div', { class: 'mt-1 normal-case tracking-normal' }, select)),
+              statusBadge(b.status),
+              b.pairing === 'auto' && b.trainee ? badge('Auto-paired', 'indigo', 'sparkle') : null,
+              b.status === 'confirmed' && !b.trainee ? badge('Needs a trainee', 'amber', 'alert') : null,
+              b.walkIn ? badge('Walk-in', 'purple') : null,
+              b.feedbackGiven ? badge('Feedback in', 'indigo') : null))),
+        el('div', { class: 'mt-3' },
+          el('p', { class: 'mb-1 text-xs font-bold uppercase tracking-wider muted' }, 'Trainee'),
+          picker.el,
+          b.trainee ? el('a', { href: `#/trainee/${encodeURIComponent(b.trainee.id)}`, class: 'link mt-1 inline-block text-xs' }, `View ${b.trainee.name}'s details and notes`) : null),
         el('div', { class: 'mt-3 flex flex-wrap items-center gap-3' }, primary, clock, remove),
         el('p', { class: 'mt-3 flex flex-wrap gap-x-4 gap-y-1 text-sm' },
           v.phone ? contact(`tel:${v.phone.replace(/\s/g, '')}`, 'phone', 'Call') : null,
@@ -175,20 +280,25 @@ export function renderSession(root, app, ctx, sessionId) {
           v.emergencyPhone ? contact(`tel:${v.emergencyPhone.replace(/\s/g, '')}`, 'phone', `Emergency: ${v.emergencyName}${v.emergencyRelation ? ` (${v.emergencyRelation})` : ''}`, true) : null));
     };
 
-    const edit = el('form', { class: 'grid grid-cols-2 gap-4', novalidate: true },
-      el('div', { class: 'col-span-2' }, field('title', 'Title', { value: s.title })),
-      el('div', { class: 'col-span-2' }, field('date', 'Date', { type: 'date', value: s.date })),
-      field('startTime', 'Starts', { type: 'time', value: s.startTime }),
-      field('endTime', 'Ends', { type: 'time', value: s.endTime }),
-      el('div', { class: 'col-span-2' }, field('venue', 'Venue', { value: s.venue })),
-      el('div', { class: 'col-span-2' }, field('capacity', 'Volunteer slots', { type: 'number', min: 0, max: 500, value: s.capacity, hint: '0 means no limit.' })),
-      el('div', { class: 'col-span-2' }, field('notes', 'Notes for volunteers', { type: 'textarea', value: s.notes || '' })),
-      el('button', { type: 'submit', class: 'btn btn-primary col-span-2' }, 'Save changes'));
+    const parts = sessionFormFields(app, s, d);
+    const edit = el('form', { class: 'space-y-4', novalidate: true },
+      field('title', 'Title', { value: s.title }),
+      field('date', 'Date', { type: 'date', value: s.date }),
+      el('div', { class: 'grid grid-cols-2 gap-4' },
+        field('startTime', 'Starts', { type: 'time', value: s.startTime }),
+        field('endTime', 'Ends', { type: 'time', value: s.endTime })),
+      parts.venue,
+      parts.project,
+      field('capacity', 'Volunteer slots', { type: 'number', min: 0, max: 500, value: s.capacity, hint: '0 means no limit.' }),
+      field('notes', 'Notes for volunteers', { type: 'textarea', value: s.notes || '' }),
+      parts.trainees,
+      el('button', { type: 'submit', class: 'btn btn-primary w-full' }, 'Save changes'));
     edit.addEventListener('submit', (e) => {
       e.preventDefault();
-      const f = formData(edit);
+      const payload = sessionPayload(edit);
+      if (!payload) return;
       busy(edit.querySelector('button[type=submit]'), 'Saving…', async () => {
-        apply(await call('updateSession', { sessionId, ...f, capacity: f.capacity === '' ? 0 : Number(f.capacity) }));
+        apply(await call('updateSession', { sessionId, ...payload }));
         toast('Session updated.');
       });
     });
@@ -204,14 +314,31 @@ export function renderSession(root, app, ctx, sessionId) {
       el('p', { class: `text-2xl font-extrabold ${tone}` }, String(n)),
       el('p', { class: 'text-[11px] font-bold uppercase tracking-wider muted' }, label));
 
+    let pairAll = null;
+    if (s.status !== 'cancelled' && (d.stats.pending || d.stats.unpaired)) {
+      pairAll = el('button', { class: 'btn btn-primary mt-3 w-full' }, icon('sparkle'),
+        d.stats.pending ? `Confirm all & pair trainees (${d.stats.pending})` : `Pair ${d.stats.unpaired} volunteer${d.stats.unpaired === 1 ? '' : 's'} with a trainee`);
+      pairAll.addEventListener('click', () => busy(pairAll, 'Pairing…', async () => {
+        const res = await call('confirmAll', { sessionId });
+        apply(res);
+        toast(res.message, res.detail.stats.unpaired ? 'warn' : 'ok');
+      }));
+    }
+    const venueAddress = (d.venues.find((v) => v.name === s.venue) || {}).address || s.venueAddress;
+
     mount(root,
       backLink('#/today', 'Sessions'),
       el('div', { class: 'flex items-start justify-between gap-3' },
         el('div', { class: 'min-w-0' },
           el('h1', { class: 'page-title leading-tight' }, s.title),
           el('p', { class: 'mt-1 font-bold text-indigo-600 dark:text-indigo-400' }, `${fmtDay(s.date, d.today)}, ${fmtTimes(s)}`),
-          el('p', { class: 'flex items-center gap-1 text-sm muted' }, icon('pin', 'size-4'), s.venue || 'No venue set')),
+          el('p', { class: 'flex items-center gap-1 text-sm muted' }, icon('pin', 'size-4'),
+            s.venue ? el('a', { href: mapsLink(venueAddress || s.venue), target: '_blank', rel: 'noopener', class: 'hover:underline' }, s.venue) : 'No venue set'),
+          s.project ? el('div', { class: 'mt-1.5' }, badge(s.project, 'emerald')) : null),
         s.status !== 'open' ? badge(s.status === 'closed' ? 'Bookings closed' : 'Cancelled', 'red') : null),
+      attending.size ? el('p', { class: 'mt-2 text-sm muted' },
+        el('span', { class: 'font-bold text-slate-700 dark:text-neutral-200' }, 'Trainees attending: '),
+        [...attending].map((id) => traineeName[id] || id).join(', ')) : null,
       el('div', { class: 'mt-4 grid grid-cols-4 gap-2' },
         stat(`${d.stats.booked}${s.capacity ? `/${s.capacity}` : ''}`, 'Booked', 'text-slate-900 dark:text-white'),
         stat(d.stats.pending, 'To confirm', 'text-amber-600 dark:text-amber-400'),
@@ -220,6 +347,7 @@ export function renderSession(root, app, ctx, sessionId) {
       isToday && s.status !== 'cancelled'
         ? el('a', { href: `#/scan/${sessionId}`, class: 'btn btn-success mt-4 w-full' }, icon('scan'), 'Scan passes for this session')
         : null,
+      pairAll,
       el('h2', { class: 'group-label' }, `Volunteers (${active.length})`),
       active.length ? list(active.map(bookingRow)) : el('p', { class: 'text-sm muted' }, 'No bookings yet.'),
       cancelled.length ? el('details', { class: 'mt-4' },
@@ -240,8 +368,8 @@ export function renderSession(root, app, ctx, sessionId) {
   return call('sessionDetail', { sessionId })
     .then((d) => {
       app.cacheDetail(sessionId, d);
-      // Don't redraw under someone who is typing in the edit form.
-      if (ctx.alive() && (!cached || !root.contains(document.activeElement))) draw(d);
+      // Don't redraw under someone who is typing or choosing a trainee.
+      if (ctx.alive() && (!cached || !root.contains(document.activeElement) || document.activeElement === document.body)) draw(d);
     })
     .catch((err) => {
       if (!ctx.alive()) return;
@@ -252,36 +380,46 @@ export function renderSession(root, app, ctx, sessionId) {
 
 /* ---------------- New session ---------------- */
 
-export function renderNewSession(root, app) {
-  const submit = el('button', { type: 'submit', class: 'btn btn-primary w-full' }, 'Create session');
-  const form = el('form', { novalidate: true, class: 'space-y-6' },
-    section('Session details', 'indigo',
-      field('title', 'Title', { placeholder: 'e.g. Art & Craft' }),
-      field('date', 'Date', { type: 'date', value: todaySG(), min: todaySG() }),
-      el('div', { class: 'grid grid-cols-2 gap-4' },
-        field('startTime', 'Starts', { type: 'time', value: '10:00' }),
-        field('endTime', 'Ends', { type: 'time', value: '12:00' })),
-      field('venue', 'Venue', { optional: true, placeholder: 'e.g. MINDS Clementi DAC' })),
-    section('For volunteers', 'green',
-      field('capacity', 'Volunteer slots', { type: 'number', min: 0, max: 500, inputmode: 'numeric', optional: true, placeholder: 'Leave empty for no limit' }),
-      field('notes', 'Notes', { type: 'textarea', optional: true, placeholder: 'What to wear or bring, where to meet' })),
-    el('div', { class: 'action-bar' }, el('div', { class: 'mx-auto max-w-2xl' }, submit)));
-  form.addEventListener('submit', (e) => {
-    e.preventDefault();
-    const f = formData(form);
-    if (!f.title) {
-      toast('Give the session a title.', 'warn');
-      form.title.focus();
-      return;
-    }
-    busy(submit, 'Creating…', async () => {
-      const res = await call('createSession', { ...f, capacity: f.capacity === '' ? 0 : Number(f.capacity) });
-      app.saveAdminHome(res.home);
-      toast('Session created. Volunteers can book it now.');
-      app.go(`#/session/${res.session.sessionId}`);
+export function renderNewSession(root, app, ctx) {
+  const draw = (home) => {
+    const submit = el('button', { type: 'submit', class: 'btn btn-primary w-full' }, 'Create session');
+    const parts = sessionFormFields(app, { traineeIds: [] }, home);
+    const form = el('form', { novalidate: true, class: 'space-y-6' },
+      section('Session details', 'indigo',
+        field('title', 'Title', { placeholder: 'e.g. Art & Craft' }),
+        field('date', 'Date', { type: 'date', value: todaySG(), min: todaySG() }),
+        el('div', { class: 'grid grid-cols-2 gap-4' },
+          field('startTime', 'Starts', { type: 'time', value: '10:00' }),
+          field('endTime', 'Ends', { type: 'time', value: '12:00' })),
+        parts.venue,
+        parts.project),
+      section('For volunteers', 'green',
+        field('capacity', 'Volunteer slots', { type: 'number', min: 0, max: 500, inputmode: 'numeric', optional: true, placeholder: 'Leave empty for no limit' }),
+        field('notes', 'Notes', { type: 'textarea', optional: true, placeholder: 'What to wear or bring, where to meet' })),
+      section('Trainee pairing', 'purple', parts.trainees),
+      el('div', { class: 'h-20' }),
+      el('div', { class: 'action-bar' }, el('div', { class: 'mx-auto max-w-2xl' }, submit)));
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const payload = sessionPayload(form);
+      if (!payload) return;
+      busy(submit, 'Creating…', async () => {
+        const res = await call('createSession', payload);
+        app.saveAdminHome(res.home);
+        toast('Session created. Volunteers can book it now.');
+        app.go(`#/session/${res.session.sessionId}`);
+      });
     });
-  });
-  mount(root, backLink('#/today', 'Sessions'), el('h1', { class: 'page-title mb-6' }, 'New session'), form);
+    mount(root, backLink('#/today', 'Sessions'), el('h1', { class: 'page-title mb-6' }, 'New session'), form);
+  };
+  const home = app.cachedAdminHome();
+  if (home && home.venues) {
+    draw(home);
+    return Promise.resolve();
+  }
+  mount(root, loading());
+  return app.fetchAdminHome().then((h) => { if (ctx.alive()) draw(h); })
+    .catch((err) => { if (ctx.alive()) mount(root, backLink('#/today', 'Sessions'), errorBlock(err, () => app.rerender())); });
 }
 
 /* ---------------- Scan ---------------- */
@@ -428,82 +566,40 @@ export function renderScan(root, app, ctx, presetSessionId) {
   start();
 }
 
-/* ---------------- People ---------------- */
+/* ---------------- People (volunteers and leaders) and Trainees ---------------- */
 
-export function renderPeople(root, app, ctx) {
+export function renderPeople(root, app, ctx, tab) {
+  const showTrainees = tab === 'trainees';
+  const seg = el('div', { class: 'seg mb-4', role: 'tablist' },
+    el('a', { href: '#/people', class: 'seg-item', role: 'tab', 'aria-current': showTrainees ? null : 'page' }, icon('users', 'size-4'), 'Volunteers'),
+    el('a', { href: '#/people/trainees', class: 'seg-item', role: 'tab', 'aria-current': showTrainees ? 'page' : null }, icon('heart', 'size-4'), 'Trainees'));
+  const host = el('div', {});
+  mount(root, el('h1', { class: 'page-title mb-4' }, 'People'), seg, host);
+  if (showTrainees) return traineeList(host, app, ctx);
+
   let people = app.cachedPeople();
   let query = '';
   const listHost = el('div', { class: 'mt-4' });
-  const search = el('input', { type: 'search', class: 'input pl-10', placeholder: 'Search by name, email or phone', 'aria-label': 'Search volunteers' });
-  search.addEventListener('input', () => { query = search.value.trim().toLowerCase(); drawList(); });
 
-  const personRow = (p) => {
-    const roleBtn = el('button', { class: 'btn btn-secondary btn-sm' }, icon('shield', 'size-4'), p.role === 'admin' ? 'Remove leader access' : 'Make volunteer leader');
-    roleBtn.addEventListener('click', () => {
-      const to = p.role === 'admin' ? 'volunteer' : 'admin';
-      const q = to === 'admin'
-        ? `Make ${p.name} a volunteer leader? They will be able to create sessions, scan passes and see volunteer contact details.`
-        : `Remove leader access from ${p.name}?`;
-      if (!confirm(q)) return;
-      busy(roleBtn, 'Saving…', async () => {
-        await call('setRole', { userId: p.userId, role: to });
-        p.role = to;
-        toast(to === 'admin' ? `${p.name} is now a volunteer leader.` : `${p.name} is now a volunteer.`);
-        drawList();
-      });
-    });
-    const resetBtn = el('button', { class: 'btn btn-secondary btn-sm' }, icon('refresh', 'size-4'), 'Reset password');
-    const resetOut = el('div', {});
-    resetBtn.addEventListener('click', () => {
-      if (!confirm(`Reset ${p.name}'s password? They will be signed out on all their devices.`)) return;
-      busy(resetBtn, 'Resetting…', async () => {
-        const res = await call('resetPassword', { userId: p.userId });
-        const copy = el('button', { class: 'btn btn-secondary btn-sm', onclick: () => navigator.clipboard?.writeText(res.tempPassword).then(() => toast('Copied.')) }, 'Copy');
-        mount(resetOut, el('div', { class: 'alert alert-warn mt-3' },
-          el('p', {}, `Give ${p.name} this temporary password. They can change it under Me.`),
-          el('div', { class: 'mt-2 flex items-center justify-between gap-3' },
-            el('code', { class: 'font-mono text-lg font-bold' }, res.tempPassword), copy)));
-      });
-    });
-    const line = (label, value, href) => value ? el('div', { class: 'flex justify-between gap-3 py-2' },
-      el('dt', { class: 'muted' }, label),
-      el('dd', { class: 'text-right font-bold' }, href ? el('a', { href, class: 'link' }, value) : value)) : null;
-
-    return el('details', { class: 'group' },
-      el('summary', { class: 'flex cursor-pointer list-none items-center gap-3 p-4 hover:bg-slate-50 dark:hover:bg-neutral-900' },
-        el('span', { class: 'flex size-10 shrink-0 items-center justify-center rounded-xl bg-indigo-100 text-sm font-extrabold text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300' }, initials(p.name)),
-        el('div', { class: 'min-w-0 flex-1' },
-          el('p', { class: 'flex items-center gap-2 font-bold text-slate-900 dark:text-white' }, el('span', { class: 'truncate' }, p.name), p.role === 'admin' ? badge('Leader', 'purple') : null),
-          el('p', { class: 'text-sm muted' }, `${fmtHours(p.hours)} over ${p.sessions} session${p.sessions === 1 ? '' : 's'}`)),
-        icon('chevron', 'size-5 text-slate-300 transition-transform group-open:rotate-90 dark:text-neutral-700')),
-      el('div', { class: 'px-4 pb-4' },
-        el('dl', { class: 'divide-y divide-slate-100 text-sm dark:divide-neutral-800' },
-          line('Email', p.email, `mailto:${p.email}`),
-          line('Phone', p.phone, `tel:${String(p.phone).replace(/\s/g, '')}`),
-          line('Telegram', p.telegram ? `@${p.telegram}` : '', p.telegram ? `https://t.me/${p.telegram}` : ''),
-          line('Birthday', p.birthday),
-          line('Emergency contact', `${p.emergencyName}${p.emergencyRelation ? ` (${p.emergencyRelation})` : ''}`),
-          line('Emergency phone', p.emergencyPhone, `tel:${String(p.emergencyPhone).replace(/\s/g, '')}`),
-          line('Registered', p.createdAt ? p.createdAt.slice(0, 10) : '')),
-        el('div', { class: 'mt-3 flex flex-wrap gap-2' }, roleBtn, p.hasAccount ? resetBtn : badge('No app account yet')),
-        resetOut));
-  };
+  const personRow = (p) => el('a', { href: `#/person/${p.userId}`, class: `flex items-center gap-3 p-4 hover:bg-slate-50 dark:hover:bg-neutral-900 ${p.status === 'inactive' ? 'opacity-60' : ''}` },
+    el('span', { class: 'flex size-10 shrink-0 items-center justify-center rounded-xl bg-indigo-100 text-sm font-extrabold text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300' }, initials(p.name)),
+    el('div', { class: 'min-w-0 flex-1' },
+      el('p', { class: 'flex items-center gap-2 font-bold text-slate-900 dark:text-white' }, el('span', { class: 'truncate' }, p.name),
+        p.role === 'admin' ? badge('Leader', 'purple') : null,
+        p.status === 'inactive' ? badge('Deactivated', 'red') : null),
+      el('p', { class: 'truncate text-sm muted' }, `${fmtHours(p.hours)} over ${p.sessions} session${p.sessions === 1 ? '' : 's'}${p.phone ? ` · ${p.phone}` : ''}`)),
+    icon('chevron', 'size-5 text-slate-300 dark:text-neutral-700'));
 
   const drawList = () => {
     if (!people) return;
-    const shown = people.filter((p) => !query || [p.name, p.email, p.phone].some((v) => String(v || '').toLowerCase().includes(query)));
+    const shown = fuzzyFilter(people, query, (p) => [p.name, p.email, p.phone, p.telegram, p.emergencyName, p.role === 'admin' ? 'leader' : 'volunteer']);
     const leaders = people.filter((p) => p.role === 'admin').length;
     mount(listHost,
       el('p', { class: 'mb-2 text-xs font-bold uppercase tracking-wider muted' }, `${people.length} people, ${leaders} leader${leaders === 1 ? '' : 's'}`),
       shown.length ? list(shown.map(personRow)) : el('p', { class: 'text-sm muted' }, 'No one matches that search.'));
   };
 
-  mount(root,
-    el('h1', { class: 'page-title mb-4' }, 'People'),
-    el('div', { class: 'relative' },
-      el('span', { class: 'pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400' }, icon('search')),
-      search),
-    listHost);
+  mount(host, searchBox('Search by name, email, phone or Telegram', (q) => { query = q; drawList(); }, 'Search volunteers'), listHost);
   if (people) drawList();
   else mount(listHost, loading());
   return call('listPeople', {}).then((res) => {

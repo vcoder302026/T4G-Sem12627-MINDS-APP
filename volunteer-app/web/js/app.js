@@ -5,7 +5,10 @@ import { call, isNetworkError, onUnauthorized, session, storage } from './api.js
 import { CONFIG } from './config.js';
 import { el, icon, mount, toast } from './ui.js';
 import { renderLogin, renderRegister } from './views/auth.js';
+import * as C from './views/content.js';
 import * as L from './views/leader.js';
+import * as P from './views/profile.js';
+import * as T from './views/trainees.js';
 import * as V from './views/volunteer.js';
 
 const view = document.getElementById('view');
@@ -17,7 +20,7 @@ const brandSub = document.getElementById('brand-sub');
 const envBar = document.getElementById('env-bar');
 const offlineBar = document.getElementById('offline-bar');
 
-const memory = { details: {}, people: null };
+const memory = { details: {}, people: null, persons: {}, trainees: null };
 let flushing = null;
 
 function setOffline(isOffline) {
@@ -48,14 +51,23 @@ const app = {
     storage.set('minds.mode', mode);
     go(mode === 'leader' ? '#/today' : '#/home', true);
   },
-  signedIn({ token, user }, message) {
+  signedIn({ token, user }, message, next) {
     session.token = token;
     storage.set('minds.user', user);
     storage.remove('minds.vhome');
     storage.remove('minds.ahome');
+    storage.remove('minds.guide');
     storage.set('minds.mode', user.role === 'admin' ? 'leader' : 'volunteer');
-    go(user.role === 'admin' ? '#/today' : '#/home', true);
+    go(next || (user.role === 'admin' ? '#/today' : '#/home'), true);
     if (message) toast(message);
+  },
+  /** After editing your own details: refresh every saved copy of "me". */
+  updateUser(user) {
+    const merged = { ...(app.user || {}), ...user };
+    storage.set('minds.user', merged);
+    const h = app.cachedHome();
+    if (h) storage.set('minds.vhome', { ...h, user: { ...h.user, ...user } });
+    renderChrome(currentRoute);
   },
   setToken(token) {
     session.token = token;
@@ -64,6 +76,8 @@ const app = {
     session.clear();
     memory.details = {};
     memory.people = null;
+    memory.persons = {};
+    memory.trainees = null;
     go('#/login', true);
   },
 
@@ -106,6 +120,24 @@ const app = {
   cacheDetail: (id, d) => { memory.details[id] = d; },
   cachedPeople: () => memory.people,
   cachePeople: (p) => { memory.people = p; },
+  cachedPersonDetail: (id) => memory.persons[id] || null,
+  cachePersonDetail: (id, d) => { memory.persons[id] = d; },
+  /** After a leader edits someone: update the People list and that person's page. */
+  updatePerson(person) {
+    if (memory.people) memory.people = memory.people.map((p) => (p.userId === person.userId ? { ...p, ...person } : p));
+    const d = memory.persons[person.userId];
+    if (d) memory.persons[person.userId] = { ...d, person: { ...d.person, ...person } };
+    memory.details = {}; // session pages show contact details
+  },
+  cachedTrainees: () => memory.trainees,
+  cacheTrainees: (t) => { memory.trainees = t; },
+  dropTrainees: () => { memory.trainees = null; },
+  /** After adding or archiving a venue: keep every venue dropdown up to date. */
+  updateVenues(venues) {
+    const h = app.cachedAdminHome();
+    if (h) app.saveAdminHome({ ...h, venues });
+    Object.values(memory.details).forEach((d) => { d.venues = venues; });
+  },
 
   // offline scan queue (leader phones)
   queuedScans: () => storage.get('minds.scanQueue', []),
@@ -189,16 +221,16 @@ async function updateApp(btn) {
 
 const TABS = {
   volunteer: [
-    { key: 'home', href: '#/home', label: 'Home', icon: 'home' },
+    { key: 'home', href: '#/home', label: 'Home', icon: 'home', also: ['feedback', 'guide'] },
     { key: 'pass', href: '#/pass', label: 'QR pass', icon: 'qr' },
     { key: 'sessions', href: '#/sessions', label: 'Sessions', icon: 'calendar' },
-    { key: 'me', href: '#/me', label: 'Me', icon: 'user' },
+    { key: 'me', href: '#/me', label: 'Me', icon: 'user', also: ['edit-me'] },
   ],
   leader: [
-    { key: 'today', href: '#/today', label: 'Sessions', icon: 'calendar', also: ['session', 'new-session'] },
+    { key: 'today', href: '#/today', label: 'Sessions', icon: 'calendar', also: ['session', 'new-session', 'review'] },
     { key: 'scan', href: '#/scan', label: 'Scan', icon: 'scan' },
-    { key: 'people', href: '#/people', label: 'People', icon: 'users' },
-    { key: 'me', href: '#/me', label: 'Me', icon: 'user' },
+    { key: 'people', href: '#/people', label: 'People', icon: 'users', also: ['person', 'trainee'] },
+    { key: 'me', href: '#/me', label: 'Me', icon: 'user', also: ['edit-me', 'guide', 'guide-edit', 'venues'] },
   ],
 };
 
@@ -224,9 +256,11 @@ function renderChrome(name) {
 
   tabs.hidden = !signedIn || name === 'mode';
   if (tabs.hidden) return;
+  const home = app.cachedHome() || { pendingFeedback: [] };
   const badges = {
-    home: (app.cachedHome() || { pendingFeedback: [] }).pendingFeedback.length,
+    home: home.pendingFeedback.length + (home.guideRead === false ? 1 : 0),
     scan: app.queuedScans().length,
+    today: (app.cachedAdminHome() || {}).reviewCount || 0,
   };
   mount(tabList, TABS[mode].map((t) => {
     const active = t.key === name || (t.also || []).includes(name);
@@ -240,9 +274,14 @@ function renderChrome(name) {
 /* ---------------- routing ---------------- */
 
 const ROUTES = {
-  volunteer: { home: V.renderHome, pass: V.renderPass, sessions: V.renderSessions, me: V.renderMe, feedback: V.renderFeedback },
+  volunteer: {
+    home: V.renderHome, pass: V.renderPass, sessions: V.renderSessions, me: V.renderMe, feedback: V.renderFeedback,
+    guide: C.renderGuide, 'edit-me': P.renderEditMe,
+  },
   leader: {
-    today: L.renderToday, session: L.renderSession, 'new-session': L.renderNewSession, scan: L.renderScan, people: L.renderPeople, me: V.renderMe,
+    today: L.renderToday, session: L.renderSession, 'new-session': L.renderNewSession, scan: L.renderScan, people: L.renderPeople,
+    person: P.renderPerson, trainee: T.renderTrainee, review: T.renderReview,
+    me: V.renderMe, 'edit-me': P.renderEditMe, guide: C.renderGuide, 'guide-edit': C.renderGuideEdit, venues: C.renderVenues,
   },
 };
 

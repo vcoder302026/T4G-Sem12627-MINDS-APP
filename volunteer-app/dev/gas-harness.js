@@ -125,6 +125,20 @@ class FakeSheet {
   insertColumnsAfter(after, n) {
     this.maxCols += n;
   }
+  deleteRow(r) {
+    const shift = (map) => {
+      const next = new Map();
+      for (const [key, v] of map) {
+        const [row, col] = key.split(':').map(Number);
+        if (row === r) continue;
+        next.set(`${row > r ? row - 1 : row}:${col}`, v);
+      }
+      return next;
+    };
+    this.cells = shift(this.cells);
+    this.formats = shift(this.formats);
+    this.maxRows -= 1;
+  }
   getRange(row, col, numRows = 1, numCols = 1) {
     return new FakeRange(this, row, col, numRows, numCols);
   }
@@ -297,6 +311,10 @@ export function createGasRuntime() {
     },
     run(fnName, ...args) {
       return context[fnName](...args);
+    },
+    /** Evaluate code inside the Apps Script context, e.g. to change a CONFIG flag in a test. */
+    evaluate(code) {
+      return vm.runInContext(code, context);
     },
     /** Freeze the backend clock (ISO string or ms). Pass null to use real time again. */
     setNow(when) {
