@@ -15,7 +15,8 @@ Google Apps Script and a real Google Sheet is the next stage (see
 | [Part 4: Reference](#part-4-reference) | Sheet tabs, repo layout, team workflow, troubleshooting |
 
 The repo also contains **Prototype 1**, an earlier offline staff app. See
-[docs/prototype-1/README.md](README.md).
+[T4G-Sem12627-MINDS-APP
+/README.md].
 
 ---
 
