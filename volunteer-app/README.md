@@ -1,7 +1,28 @@
 # MINDS Volunteer App
 
-It replaces paper attendance and manual hour logging with a phone app. Volunteers book sessions and show a
-QR pass, leaders scan it to clock them in and out, and the hours are recorded in a Google Sheet straight away.
+A phone app for **MINDS** volunteering, built for NTU Tech for Good (Semester 1, AY2026/27).
+It replaces paper attendance and manual hour logging. Volunteers book sessions and show a
+QR pass, leaders scan it to clock them in and out, and the hours are recorded in a Google
+Sheet straight away.
+
+<table>
+  <tr>
+    <td><img src="docs/screenshots/guide.png" width="150" alt="Volunteer Guide shown to a new volunteer"></td>
+    <td><img src="docs/screenshots/volunteer-trainee.png" width="150" alt="A volunteer's session with their trainee's profile and notes"></td>
+    <td><img src="docs/screenshots/leader-auto-pair.png" width="150" alt="Leader's session page with automatically paired trainees"></td>
+    <td><img src="docs/screenshots/venue-dropdown.png" width="150" alt="Venue dropdown with fuzzy search"></td>
+    <td><img src="docs/screenshots/leader-sessions.png" width="150" alt="Leader's sessions list"></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>Guide for new volunteers</sub></td>
+    <td align="center"><sub>Your trainee</sub></td>
+    <td align="center"><sub>Auto-pairing</sub></td>
+    <td align="center"><sub>Venue dropdown</sub></td>
+    <td align="center"><sub>Leader sessions</sub></td>
+  </tr>
+</table>
+
+<sub>Screenshots use the local demo; every person in them is fictional.</sub>
 
 **Status:** working prototype. It runs fully on a laptop with demo data. Connecting it to
 Google Apps Script and a real Google Sheet is the next stage (see
@@ -12,10 +33,11 @@ Google Apps Script and a real Google Sheet is the next stage (see
 | [Part 1: App features](#part-1-app-features) | What volunteers and leaders can do today |
 | [Part 2: Test environment](#part-2-setting-up-the-test-environment) | Run the tests and the local demo on your own computer |
 | [Part 3: Apps Script & Google Sheets](#part-3-integrating-google-apps-script--google-sheets) | How to connect the app to Google, from test sheet to production |
-| [Part 4: Reference](#part-4-reference) | Sheet tabs, repo layout, team workflow, troubleshooting |
+| [Part 4: Reference](#part-4-reference) | Sheet tabs, repo layout, team workflow, troubleshooting, limits |
 
 The repo also contains **Prototype 1**, an earlier offline staff app. See
-[Main README](README.md).
+[docs/prototype-1/README.md](../docs/prototype-1/README.md). The [repository README](../README.md)
+gives an overview of both apps.
 
 ---
 
@@ -53,8 +75,8 @@ The repo also contains **Prototype 1**, an earlier offline staff app. See
 - **Installable** on a phone home screen as a web app (PWA). No app store needed.
 
 Step-by-step guides for each task are in
-[volunteer-app/docs/USER-GUIDE.md](volunteer-app/docs/USER-GUIDE.md), and the reasons
-behind the design are in [volunteer-app/DESIGN-NOTES.md](volunteer-app/DESIGN-NOTES.md).
+[docs/USER-GUIDE.md](docs/USER-GUIDE.md), and the reasons
+behind the design are in [DESIGN-NOTES.md](DESIGN-NOTES.md).
 
 ### How it fits together
 
@@ -89,6 +111,8 @@ in memory. You don't need a Google account, internet access or real data.
 | Git | `git --version` | any version | Mac: `xcode-select --install`. Windows: [git-scm.com](https://git-scm.com) |
 | Node.js | `node -v` | **20 or later** | [nodejs.org](https://nodejs.org) (LTS installer) |
 
+Mac: use **Terminal** (Cmd+Space, then type "Terminal"). Windows: use **PowerShell** or
+**Git Bash**.
 
 ### Step 2: Get the code
 
@@ -98,6 +122,12 @@ git clone https://github.com/vcoder302026/T4G-Sem12627-MINDS-APP.git
 cd T4G-Sem12627-MINDS-APP/volunteer-app
 ```
 
+There's nothing to `npm install`, because the volunteer app has no dependencies. Run every
+`npm` command in this README from the `volunteer-app` folder.
+
+> **Paths with spaces:** if a folder is named like `T4G-Sem12627-MINDS-APP 2`, put the path in
+> quotes: `cd "/Users/you/Downloads/T4G-Sem12627-MINDS-APP 2/volunteer-app"`. You can also type
+> `cd ` with a space and drag the folder from Finder into Terminal.
 
 ### Step 3: Run the automated tests
 
@@ -207,7 +237,7 @@ Always set up **Exp first** and only move to Prod once Exp has been tested end t
    | `Trainee ID` | No | Filled in automatically by `setup()` |
 
 3. If MINDS's headers are worded differently, change the **right-hand side** of
-   `TRAINEES.columns` in [`volunteer-app/gas/Config.gs`](volunteer-app/gas/Config.gs) to match.
+   `TRAINEES.columns` in [`gas/Config.gs`](gas/Config.gs) to match.
    For example, `communication: 'Comms Style'`.
 4. You don't need to create any other tabs. `setup()` does that in Stage 4.
 
@@ -216,18 +246,18 @@ Always set up **Exp first** and only move to Prod once Exp has been tested end t
 **Option A: copy and paste (simplest)**
 
 1. In the sheet, open **Extensions → Apps Script**.
-2. For each file in [`volunteer-app/gas/`](volunteer-app/gas), create a script file with the
+2. For each file in [`gas/`](gas), create a script file with the
    same name (**+ → Script**) and paste in its contents: `Admin`, `Attendance`, `Auth`,
    `Config`, `Content`, `Db`, `Main`, `Profile`, `Setup`, `Trainees`, `Util`, `Volunteer`.
    Delete the default `Code.gs`.
 3. In **Project Settings** (the gear icon), tick **Show "appsscript.json" manifest file in
    editor**. Then replace that file's contents with
-   [`gas/appsscript.json`](volunteer-app/gas/appsscript.json).
+   [`gas/appsscript.json`](gas/appsscript.json).
 
 **Option B: clasp (recommended once you update code often)**
 
 ```bash
-cd volunteer-app
+cd volunteer-app                    # from the repository root
 npm run clasp:login                 # sign in with the Google account that owns the script
 cp .clasp.json.example .clasp.json  # then paste your Script ID into .clasp.json
 npm run gas:push                    # uploads everything in gas/
@@ -345,7 +375,7 @@ Only start this after Exp has been tested end to end and MINDS has agreed.
       `AUTO_SHARE_OBSERVATIONS`, `REQUIRE_GUIDE_BEFORE_BOOKING`).
 - [ ] Review the known limits: password hashing uses HMAC-SHA256 because Apps Script has no
       bcrypt, emails aren't verified, and Apps Script handles about 30 requests at once.
-      See [volunteer-app/README.md](volunteer-app/README.md#limits-of-this-prototype).
+      See [Limits of this prototype](#limits-of-this-prototype).
 - [ ] Make the first leader with `makeFirstAdmin()`, then remove `FIRST_ADMIN_EMAIL`.
 
 ### Key settings in `Config.gs`
@@ -390,7 +420,7 @@ volunteer-app/
   dev/              local demo server and in-memory Google Sheets stand-in
   tests/            backend tests (npm test)
   docs/             user guide and screenshots
-  README.md         detailed technical reference
+  README.md         this file
   DESIGN-NOTES.md   why it's built this way
 .github/workflows/  deploy web (GitHub Pages) and backend (clasp)
 docs/prototype-1/   Prototype 1 README and usage guide
@@ -423,4 +453,18 @@ variables instead.
 | Code change isn't live | Publish a **New version** of the existing deployment, or set up Stage 8. |
 | Camera doesn't start | Use the HTTPS GitHub Pages site and allow camera access in the browser. |
 
-More detail: [volunteer-app/README.md](volunteer-app/README.md).
+How each screen works for volunteers and leaders: [docs/USER-GUIDE.md](docs/USER-GUIDE.md).
+
+### Limits of this prototype
+
+- Passwords use iterated HMAC-SHA256 with a secret pepper (Apps Script has no
+  bcrypt or scrypt). Review before a real launch.
+- Emails aren't verified. Someone registering with an email already on the
+  Volunteers list links to that row (always as a volunteer, never a leader).
+- Apps Script requests take 1–2 s and handle about 30 at once: fine for
+  session-sized groups, not for thousands of simultaneous users.
+- Pairing doesn't consider gender, skills or preferences yet; leaders adjust it.
+- Trainee details are edited in the trainee sheet, not in the app.
+- The scanner library (`html5-qrcode` 2.3.8) is no longer actively maintained;
+  it loads from a CDN with a fallback and is cached for offline use.
+- Agree with MINDS which trainee fields volunteers may see (PDPA).
