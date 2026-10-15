@@ -110,7 +110,7 @@ export function renderRegister(root, app) {
           password: form.password.value,
           consent: true,
         });
-        app.signedIn(res, 'Welcome! Pick a session to get started.');
+        app.signedIn(res, 'Welcome! Start with this short guide, then book your first session.', '#/guide');
       } catch (err) {
         error.textContent = err.message;
         error.hidden = false;

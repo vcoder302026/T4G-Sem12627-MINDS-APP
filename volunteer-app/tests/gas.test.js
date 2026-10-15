@@ -7,7 +7,8 @@ import { createGasRuntime } from '../dev/gas-harness.js';
 
 const SHEET = 'sheet-1';
 const TODAY = '2026-10-14';
-const at = (hhmm) => `${TODAY}T${hhmm}:00+08:00`;
+const SCHOOL = 'MINDS Woodlands Gardens School';
+const at = (hhmm, day = TODAY) => `${day}T${hhmm}:00+08:00`;
 
 function volunteerPayload(overrides = {}) {
   return {
@@ -39,14 +40,23 @@ let rt;
 let leader; // token
 let vol; // { token, user }
 
+/** Registers a volunteer who has already read the Volunteer Guide. */
+function volunteer(email, name) {
+  const v = ok(rt.call('register', volunteerPayload({ email, name })));
+  ok(rt.call('acknowledgeGuide', {}, v.token));
+  return v;
+}
+
 beforeEach(() => {
   rt = createGasRuntime();
   rt.createSpreadsheet(SHEET, 'MINDS Volunteer Data');
-  // An "existing" MINDS trainee list: different column order, extra columns, no ID column, a typed date.
+  // An "existing" MINDS trainee list: own column order, extra columns, no ID or Preferred Name column.
   rt.fillTab(SHEET, 'Trainees', [
-    ['Programme', 'Name', 'Interests', 'Date Joined', 'Medical Notes', 'Support Needs'],
-    ['Day Activity', 'Alex Tan', 'Music, puzzles', '2024-03-01', 'Epilepsy plan on file', 'Needs verbal prompts'],
-    ['Day Activity', 'Bea Lim', 'Drawing', '2023-07-15', '', ''],
+    ['Programme', 'Name', 'Gender', 'Communication', 'Behaviours', 'Things to Take Note', 'Interests', 'Medical Notes', 'Support Needs', 'Active'],
+    ['DAC', 'Alex Tan', 'Male', 'Verbal, short sentences', 'Likes routine', 'Gets anxious with loud noises', 'Music', 'Epilepsy plan on file', 'Needs verbal prompts', ''],
+    ['DAC', 'Bea Lim', 'Female', 'Non-verbal, uses gestures', 'Friendly, likes high-fives', 'Allergic to peanuts: no snacks', 'Drawing', '', '', 'Yes'],
+    ['DAC', 'Chris Ng', 'Male', 'Verbal', 'Very chatty', '', 'Football', '', '', ''],
+    ['DAC', 'Dana Goh', 'Female', 'A few words + signs', '', '', 'Dancing', '', '', 'No'],
   ]);
   rt.props.set('SPREADSHEET_ID', SHEET);
   rt.setNow(at('09:00'));
@@ -56,26 +66,35 @@ beforeEach(() => {
   rt.props.set('FIRST_ADMIN_EMAIL', 'leader@example.com');
   rt.run('makeFirstAdmin');
   leader = ok(rt.call('login', { email: 'leader@example.com', password: 'password123' })).token;
-  vol = ok(rt.call('register', volunteerPayload()));
+  vol = volunteer('v1@example.com', 'Vol One');
 });
 
 function createSession(fields = {}) {
-  return ok(rt.call('createSession', { title: 'Art & Craft', date: TODAY, startTime: '10:00', endTime: '12:00', venue: 'MINDS Clementi', capacity: 2, ...fields }, leader)).session;
+  return ok(rt.call('createSession', { title: 'Art & Craft', date: TODAY, startTime: '10:00', endTime: '12:00', venue: SCHOOL, capacity: 3, ...fields }, leader)).session;
+}
+function book(sessionId, v = vol) {
+  return ok(rt.call('bookSession', { sessionId }, v.token)).home.upcoming.find((u) => u.session.sessionId === sessionId).bookingId;
+}
+function confirm(bookingId, extra = {}) {
+  return ok(rt.call('updateBooking', { bookingId, status: 'confirmed', ...extra }, leader));
 }
 
 describe('linking to an existing sheet', () => {
-  test('setup keeps existing trainee columns and data, adds IDs and write-back columns only', () => {
+  test('setup keeps existing trainee columns, adds IDs, missing volunteer fields and write-back columns', () => {
     const [headers, ...rows] = rt.tab(SHEET, 'Trainees').dump();
-    assert.deepEqual(headers.slice(0, 6), ['Programme', 'Name', 'Interests', 'Date Joined', 'Medical Notes', 'Support Needs']);
-    assert.deepEqual(headers.slice(6), ['Trainee ID', 'Latest Volunteer Observation', 'Observation Updated']);
+    assert.deepEqual(headers.slice(0, 10), ['Programme', 'Name', 'Gender', 'Communication', 'Behaviours', 'Things to Take Note', 'Interests', 'Medical Notes', 'Support Needs', 'Active']);
+    assert.deepEqual(headers.slice(10), ['Trainee ID', 'Preferred Name', 'Latest Volunteer Observation', 'Observation Updated']);
     assert.equal(rows[0][1], 'Alex Tan');
-    assert.equal(rows[0][6], 'T-0001');
-    assert.equal(rows[1][6], 'T-0002');
+    assert.equal(rows[0][10], 'T-0001');
+    assert.equal(rows[3][10], 'T-0004');
   });
 
-  test('setup is safe to re-run and checkConfig changes nothing', () => {
-    const before = JSON.stringify(rt.tab(SHEET, 'Trainees').dump());
+  test('setup adds starter venue, guide and project once, and is safe to re-run', () => {
     rt.run('setup');
+    assert.deepEqual(rt.records(SHEET, 'Venues').map((v) => v.Venue), [SCHOOL]);
+    assert.equal(rt.records(SHEET, 'Volunteer Guide').length, 5);
+    assert.equal(rt.records(SHEET, 'Projects').length, 1);
+    const before = JSON.stringify(rt.tab(SHEET, 'Trainees').dump());
     assert.match(rt.run('checkConfig'), /"Trainees" is ready/);
     assert.equal(JSON.stringify(rt.tab(SHEET, 'Trainees').dump()), before);
   });
@@ -85,8 +104,7 @@ describe('linking to an existing sheet', () => {
     assert.equal(row.Birthday, '2001-05-06');
     assert.equal(row.Phone.trim(), '+65 9123 4567');
     assert.equal(row.Telegram, 'vol_one');
-    const auth = rt.tab(SHEET, '_Auth');
-    assert.equal(auth.isSheetHidden(), true);
+    assert.equal(rt.tab(SHEET, '_Auth').isSheetHidden(), true);
   });
 
   test('formula-like input is stored as text', () => {
@@ -95,13 +113,13 @@ describe('linking to an existing sheet', () => {
     assert.ok(!String(row['Full Name']).startsWith('#FORMULA'));
   });
 
-  test('a volunteer already on the list is linked, not duplicated, when they register', () => {
+  test('a volunteer already on the list is linked, not duplicated, and never inherits leader access', () => {
     rt.fillTab(SHEET, 'Volunteers', [[], [], [], ['', 'Old Timer', '', 'old@example.com', '', '', '', '', '', 'admin']]);
     const res = ok(rt.call('register', volunteerPayload({ name: 'Old Timer', email: 'old@example.com' })));
     const matches = rt.records(SHEET, 'Volunteers').filter((r) => r.Email === 'old@example.com');
     assert.equal(matches.length, 1);
     assert.match(matches[0]['User ID'], /^U-/);
-    assert.equal(res.user.role, 'volunteer', 'claiming a pre-listed row must not grant leader access');
+    assert.equal(res.user.role, 'volunteer');
     fails(rt.call('adminHome', {}, res.token), 'FORBIDDEN');
   });
 });
@@ -127,17 +145,18 @@ describe('accounts and roles', () => {
     const parts = vol.token.split('.');
     parts[1] = 'U-SOMEONE';
     fails(rt.call('me', {}, parts.join('.')), 'UNAUTHORIZED');
-    fails(rt.call('adminHome', {}, vol.token), 'FORBIDDEN');
-    fails(rt.call('scan', { code: 'x' }, vol.token), 'FORBIDDEN');
+    for (const action of ['adminHome', 'scan', 'listTrainees', 'reviewQueue', 'saveVenue', 'saveGuideSection', 'confirmAll']) {
+      fails(rt.call(action, {}, vol.token), 'FORBIDDEN');
+    }
   });
 
   test('promotion takes effect immediately; last leader cannot be removed', () => {
     ok(rt.call('setRole', { userId: vol.user.userId, role: 'admin' }, leader));
     ok(rt.call('adminHome', {}, vol.token));
     const leaderId = ok(rt.call('me', {}, leader)).user.userId;
-    fails(rt.call('setRole', { userId: leaderId, role: 'volunteer' }, leader), 'CONFLICT'); // self
+    fails(rt.call('setRole', { userId: leaderId, role: 'volunteer' }, leader), 'CONFLICT');
     ok(rt.call('setRole', { userId: leaderId, role: 'volunteer' }, vol.token));
-    fails(rt.call('setRole', { userId: vol.user.userId, role: 'volunteer' }, vol.token), 'CONFLICT'); // last one
+    fails(rt.call('setRole', { userId: vol.user.userId, role: 'volunteer' }, vol.token), 'CONFLICT');
   });
 
   test('password reset gives a temp password and signs the volunteer out everywhere', () => {
@@ -149,57 +168,160 @@ describe('accounts and roles', () => {
   });
 });
 
-describe('sessions, booking and trainee pairing', () => {
-  test('book → capacity → cancel → confirm with trainee → volunteer sees only allowed trainee fields', () => {
+describe('volunteer guide for new volunteers', () => {
+  test('a new volunteer must read the guide before booking', () => {
     const s = createSession();
-    const home = ok(rt.call('bookSession', { sessionId: s.sessionId }, vol.token)).home;
-    assert.equal(home.upcoming[0].status, 'pending');
-    fails(rt.call('bookSession', { sessionId: s.sessionId }, vol.token), 'CONFLICT');
+    const fresh = ok(rt.call('register', volunteerPayload({ email: 'new@example.com', name: 'New Person' })));
+    assert.equal(ok(rt.call('volunteerHome', {}, fresh.token)).guideRead, false);
+    fails(rt.call('bookSession', { sessionId: s.sessionId }, fresh.token), 'GUIDE_REQUIRED');
+    const g = ok(rt.call('guide', {}, fresh.token));
+    assert.deepEqual(g.sections.map((x) => x.title).slice(0, 3), ['Welcome to MINDS volunteering', 'What to wear', 'What we expect from you']);
+    assert.equal(g.projects[0].venue, SCHOOL);
+    const ack = ok(rt.call('acknowledgeGuide', {}, fresh.token));
+    assert.equal(ack.home.guideRead, true);
+    ok(rt.call('bookSession', { sessionId: s.sessionId }, fresh.token));
+    assert.match(rt.records(SHEET, 'Volunteers').find((r) => r.Email === 'new@example.com')['Guide Read At'], /^2026-10-14/);
+  });
 
-    const v2 = ok(rt.call('register', volunteerPayload({ email: 'v2@example.com', name: 'Vol Two' })));
-    const v3 = ok(rt.call('register', volunteerPayload({ email: 'v3@example.com', name: 'Vol Three' })));
-    ok(rt.call('bookSession', { sessionId: s.sessionId }, v2.token));
-    fails(rt.call('bookSession', { sessionId: s.sessionId }, v3.token), 'CONFLICT'); // full (capacity 2)
-    const b2 = ok(rt.call('volunteerHome', {}, v2.token)).upcoming[0].bookingId;
-    ok(rt.call('cancelBooking', { bookingId: b2 }, v2.token));
-    ok(rt.call('bookSession', { sessionId: s.sessionId }, v3.token)); // spot freed
+  test('leaders add, edit, reorder and delete guide sections', () => {
+    let c = ok(rt.call('saveGuideSection', { title: 'Parking', body: '- Park at the side gate\n- Sign in at the guardhouse' }, leader));
+    const added = c.sections.find((x) => x.title === 'Parking');
+    assert.equal(c.sections[c.sections.length - 1].title, 'Parking');
+    c = ok(rt.call('saveGuideSection', { sectionId: added.sectionId, title: 'Getting there', body: 'Take bus 911.' }, leader));
+    c = ok(rt.call('moveContent', { kind: 'guide', id: added.sectionId, direction: 'up' }, leader));
+    assert.equal(c.sections[c.sections.length - 2].title, 'Getting there');
+    assert.equal(ok(rt.call('guide', {}, vol.token)).sections.some((x) => x.body === 'Take bus 911.'), true);
+    c = ok(rt.call('deleteGuideSection', { sectionId: added.sectionId }, leader));
+    assert.equal(c.sections.some((x) => x.title === 'Getting there'), false);
+    assert.equal(c.sections.length, 5);
+    fails(rt.call('saveGuideSection', { title: '', body: 'x' }, leader), 'VALIDATION_ERROR');
+  });
 
-    const bookingId = home.upcoming[0].bookingId;
-    const detail = ok(rt.call('updateBooking', { bookingId, status: 'confirmed', traineeId: 'T-0001' }, leader)).detail;
-    assert.equal(detail.bookings.find((b) => b.bookingId === bookingId).trainee.name, 'Alex Tan');
-    assert.equal(detail.trainees.length, 2);
+  test('projects: add, archive, and link to sessions', () => {
+    let c = ok(rt.call('saveProject', { name: 'Weekend outings', description: 'Trips around Singapore', schedule: 'Saturdays', venue: SCHOOL }, leader));
+    const outing = c.projects.find((p) => p.name === 'Weekend outings');
+    fails(rt.call('saveProject', { name: 'weekend OUTINGS' }, leader), 'CONFLICT');
+    const s = createSession({ project: 'Weekend outings' });
+    assert.equal(s.project, 'Weekend outings');
+    fails(rt.call('createSession', { title: 'X', date: TODAY, startTime: '10:00', endTime: '11:00', venue: SCHOOL, project: 'Nope' }, leader), 'VALIDATION_ERROR');
+    c = ok(rt.call('saveProject', { projectId: outing.projectId, status: 'archived' }, leader));
+    assert.equal(ok(rt.call('guide', {}, vol.token)).projects.some((p) => p.name === 'Weekend outings'), false);
+  });
+});
 
-    const v3Booking = detail.bookings.find((b) => b.volunteer.name === 'Vol Three').bookingId;
-    fails(rt.call('updateBooking', { bookingId: v3Booking, traineeId: 'T-0001' }, leader), 'CONFLICT'); // already paired
+describe('venues', () => {
+  test('sessions must use a listed venue; leaders add, rename and archive venues', () => {
+    fails(rt.call('createSession', { title: 'X', date: TODAY, startTime: '10:00', endTime: '11:00', venue: 'Somewhere else' }, leader), 'VALIDATION_ERROR');
+    let res = ok(rt.call('saveVenue', { name: 'Jurong West Sports Centre', address: '20 Jurong West St 93' }, leader));
+    assert.deepEqual(res.venues.map((v) => v.name), ['Jurong West Sports Centre', SCHOOL]);
+    fails(rt.call('saveVenue', { name: 'jurong west sports centre' }, leader), 'CONFLICT');
+    const s = createSession({ venue: 'jurong west sports centre' }); // case-insensitive, stored with the listed spelling
+    assert.equal(s.venue, 'Jurong West Sports Centre');
+    assert.equal(s.venueAddress, '20 Jurong West St 93');
 
+    res = ok(rt.call('saveVenue', { venueId: res.venue.venueId, name: 'JW Sports Centre' }, leader));
+    const detail = ok(rt.call('sessionDetail', { sessionId: s.sessionId }, leader));
+    assert.equal(detail.session.venue, 'JW Sports Centre');
+
+    ok(rt.call('saveVenue', { venueId: res.venue.venueId, status: 'archived' }, leader));
+    fails(rt.call('createSession', { title: 'Y', date: TODAY, startTime: '10:00', endTime: '11:00', venue: 'JW Sports Centre' }, leader), 'VALIDATION_ERROR');
+    ok(rt.call('updateSession', { sessionId: s.sessionId, venue: 'JW Sports Centre', title: 'Renamed' }, leader)); // existing session keeps it
+    assert.equal(ok(rt.call('listVenues', {}, leader)).venues.find((v) => v.name === 'JW Sports Centre').status, 'archived');
+  });
+});
+
+describe('booking and automatic trainee pairing', () => {
+  test('confirming pairs a trainee automatically; the volunteer sees the allowed details only', () => {
+    const s = createSession();
+    const bookingId = book(s.sessionId);
+    const res = confirm(bookingId);
+    assert.match(res.message, /paired with/);
+    const row = res.detail.bookings.find((b) => b.bookingId === bookingId);
+    assert.equal(row.pairing, 'auto');
     const trainee = ok(rt.call('volunteerHome', {}, vol.token)).upcoming[0].trainee;
-    assert.equal(trainee.name, 'Alex Tan');
-    const labels = trainee.fields.map((f) => f.label);
-    assert.deepEqual(labels, ['Interests', 'Support Needs']);
+    assert.equal(trainee.name, row.trainee.name);
+    const keys = trainee.fields.map((f) => f.key);
+    assert.ok(keys.includes('gender') && keys.includes('communication'));
     assert.ok(!JSON.stringify(trainee).includes('Epilepsy'), 'medical notes must not reach volunteers');
   });
 
-  test('another volunteer cannot cancel my booking', () => {
-    const s = createSession();
-    const bookingId = ok(rt.call('bookSession', { sessionId: s.sessionId }, vol.token)).home.upcoming[0].bookingId;
-    const other = ok(rt.call('register', volunteerPayload({ email: 'v9@example.com' })));
-    fails(rt.call('cancelBooking', { bookingId }, other.token), 'NOT_FOUND');
+  test('volunteers in one session get different trainees; inactive trainees are skipped; then it runs out', () => {
+    const s = createSession({ capacity: 5 });
+    const ids = ['a', 'b', 'c', 'd'].map((x) => book(s.sessionId, volunteer(`${x}@example.com`, `Vol ${x}`)));
+    const res = ok(rt.call('confirmAll', { sessionId: s.sessionId }, leader));
+    assert.match(res.message, /4 confirmed, 3 paired/);
+    const paired = res.detail.bookings.filter((b) => b.trainee).map((b) => b.trainee.name);
+    assert.equal(new Set(paired).size, 3);
+    assert.ok(!paired.includes('Dana Goh'), 'Active = No keeps a trainee out of auto-pairing');
+    assert.equal(res.detail.stats.unpaired, 1);
+    assert.match(res.message, /1 still needs a trainee/);
+    assert.equal(ids.length, 4);
+    // freeing a trainee lets the same button pair the volunteer left over
+    ok(rt.call('updateBooking', { bookingId: res.detail.bookings.find((b) => b.trainee).bookingId, status: 'cancelled' }, leader));
+    const again = ok(rt.call('confirmAll', { sessionId: s.sessionId }, leader));
+    assert.equal(again.message, '1 paired with a trainee.');
+    assert.equal(again.detail.stats.unpaired, 0);
   });
 
-  test('session validation', () => {
-    fails(rt.call('createSession', { title: 'X', date: TODAY, startTime: '12:00', endTime: '10:00' }, leader), 'VALIDATION_ERROR');
-    fails(rt.call('createSession', { title: 'X', date: '2026-02-30', startTime: '10:00', endTime: '11:00' }, leader), 'VALIDATION_ERROR');
+  test('a session can limit pairing to the trainees attending it', () => {
+    const s = createSession({ traineeIds: ['T-0003'] });
+    assert.deepEqual(s.traineeIds, ['T-0003']);
+    const res = confirm(book(s.sessionId));
+    assert.equal(res.paired.traineeName, 'Chris Ng');
+    fails(rt.call('createSession', { title: 'X', date: TODAY, startTime: '10:00', endTime: '11:00', venue: SCHOOL, traineeIds: ['T-9999'] }, leader), 'VALIDATION_ERROR');
+  });
+
+  test('a volunteer is paired with the same trainee as last time when that trainee is free', () => {
+    const first = createSession({ date: '2026-10-20' });
+    confirm(book(first.sessionId), { traineeId: 'T-0002' }); // manual: Bea
+    const next = createSession({ date: '2026-10-27' });
+    const res = confirm(book(next.sessionId));
+    assert.equal(res.paired.traineeName, 'Bea Lim');
+    assert.match(res.paired.reason, /before/);
+  });
+
+  test('otherwise the trainee with the fewest pairings is chosen', () => {
+    const earlier = createSession({ date: '2026-10-20' });
+    confirm(book(earlier.sessionId, volunteer('x@example.com', 'Vol X')), { traineeId: 'T-0001' });
+    const s = createSession({ date: '2026-10-27' });
+    const res = confirm(book(s.sessionId));
+    assert.equal(res.paired.traineeName, 'Bea Lim'); // Alex already had a volunteer; Bea and Chris tie, Bea first by name
+  });
+
+  test('leaders can override the pairing; a trainee cannot be double-booked', () => {
     const s = createSession();
-    ok(rt.call('updateSession', { sessionId: s.sessionId, status: 'closed' }, leader));
+    const b1 = book(s.sessionId);
+    const b2 = book(s.sessionId, volunteer('v2@example.com', 'Vol Two'));
+    confirm(b1, { traineeId: 'T-0001' });
+    const detail = confirm(b2).detail;
+    assert.notEqual(detail.bookings.find((b) => b.bookingId === b2).trainee.id, 'T-0001');
+    fails(rt.call('updateBooking', { bookingId: b2, traineeId: 'T-0001' }, leader), 'CONFLICT');
+    const swapped = ok(rt.call('updateBooking', { bookingId: b2, traineeId: 'T-0003' }, leader));
+    assert.equal(swapped.detail.bookings.find((b) => b.bookingId === b2).pairing, 'manual');
+  });
+
+  test('booking rules: capacity, duplicates, cancelling, closed sessions', () => {
+    const s = createSession({ capacity: 2 });
+    book(s.sessionId);
     fails(rt.call('bookSession', { sessionId: s.sessionId }, vol.token), 'CONFLICT');
+    const v2 = volunteer('v2@example.com', 'Vol Two');
+    const v3 = volunteer('v3@example.com', 'Vol Three');
+    const b2 = book(s.sessionId, v2);
+    fails(rt.call('bookSession', { sessionId: s.sessionId }, v3.token), 'CONFLICT');
+    fails(rt.call('cancelBooking', { bookingId: b2 }, vol.token), 'NOT_FOUND'); // not yours
+    ok(rt.call('cancelBooking', { bookingId: b2 }, v2.token));
+    book(s.sessionId, v3);
+    ok(rt.call('updateSession', { sessionId: s.sessionId, status: 'closed' }, leader));
+    fails(rt.call('bookSession', { sessionId: s.sessionId }, v2.token), 'CONFLICT');
+    fails(rt.call('createSession', { title: 'X', date: TODAY, startTime: '12:00', endTime: '10:00', venue: SCHOOL }, leader), 'VALIDATION_ERROR');
   });
 });
 
 describe('QR clock-in / clock-out', () => {
   function bookAndConfirm() {
     const s = createSession();
-    const bookingId = ok(rt.call('bookSession', { sessionId: s.sessionId }, vol.token)).home.upcoming[0].bookingId;
-    ok(rt.call('updateBooking', { bookingId, status: 'confirmed', traineeId: 'T-0001' }, leader));
+    const bookingId = book(s.sessionId);
+    confirm(bookingId, { traineeId: 'T-0001' });
     const home = ok(rt.call('volunteerHome', {}, vol.token));
     return { s, bookingId, code: home.qr.find((q) => q.date === TODAY).code };
   }
@@ -210,21 +332,14 @@ describe('QR clock-in / clock-out', () => {
     const inRes = ok(rt.call('scan', { code }, leader));
     assert.equal(inRes.outcome, 'in');
     assert.equal(inRes.trainee.name, 'Alex Tan');
-    let row = rt.records(SHEET, 'Attendance')[0];
-    assert.equal(row['Clock In'], '2026-10-14 09:58:00');
-    assert.equal(row['Clocked In By'], 'Leader Lee');
-
+    assert.equal(rt.records(SHEET, 'Attendance')[0]['Clock In'], '2026-10-14 09:58:00');
     rt.advanceMinutes(1);
     assert.equal(ok(rt.call('scan', { code }, leader)).outcome, 'already-in');
-
     rt.setNow(at('12:13'));
     const out = ok(rt.call('scan', { code }, leader));
     assert.equal(out.outcome, 'out');
     assert.equal(out.attendance.hours, 2.25);
-    row = rt.records(SHEET, 'Attendance')[0];
-    assert.equal(row['Clock Out'], '2026-10-14 12:13:00');
-    assert.equal(row.Hours, 2.25);
-
+    assert.equal(rt.records(SHEET, 'Attendance')[0].Hours, 2.25);
     assert.equal(ok(rt.call('scan', { code }, leader)).outcome, 'already-out');
     const home = ok(rt.call('volunteerHome', {}, vol.token));
     assert.equal(home.totals.hours, 2.25);
@@ -238,23 +353,25 @@ describe('QR clock-in / clock-out', () => {
     fails(rt.call('scan', { code: `${prefix}.U-OTHER123.${ymd}.${sig}` }, leader), 'VALIDATION_ERROR');
     fails(rt.call('scan', { code: `${prefix}.${userId}.${ymd}.${'A'.repeat(sig.length)}` }, leader), 'VALIDATION_ERROR');
     rt.setNow('2026-10-15T02:00:00Z');
-    fails(rt.call('scan', { code }, leader), 'VALIDATION_ERROR'); // yesterday's code
+    fails(rt.call('scan', { code }, leader), 'VALIDATION_ERROR');
   });
 
-  test('pending booking is auto-confirmed on scan; unbooked volunteer needs walk-in', () => {
+  test('scanning a pending booking confirms and pairs it; a walk-in is paired too', () => {
     const s = createSession();
-    ok(rt.call('bookSession', { sessionId: s.sessionId }, vol.token));
+    book(s.sessionId);
     const code = ok(rt.call('volunteerHome', {}, vol.token)).qr[0].code;
     const res = ok(rt.call('scan', { code }, leader));
     assert.equal(res.outcome, 'in');
-    assert.match(res.message, /confirmed/);
+    assert.match(res.message, /confirmed\. Paired with/);
+    assert.ok(res.trainee);
 
-    const walker = ok(rt.call('register', volunteerPayload({ email: 'walk@example.com', name: 'Walk In' })));
+    const walker = volunteer('walk@example.com', 'Walk In');
     const wcode = ok(rt.call('volunteerHome', {}, walker.token)).qr[0].code;
     assert.equal(ok(rt.call('scan', { code: wcode }, leader)).outcome, 'not-booked');
     const walkIn = ok(rt.call('scan', { code: wcode, sessionId: s.sessionId, walkIn: true }, leader));
     assert.equal(walkIn.outcome, 'in');
-    assert.equal(rt.records(SHEET, 'Bookings').find((b) => b['Volunteer Name'] === 'Walk In')['Walk-in'], 'Yes');
+    assert.ok(walkIn.trainee, 'walk-ins are paired with a free trainee');
+    assert.notEqual(walkIn.trainee.name, res.trainee.name);
   });
 
   test('offline scans are uploaded later with their original times', () => {
@@ -285,33 +402,155 @@ describe('QR clock-in / clock-out', () => {
   });
 });
 
-describe('feedback updates the trainee record', () => {
-  test('feedback is logged and the latest observation is copied to the trainee row', () => {
-    const s = createSession();
-    const bookingId = ok(rt.call('bookSession', { sessionId: s.sessionId }, vol.token)).home.upcoming[0].bookingId;
-    fails(rt.call('submitFeedback', { bookingId, rating: 5 }, vol.token), 'CONFLICT'); // not clocked out yet
-    ok(rt.call('updateBooking', { bookingId, status: 'confirmed', traineeId: 'T-0001' }, leader));
+describe('feedback becomes trainee notes for future volunteers', () => {
+  function attendWith(v, traineeId, date) {
+    const s = createSession({ date });
+    const bookingId = book(s.sessionId, v);
+    confirm(bookingId, { traineeId });
+    rt.setNow(at('10:00', date));
     ok(rt.call('manualClock', { bookingId }, leader));
     rt.advanceMinutes(90);
     ok(rt.call('manualClock', { bookingId }, leader));
+    return bookingId;
+  }
 
+  test('a leader reviews observations before future volunteers see them', () => {
+    const bookingId = attendWith(vol, 'T-0001', TODAY);
+    fails(rt.call('submitFeedback', { bookingId: 'B-NOPE' }, vol.token), 'NOT_FOUND');
     const res = ok(rt.call('submitFeedback', {
-      bookingId,
-      rating: 4,
-      sessionFeedback: 'Good energy today.',
-      traineeObservation: 'Alex joined the group song without prompting.',
+      bookingId, rating: 4, sessionFeedback: 'Good energy today.', traineeObservation: 'Alex joined the group song without prompting.',
     }, vol.token));
-    assert.equal(res.traineeUpdated, true);
+    assert.equal(res.noteStatus, 'pending');
     assert.equal(res.home.pendingFeedback.length, 0);
     fails(rt.call('submitFeedback', { bookingId, rating: 3 }, vol.token), 'CONFLICT');
 
-    const fb = rt.records(SHEET, 'Feedback')[0];
-    assert.equal(fb['Trainee Name'], 'Alex Tan');
-    assert.equal(fb['Session Rating (1-5)'], 4);
+    // Not shared yet: the next volunteer paired with Alex sees no notes.
+    const v2 = volunteer('v2@example.com', 'Vol Two');
+    const next = createSession({ date: '2026-10-21' });
+    confirm(book(next.sessionId, v2), { traineeId: 'T-0001' });
+    assert.equal(ok(rt.call('volunteerHome', {}, v2.token)).upcoming[0].trainee.notes.length, 0);
+
+    const queue = ok(rt.call('reviewQueue', {}, leader)).items;
+    assert.equal(queue.length, 1);
+    assert.equal(ok(rt.call('adminHome', {}, leader)).reviewCount, 1);
+    ok(rt.call('reviewObservation', { feedbackId: queue[0].feedbackId, decision: 'share', note: 'Joined the group song by himself. Loves singing.' }, leader));
+    fails(rt.call('reviewObservation', { feedbackId: queue[0].feedbackId, decision: 'share' }, leader), 'CONFLICT');
+
+    const notes = ok(rt.call('volunteerHome', {}, v2.token)).upcoming[0].trainee.notes;
+    assert.equal(notes.length, 1);
+    assert.equal(notes[0].note, 'Joined the group song by himself. Loves singing.');
+    assert.equal(notes[0].author, 'Vol'); // first name only
     const trainee = rt.records(SHEET, 'Trainees').find((t) => t.Name === 'Alex Tan');
-    assert.match(trainee['Latest Volunteer Observation'], /joined the group song/);
-    assert.equal(trainee['Observation Updated'], TODAY);
-    assert.equal(trainee['Medical Notes'], 'Epilepsy plan on file'); // untouched
+    assert.match(trainee['Latest Volunteer Observation'], /Loves singing/);
+    assert.equal(trainee['Medical Notes'], 'Epilepsy plan on file');
+    assert.equal(rt.records(SHEET, 'Feedback')[0]['Note Status'], 'shared');
+  });
+
+  test('observations kept private never reach volunteers', () => {
+    const bookingId = attendWith(vol, 'T-0002', TODAY);
+    ok(rt.call('submitFeedback', { bookingId, traineeObservation: 'Private worry about home situation.' }, vol.token));
+    const [item] = ok(rt.call('reviewQueue', {}, leader)).items;
+    ok(rt.call('reviewObservation', { feedbackId: item.feedbackId, decision: 'private' }, leader));
+    assert.equal(ok(rt.call('traineeDetail', { traineeId: 'T-0002' }, leader)).notes.length, 0);
+    assert.equal(rt.records(SHEET, 'Feedback')[0]['Note Status'], 'private');
+  });
+
+  test('leaders add and hide notes; trainee detail shows everything to leaders only', () => {
+    let d = ok(rt.call('addTraineeNote', { traineeId: 'T-0001', note: 'Prefers the left side of the table.' }, leader));
+    assert.equal(d.notes[0].source, 'Leader');
+    assert.ok(d.trainee.fields.some((f) => f.key === 'medicalNotes' && !f.visibleToVolunteers));
+    d = ok(rt.call('setNoteStatus', { noteId: d.notes[0].noteId, status: 'hidden' }, leader));
+    assert.equal(d.notes[0].status, 'hidden');
+    const s = createSession();
+    confirm(book(s.sessionId), { traineeId: 'T-0001' });
+    assert.equal(ok(rt.call('volunteerHome', {}, vol.token)).upcoming[0].trainee.notes.length, 0);
+    const list = ok(rt.call('listTrainees', {}, leader)).trainees;
+    assert.equal(list.length, 4);
+    assert.equal(list.find((t) => t.name === 'Dana Goh').active, false);
+  });
+
+  test('with AUTO_SHARE_OBSERVATIONS on, observations are shared straight away', () => {
+    rt.evaluate('CONFIG.AUTO_SHARE_OBSERVATIONS = true');
+    const bookingId = attendWith(vol, 'T-0003', TODAY);
+    const res = ok(rt.call('submitFeedback', { bookingId, traineeObservation: 'Great at passing drills.' }, vol.token));
+    assert.equal(res.noteStatus, 'shared');
+    assert.equal(ok(rt.call('traineeDetail', { traineeId: 'T-0003' }, leader)).notes[0].note, 'Great at passing drills.');
+  });
+});
+
+describe('editing details in the app', () => {
+  test('a volunteer updates their own details; checks match registration', () => {
+    const res = ok(rt.call('updateProfile', { phone: '+65 9000 1111', telegram: 'new_handle', emergencyName: 'Parent Two', emergencyRelation: 'Father' }, vol.token));
+    assert.match(res.message, /phone, Telegram, emergency contact and relationship/);
+    assert.equal(res.user.telegram, 'new_handle');
+    const row = rt.records(SHEET, 'Volunteers').find((r) => r.Email === 'v1@example.com');
+    assert.equal(row.Phone.trim(), '+65 9000 1111');
+    assert.equal(row['Emergency Contact Name'], 'Parent Two');
+    assert.equal(row['Details Updated By'], 'Vol One');
+    assert.equal(ok(rt.call('updateProfile', { phone: '+65 9000 1111' }, vol.token)).message, 'No changes to save.');
+    fails(rt.call('updateProfile', { phone: 'abc' }, vol.token), 'VALIDATION_ERROR');
+    fails(rt.call('updateProfile', { name: ' ' }, vol.token), 'VALIDATION_ERROR');
+    fails(rt.call('updateProfile', { birthday: '2099-01-01' }, vol.token), 'VALIDATION_ERROR');
+    fails(rt.call('updateProfile', { role: 'admin' }, vol.token), 'VALIDATION_ERROR'); // cannot promote yourself
+  });
+
+  test('changing your sign-in email needs your password and a free address', () => {
+    fails(rt.call('updateProfile', { email: 'vol.new@example.com' }, vol.token), 'VALIDATION_ERROR');
+    fails(rt.call('updateProfile', { email: 'vol.new@example.com', currentPassword: 'wrong-pass' }, vol.token), 'VALIDATION_ERROR');
+    fails(rt.call('updateProfile', { email: 'LEADER@example.com', currentPassword: 'password123' }, vol.token), 'CONFLICT');
+    const res = ok(rt.call('updateProfile', { email: 'Vol.New@example.com', currentPassword: 'password123' }, vol.token));
+    assert.match(res.message, /vol\.new@example\.com/);
+    ok(rt.call('login', { email: 'vol.new@example.com', password: 'password123' }));
+    fails(rt.call('login', { email: 'v1@example.com', password: 'password123' }), 'UNAUTHORIZED');
+    ok(rt.call('volunteerHome', {}, vol.token)); // still signed in on this phone
+  });
+
+  test('a new name shows on upcoming bookings; past attendance keeps the old name', () => {
+    const s = createSession();
+    const bookingId = book(s.sessionId);
+    ok(rt.call('updateProfile', { name: 'Vol Renamed' }, vol.token));
+    assert.equal(rt.records(SHEET, 'Bookings').find((b) => b['Booking ID'] === bookingId)['Volunteer Name'], 'Vol Renamed');
+    const detail = ok(rt.call('sessionDetail', { sessionId: s.sessionId }, leader));
+    assert.equal(detail.bookings[0].volunteer.name, 'Vol Renamed');
+  });
+
+  test('leaders edit volunteers and other leaders, including role and status', () => {
+    const userId = vol.user.userId;
+    const d = ok(rt.call('personDetail', { userId }, leader));
+    assert.equal(d.person.emergencyName, 'Parent One');
+    assert.equal(d.person.status, 'active');
+    const res = ok(rt.call('updatePerson', { userId, phone: '+65 9888 7777', emergencyPhone: '+65 6123 4567', role: 'admin' }, leader));
+    assert.match(res.message, /Updated Vol One's phone and emergency phone\. Vol One is now a volunteer leader\./);
+    assert.equal(rt.records(SHEET, 'Volunteers').find((r) => r['User ID'] === userId)['Details Updated By'], 'Leader Lee');
+    ok(rt.call('adminHome', {}, vol.token)); // promotion applies straight away
+
+    // the promoted leader edits the first leader's details
+    const leaderId = ok(rt.call('me', {}, leader)).user.userId;
+    ok(rt.call('updatePerson', { userId: leaderId, telegram: 'leader_lee' }, vol.token));
+    assert.equal(ok(rt.call('me', {}, leader)).user.telegram, 'leader_lee');
+
+    fails(rt.call('updatePerson', { userId, email: 'leader@example.com' }, leader), 'CONFLICT');
+    fails(rt.call('updatePerson', { userId: leaderId, status: 'inactive' }, leader), 'CONFLICT'); // not yourself
+    fails(rt.call('updatePerson', { userId: leaderId, role: 'volunteer' }, leader), 'CONFLICT');
+    fails(rt.call('updatePerson', { userId: 'U-nope' }, leader), 'NOT_FOUND');
+    fails(rt.call('updatePerson', { userId, notes: 'x' }, leader), 'VALIDATION_ERROR');
+  });
+
+  test('deactivating signs the person out; the last active leader is protected', () => {
+    const sam = volunteer('sam@example.com', 'Sam Ong');
+    const res = ok(rt.call('updatePerson', { userId: sam.user.userId, status: 'inactive' }, leader));
+    assert.match(res.message, /Sam Ong is deactivated/);
+    fails(rt.call('volunteerHome', {}, sam.token), 'UNAUTHORIZED');
+    fails(rt.call('login', { email: 'sam@example.com', password: 'password123' }), 'UNAUTHORIZED');
+    ok(rt.call('updatePerson', { userId: sam.user.userId, status: 'active' }, leader));
+    ok(rt.call('login', { email: 'sam@example.com', password: 'password123' }));
+
+    // two leaders: one can deactivate the other, but not the last one left
+    ok(rt.call('updatePerson', { userId: vol.user.userId, role: 'admin' }, leader));
+    const leaderId = ok(rt.call('me', {}, leader)).user.userId;
+    ok(rt.call('updatePerson', { userId: leaderId, status: 'inactive' }, vol.token));
+    fails(rt.call('updatePerson', { userId: vol.user.userId, status: 'inactive' }, vol.token), 'CONFLICT');
+    fails(rt.call('updatePerson', { userId: sam.user.userId, phone: '+65 9111 2222' }, sam.token), 'FORBIDDEN');
   });
 });
 
@@ -324,7 +563,6 @@ describe('request handling', () => {
   });
 
   test('missing SPREADSHEET_ID gives a clear config error', () => {
-    rt.props.delete('SPREADSHEET_ID');
     const fresh = createGasRuntime();
     fails(fresh.call('login', { email: 'a@example.com', password: 'whatever1' }), 'CONFIG_ERROR');
   });

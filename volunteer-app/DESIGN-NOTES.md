@@ -142,11 +142,60 @@ Deliberate differences, kept for good reasons:
 - **No `document.write` cache-busting.** The service worker cache is versioned per
   deploy instead (the Pages workflow stamps it with the commit SHA).
 
+## Pairing, the guide, trainee notes and search
+
+**Automatic pairing (`gas/Trainees.gs` → `pickTrainee_`).** Pairing runs inside
+the same locked write that confirms a booking (leader tap, "Confirm all", or a
+scan that confirms a pending booking), so two leaders confirming at once can't
+pair the same trainee twice. The rule is deliberately simple and explainable,
+and the reason is shown in the toast:
+1. only active trainees, and only the session's "Trainees attending" if set;
+2. skip trainees already paired in this session;
+3. prefer the trainee this volunteer had last time (continuity matters for
+   many MINDS trainees), otherwise the one with the fewest confirmed pairings,
+   then the one paired least recently.
+
+Leaders can always override it. Natural next rules, if MINDS wants them:
+same-gender pairing for personal-care sessions, or matching on interests.
+
+**What volunteers see about a trainee** is a whitelist (`volunteerVisible`),
+applied on the server, so medical and caregiver details never reach a
+volunteer's phone. "Things to take note" is highlighted, and the latest five
+shared notes are shown with the author's first name only.
+
+**Feedback → trainee notes needs a leader by default.** A volunteer's free-text
+observation may contain something that shouldn't be passed on (a guess about a
+diagnosis, a family detail), so it waits in a review list where a leader can
+edit it, share it, or keep it private. Notes live in their own tab rather than
+being appended to one cell, so they keep their date and author, can be hidden
+individually, and the trainee sheet stays clean.
+
+**Volunteer Guide, projects and venues** are rows in tabs, edited from Me →
+Leader tools. Content is plain text with "- " bullets and "1. " steps, rendered
+with `textContent` (never as HTML), so a leader can't accidentally break the
+page or inject script. Venues are a managed list because free-typed venues drift
+("Woodlands Gardens", "WGS", "MINDS WGS") and make reporting by venue unreliable.
+
+**Fuzzy search (`web/js/ui.js` → `fuzzyScore`)** runs on the phone over data it
+already has, so it is instant and works offline. Every word typed must match
+some word in the item, allowing: prefixes, typos (1 edit for short words, 2 for
+longer), swapped letters, skipped letters ("bkng" → baking), initials ("wgs" →
+Woodlands Gardens School), accents ("chloe" → Chloé) and phone digits typed
+without spaces. Used for sessions (both roles), people, trainees, venues, and
+the venue, project and trainee pickers.
+
+**Editing details.** Self-service edits and leader edits share one validator
+(the registration rules). Changing the email you sign in with needs your
+current password, so a phone left signed in can't be used to take the account
+over. A new name is copied to upcoming bookings; past attendance keeps the name
+used at the time. Deactivating someone blocks sign-in immediately (every request
+re-reads their row) without deleting their hours.
+
 ## Next steps worth considering
 
 - Telegram reminders the day before a session (Apps Script time-driven trigger
   + Telegram Bot API).
-- Volunteer self-service profile editing.
+- Same-gender or interest-based pairing rules (see above).
 - A monthly hours summary tab (or a pivot table) for MINDS reporting.
 - Move the two CDN libraries into the repo once you have npm access, so the
   very first load also works without a CDN.

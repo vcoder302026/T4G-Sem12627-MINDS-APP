@@ -120,6 +120,13 @@ class Table {
     return row;
   }
 
+  /** Deletes the row from the sheet (rows below move up, so the cache is dropped). */
+  remove(row) {
+    const st = this.load_();
+    st.sheet.deleteRow(row._row);
+    delete DB_.cache[this.cacheKey];
+  }
+
   update(row, patch) {
     const st = this.load_();
     Object.keys(patch).forEach((key) => {

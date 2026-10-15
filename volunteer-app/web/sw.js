@@ -19,7 +19,10 @@ const SHELL = [
   './js/qr.js',
   './js/ui.js',
   './js/views/auth.js',
+  './js/views/content.js',
   './js/views/leader.js',
+  './js/views/profile.js',
+  './js/views/trainees.js',
   './js/views/volunteer.js',
 ];
 const CDN_HOSTS = ['cdn.jsdelivr.net', 'unpkg.com', 'fonts.googleapis.com', 'fonts.gstatic.com'];
