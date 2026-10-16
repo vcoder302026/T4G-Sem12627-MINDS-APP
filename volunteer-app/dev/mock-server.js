@@ -2,6 +2,7 @@
 // real Apps Script code (gas/*.gs) against an in-memory demo spreadsheet.
 //
 //   npm run dev            → http://localhost:5173
+//   http://localhost:5173/admin/    the staff dashboard (same backend and sheet)
 //   http://localhost:5173/__sheet   shows what the "Google Sheet" contains right now
 //
 // Data lives in memory and resets when the server restarts.
@@ -27,12 +28,12 @@ export function createDemoRuntime() {
   rt.createSpreadsheet('demo-sheet', 'MINDS Volunteer Data (local demo)');
   // Stands in for the partner's existing trainee list. Fictional people only.
   rt.fillTab('demo-sheet', 'Trainees', [
-    ['Name', 'Preferred Name', 'Gender', 'Programme', 'Communication', 'Behaviours', 'Things to Take Note', 'Interests', 'Support Needs', 'Medical Notes', 'Caregiver Name', 'Caregiver Phone', 'Active'],
-    ['Alex Tan Wei Ming', 'Alex', 'Male', 'Day Activity Centre', 'Verbal: short sentences, speak slowly', 'Likes routine; may walk away when tired', 'Gets anxious with loud noises: offer ear muffs', 'Music, jigsaw puzzles, trains', 'Reminders to drink water', 'Epilepsy care plan on file', 'Mdm Tan', '91234567', 'Yes'],
-    ['Bea Lim', 'Bea', 'Female', 'Day Activity Centre', 'Non-verbal: uses gestures and picture cards', 'Friendly, loves high-fives', 'Allergic to peanuts: no outside snacks', 'Drawing, K-pop', 'Hand-over-hand help with scissors', '', 'Mr Lim', '92345678', 'Yes'],
-    ['Chris Ng', '', 'Male', 'Employment Development', 'Verbal, very chatty', 'Enjoys being given jobs', '', 'Football, cooking', '', 'Asthma inhaler in bag', 'Mrs Ng', '93456789', 'Yes'],
-    ['Dana Goh', 'Dana', 'Female', 'Day Activity Centre', 'A few words plus some sign language', 'Shy at first; warms up with music', 'Wheelchair user: check the room layout first', 'Dancing, colouring', 'Wheelchair user', '', 'Ms Goh', '94567890', 'Yes'],
-    ['Evan Lee', '', 'Male', 'Day Activity Centre', 'Verbal', '', '', 'Lego', '', '', 'Mr Lee', '95678901', 'No'],
+    ['Name', 'Preferred Name', 'Gender', 'Programme', 'Communication', 'Behaviours', 'Things to Take Note', 'Interests', 'Support Needs', 'Medical Notes', 'Caregiver Name', 'Caregiver Phone', 'Active', 'Dietary Notes'],
+    ['Alex Tan Wei Ming', 'Alex', 'Male', 'Day Activity Centre', 'Verbal: short sentences, speak slowly', 'Likes routine; may walk away when tired', 'Gets anxious with loud noises: offer ear muffs', 'Music, jigsaw puzzles, trains', 'Reminders to drink water', 'Epilepsy care plan on file', 'Mdm Tan', '91234567', 'Yes', 'No beef'],
+    ['Bea Lim', 'Bea', 'Female', 'Day Activity Centre', 'Non-verbal: uses gestures and picture cards', 'Friendly, loves high-fives', 'Allergic to peanuts: no outside snacks', 'Drawing, K-pop', 'Hand-over-hand help with scissors', '', 'Mr Lim', '92345678', 'Yes', 'Peanut allergy'],
+    ['Chris Ng', '', 'Male', 'Employment Development', 'Verbal, very chatty', 'Enjoys being given jobs', '', 'Football, cooking', '', 'Asthma inhaler in bag', 'Mrs Ng', '93456789', 'Yes', 'Halal'],
+    ['Dana Goh', 'Dana', 'Female', 'Day Activity Centre', 'A few words plus some sign language', 'Shy at first; warms up with music', 'Wheelchair user: check the room layout first', 'Dancing, colouring', 'Wheelchair user', '', 'Ms Goh', '94567890', 'Yes', ''],
+    ['Evan Lee', '', 'Male', 'Day Activity Centre', 'Verbal', '', '', 'Lego', '', '', 'Mr Lee', '95678901', 'No', ''],
   ]);
   rt.props.set('SPREADSHEET_ID', 'demo-sheet');
   rt.run('setup'); // also adds the starter venue (MINDS Woodlands Gardens School), guide and project
@@ -100,6 +101,46 @@ export function createDemoRuntime() {
   rt.call('updateBooking', { bookingId: b1, status: 'confirmed' }, leader);
   rt.call('bookSession', { sessionId: baking.sessionId }, vera.token);
   rt.call('bookSession', { sessionId: art.sessionId }, sam.token); // pending: try "Confirm all & pair trainees"
+
+  // Staff dashboard (/admin/): a fundraiser, an outing, an overseas trip and house visits.
+  const fr = rt.call('createFundraiser', { name: 'Charity bake sale', description: 'Cookies, cards and bags made by trainees.', startDate: day(-7), endDate: day(14) }, leader).data.fundraiser;
+  [['Chocolate chip cookies (box of 6)', '5.50'], ['Greeting cards (set of 4)', '8'], ['Handmade tote bag', '12']]
+    .forEach(([name, price]) => rt.call('saveProduct', { fundraiserId: fr.fundraiserId, name, price }, leader));
+  const products = rt.call('fundraiserDetail', { fundraiserId: fr.fundraiserId }, leader).data.products;
+  const pid = (start) => products.find((x) => x.name.startsWith(start)).productId;
+  const order = (customerName, customerContact, items, paymentStatus) => rt.call('createOrder', {
+    fundraiserId: fr.fundraiserId, customerName, customerContact, paymentStatus,
+    items: items.map(([start, quantity]) => ({ productId: pid(start), quantity })),
+  }, leader).data;
+  const first = order('Mdm Rachel Lee', '+65 9222 3333', [['Chocolate', 2], ['Handmade', 1]], 'paid');
+  rt.call('updateOrder', { orderId: first.orderId, collectionStatus: 'collected' }, leader);
+  order('Mr Daniel Wong', 'daniel@example.com', [['Greeting', 3]], 'unpaid');
+  order('Office pre-order (Level 5)', '', [['Chocolate', 10], ['Greeting', 2]], 'paid');
+
+  const zoo = rt.call('createOuting', { title: 'Zoo outing', date: day(5), startTime: '09:00', location: 'Singapore Zoo', notes: 'Meet at the school gate at 08:30. Bring a cap.' }, leader).data.outing;
+  [['T-0001', vera, 'A', '1'], ['T-0002', sam, 'A', '1'], ['T-0003', vera, 'B', '2']].forEach(([traineeId, v, group, bus]) =>
+    rt.call('assignOutingTrainee', { outingId: zoo.outingId, traineeId, userId: v.user.userId, group, bus }, leader));
+
+  const trip = rt.call('createTrip', { title: 'Bangkok cultural exchange', destination: 'Bangkok, Thailand', startDate: day(45), endDate: day(49), notes: 'Partner school visit and city tour.' }, leader).data.trip;
+  rt.call('addTripParticipant', { tripId: trip.tripId, traineeId: 'T-0001', userId: vera.user.userId }, leader);
+  rt.call('addTripParticipant', { tripId: trip.tripId, traineeId: 'T-0004', notes: 'Needs a wheelchair-accessible room.' }, leader);
+  const flights = rt.call('addTripLogistics', { tripId: trip.tripId, description: 'Book flights', dueDate: day(10) }, leader).data.logistics[0];
+  rt.call('updateTripLogistics', { itemId: flights.itemId, status: 'done' }, leader);
+  rt.call('addTripLogistics', { tripId: trip.tripId, description: 'Collect passport copies from caregivers', dueDate: day(20) }, leader);
+  rt.call('addTripLogistics', { tripId: trip.tripId, description: 'Buy travel insurance', dueDate: day(30) }, leader);
+  rt.call('addTripExpense', { tripId: trip.tripId, description: 'Flights deposit', amount: '1200', date: day(-2), paidBy: 'MINDS office' }, leader);
+  rt.call('addTripExpense', { tripId: trip.tripId, description: 'Hotel deposit', amount: '450.50', date: day(-1), paidBy: 'MINDS office' }, leader);
+
+  rt.call('createVisit', {
+    traineeId: 'T-0001', userId: vera.user.userId, date: day(-20),
+    family: 'Mum is managing well; grandmother now lives with them.', dailyLiving: 'Dresses himself; needs reminders to drink water.',
+    social: 'Enjoys the Saturday music group.', health: 'No seizures this month.', followUp: 'Share the picture schedule with the family.',
+  }, leader);
+  rt.call('createVisit', {
+    traineeId: 'T-0002', userId: sam.user.userId, date: day(-3),
+    family: 'Dad works night shifts; aunt helps in the afternoons.', social: 'Wants to join an art class.',
+    followUp: 'Send details of the community art class to Mr Lim.',
+  }, leader);
   return rt;
 }
 
@@ -157,7 +198,8 @@ export function startMockServer({ port = PORT, latency = LATENCY_MS, quiet = fal
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
       return res.end(sheetPage(rt));
     }
-    const rel = decodeURIComponent(url.pathname === '/' ? '/index.html' : url.pathname);
+    // Folders serve their index.html, like GitHub Pages (so /admin/ opens the staff dashboard).
+    const rel = decodeURIComponent(url.pathname.endsWith('/') ? `${url.pathname}index.html` : url.pathname);
     const file = path.normalize(path.join(WEB_DIR, rel));
     if (!file.startsWith(WEB_DIR) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) {
       res.writeHead(404, { 'Content-Type': 'text/plain' });
@@ -171,6 +213,7 @@ export function startMockServer({ port = PORT, latency = LATENCY_MS, quiet = fal
     console.log(`MINDS Volunteer app (local mock) → http://localhost:${port}`);
     console.log(`  Leader:    ${DEMO.leader.email} / ${DEMO.leader.password}`);
     console.log(`  Volunteer: ${DEMO.volunteer.email} / ${DEMO.volunteer.password}`);
+    console.log(`  Staff dashboard: http://localhost:${port}/admin/`);
     console.log(`  Sheet view: http://localhost:${port}/__sheet`);
   });
   return { server, rt };

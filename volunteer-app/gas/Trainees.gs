@@ -1,10 +1,15 @@
 /**
  * Trainees.gs — the existing trainee list, trainee notes and automatic pairing.
  *
- * The app never adds, removes or reorders trainees. It reads the columns
+ * The phone app never adds, removes or reorders trainees. It reads the columns
  * mapped in Config.gs → TRAINEES and writes only the Trainee ID and the two
  * write-back columns. Notes that future volunteers read live in the separate
  * "Trainee Notes" tab.
+ *
+ * The staff dashboard can add a trainee (a new row at the bottom) and edit the
+ * mapped columns of a row, cell by cell. It never deletes or reorders rows and
+ * never touches columns it does not know about. A mapped column the tab lacks
+ * is added (at the right) the first time someone fills it in.
  */
 
 function isActiveTrainee_(row) {
@@ -224,4 +229,134 @@ function autoPair_(booking, session) {
   if (!pick) return null;
   table_('bookings').update(booking, { traineeId: String(pick.trainee.id), traineeName: pick.trainee.name, pairing: 'auto' });
   return { traineeId: String(pick.trainee.id), traineeName: pick.trainee.name, reason: pick.reason };
+}
+
+/* ---------- staff dashboard: add and edit trainees ---------- */
+
+/** Fields staff can edit: every mapped trainee column except the ID. */
+function traineeEditable_() {
+  return Object.keys(CONFIG.TRAINEES.columns).filter((k) => k !== 'id');
+}
+
+const TRAINEE_SHORT_FIELDS = ['preferredName', 'gender', 'caregiverName'];
+
+function traineeFields_(p, partial) {
+  const out = {};
+  traineeEditable_().forEach((key) => {
+    if (partial && !has_(p, key)) return;
+    const label = CONFIG.TRAINEES.columns[key];
+    if (key === 'name') out.name = str_(p.name, label, { required: true });
+    else if (key === 'caregiverPhone') out.caregiverPhone = phone_(p.caregiverPhone, label, { optional: true });
+    else if (key === 'active') {
+      const v = p.active;
+      out.active = v === true || v === undefined || v === '' || /^(yes|y|true|active)$/i.test(String(v)) ? 'Yes' : 'No';
+    } else out[key] = str_(p[key], label, { max: TRAINEE_SHORT_FIELDS.indexOf(key) >= 0 ? LIMITS.SHORT : LIMITS.NOTES });
+  });
+  return out;
+}
+
+/** Every mapped field of a trainee row, for the dashboard's table and edit form. */
+function traineeRecordOut_(row) {
+  const fields = {};
+  traineeEditable_().forEach((key) => { fields[key] = row[key] === undefined ? '' : String(row[key]); });
+  return { id: String(row.id), name: row.name, active: isActiveTrainee_(row), fields };
+}
+
+function traineeColumnsOut_(table) {
+  return traineeEditable_().map((key) => ({
+    key,
+    label: CONFIG.TRAINEES.columns[key],
+    visibleToVolunteers: CONFIG.TRAINEES.volunteerVisible.indexOf(key) >= 0,
+    inSheet: table.hasColumn(key),
+  }));
+}
+
+function listTraineeRecords_() {
+  const table = traineeTable_();
+  const trainees = table.rows().filter((r) => r.id && r.name).map(traineeRecordOut_);
+  return { trainees: sortBy_(trainees, (t) => t.name.toLowerCase()), columns: traineeColumnsOut_(table) };
+}
+
+/** Adds any mapped column the trainee tab lacks for these keys, then re-reads it. */
+function ensureTraineeColumns_(keys) {
+  let table = traineeTable_();
+  const labels = Object.assign({}, CONFIG.TRAINEES.columns);
+  const missing = keys.filter((k) => !table.hasColumn(k)).map((k) => labels[k]);
+  if (missing.length) {
+    ensureTab_(traineeSpreadsheet_(), CONFIG.TRAINEES.tab, missing, {});
+    resetDbCache_();
+    table = traineeTable_();
+  }
+  return table;
+}
+
+function nextTraineeId_(rows) {
+  let max = 0;
+  rows.forEach((r) => {
+    const m = /^T-(\d+)$/.exec(String(r.id));
+    if (m) max = Math.max(max, Number(m[1]));
+  });
+  return `T-${String(max + 1).padStart(4, '0')}`;
+}
+
+function createTrainee_(p) {
+  onlyFields_(p, traineeEditable_());
+  const fields = traineeFields_(p, false);
+  // "Active: Yes" is the default, so it does not need an Active column to be added.
+  const table = ensureTraineeColumns_(['id'].concat(Object.keys(fields).filter((k) => fields[k] !== '' && !(k === 'active' && fields[k] === 'Yes'))));
+  const id = nextTraineeId_(table.rows());
+  table.insert(Object.assign({ id }, fields));
+  return Object.assign(traineeProfile_({ traineeId: id }), { message: `${fields.name} added as ${id}.` });
+}
+
+function updateTrainee_(p) {
+  onlyFields_(p, ['traineeId'].concat(traineeEditable_()));
+  const traineeId = str_(p.traineeId, 'Trainee', { required: true, max: 40 });
+  requireChanges_(p, 'traineeId');
+  const rest = Object.assign({}, p);
+  delete rest.traineeId;
+  const patch = traineeFields_(rest, true);
+  let row = traineeById_(traineeId);
+  if (!row) throw err_.notFound('Trainee not found.');
+  const changes = changedOnly_(row, patch);
+  if (changes.active === 'Yes' && isActiveTrainee_(row)) delete changes.active; // blank already means active
+  if (!Object.keys(changes).length) return Object.assign(traineeProfile_({ traineeId }), { message: 'No changes to save.' });
+  const table = ensureTraineeColumns_(Object.keys(changes));
+  row = table.find((r) => String(r.id) === traineeId);
+  table.update(row, changes);
+  if (changes.name) {
+    // Volunteers see the trainee's name on their upcoming bookings; past rows keep the name used at the time.
+    const bookings = table_('bookings');
+    const today = todayStr_();
+    bookings.filter((b) => String(b.traineeId) === traineeId && String(b.sessionDate) >= today)
+      .forEach((b) => bookings.update(b, { traineeName: changes.name }));
+  }
+  return Object.assign(traineeProfile_({ traineeId }), { message: `Saved ${row.name}.` });
+}
+
+/** One trainee's full record, with notes, pairings, house visits, trips and outings. */
+function traineeProfile_(p) {
+  onlyFields_(p, ['traineeId']);
+  const traineeId = str_(p.traineeId, 'Trainee', { required: true, max: 40 });
+  const row = traineeById_(traineeId);
+  if (!row) throw err_.notFound('Trainee not found.');
+  const detail = traineeDetail_({ traineeId });
+  const names = nameMaps_();
+  const outings = byKey_(table_('outings').rows(), 'outingId');
+  const trips = byKey_(table_('trips').rows(), 'tripId');
+  return {
+    trainee: traineeRecordOut_(row),
+    columns: traineeColumnsOut_(traineeTable_()),
+    notes: detail.notes,
+    pairings: detail.pairings,
+    visits: listVisits_({ traineeId }).visits,
+    trips: table_('tripParticipants').filter((x) => String(x.traineeId) === traineeId).map((x) => {
+      const t = trips[x.tripId] || {};
+      return { tripId: x.tripId, title: t.title || x.tripTitle, startDate: t.startDate || '', endDate: t.endDate || '', status: x.status, volunteerName: names.users[x.userId] || x.volunteerName || '' };
+    }),
+    outings: table_('outingAssignments').filter((a) => String(a.traineeId) === traineeId).map((a) => {
+      const o = outings[a.outingId] || {};
+      return { outingId: a.outingId, title: o.title || a.outingTitle, date: o.date || '', volunteerName: names.users[a.userId] || a.volunteerName || '', boarded: a.boarded === 'Yes' };
+    }),
+  };
 }

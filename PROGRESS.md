@@ -7,12 +7,13 @@ session; the [session log](#session-log) at the bottom covers both.
 
 | Item | Value |
 | --- | --- |
-| Goal | Volunteer management PWA for MINDS: registration, Volunteer Guide, booking, automatic trainee pairing, QR clock-in/out, feedback → trainee notes, venues, profile editing |
+| Goal | Volunteer management PWA for MINDS: registration, Volunteer Guide, booking, automatic trainee pairing, QR clock-in/out, feedback → trainee notes, venues, profile editing. Plus a staff dashboard (`web/admin/`) on the same backend and sheet: overview, attendance fixes, hours report + CSV, volunteers, trainees (add/edit), fundraising, outings, overseas trips, house visits |
 | Stack | Google Apps Script API + Google Sheets; HTML / vanilla JS / Tailwind PWA on GitHub Pages; GitHub Actions + clasp |
-| Run locally | `cd volunteer-app && npm run dev` → http://localhost:5173 (real `gas/*.gs` against an in-memory sheet) |
-| Tests | `cd volunteer-app && npm test` → 37 backend tests |
+| Run locally | `cd volunteer-app && npm run dev` → http://localhost:5173 (phone app) and http://localhost:5173/admin/ (staff dashboard); real `gas/*.gs` against an in-memory sheet |
+| Tests | `cd volunteer-app && npm test` → 56 backend tests (37 phone app in `tests/gas.test.js`, 19 dashboard in `tests/dashboard.test.js`) |
 | Docs | [README](volunteer-app/README.md), [USER-GUIDE](volunteer-app/docs/USER-GUIDE.md), [DESIGN-NOTES](volunteer-app/DESIGN-NOTES.md) |
-| Status | Working prototype, tested locally and in a phone-sized browser; not yet run end to end on real Google Apps Script with real phones |
+| Status | Working prototype, tested locally (phone app in a phone-sized browser; dashboard by a scripted Chromium walkthrough at 1440/1024/800 px). Not yet run end to end on real Google Apps Script with real phones |
+| Next steps | 1) Connect to a real Google Sheet (README Part 3) using `docs/demo-data/MINDS-Volunteer-Demo-Data.xlsx`, run `setup()`, try the phone app on real phones and the dashboard on a laptop. 2) A human click-through of the dashboard. 3) Agree with MINDS which trainee fields volunteers see (PDPA) |
 
 ## Prototype 1 (repository root) — complete
 
@@ -134,3 +135,5 @@ account, no user management; not production-ready.
 | 2026-10-14 | 3 | Added `volunteer-app/` (separate from Prototype 1, which is unchanged): Apps Script backend over an existing Google Sheet (header-mapped tabs, additive `setup()`), volunteer registration/booking/trainee pairing/feedback, signed daily QR passes with leader scanning (offline queue, walk-ins, manual fallback), PWA frontend for GitHub Pages, local mock server, 21 backend tests, Playwright phone walkthrough, CI workflows for Pages and clasp. See volunteer-app/README.md and DESIGN-NOTES.md. |
 | 2026-10-14 | 4 | volunteer-app: automatic trainee pairing on confirm (continuity first, then fewest pairings; "Confirm all & pair"), richer trainee card for volunteers (gender, communication, behaviours, things to take note, notes from previous volunteers), Volunteer Guide + projects shown to new volunteers before first booking (leader-editable), volunteer feedback → leader review → Trainee Notes, venue dropdown with MINDS Woodlands Gardens School and add/rename/archive venues, fuzzy search everywhere, volunteers edit their own details and leaders edit anyone (incl. other leaders, deactivate). 37 backend tests; Playwright walkthrough of all new flows. |
 | 2026-10-14 | 5 | Repo tidy-up: new root README (index of both apps), Prototype 1 README and usage guide moved to `docs/prototype-1/`, `push_test.txt` removed, volunteer-app README restructured with screenshots, new `volunteer-app/docs/USER-GUIDE.md`. |
+| 2026-10-15 | 6 | Fictional demo Google Sheet (`volunteer-app/docs/demo-data/*.xlsx`); README link fixes; more robust GitHub Pages deploy (installs Tailwind, validates variables). |
+| 2026-10-16 | 7 | **Version 1 complete.** Added the staff dashboard (`volunteer-app/web/admin/`) on the same Apps Script backend and Google Sheet, leaders only, five sections: overview & people (attendance fixes, hours report + CSV, add/edit volunteers and trainees), fundraising, outings, overseas trips, house visits. New `gas/` files Dashboard/Fundraising/Outings/Trips/Visits, 11 new Sheet tabs, 19 new tests (56 total), demo data and demo .xlsx extended, browser walkthrough passed. Wrote `VERSION-1.md` (client report: product, demo guide, technical notes). |

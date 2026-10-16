@@ -196,9 +196,7 @@ function resetPassword_(p, admin) {
   onlyFields_(p, ['userId']);
   const target = table_('users').find((u) => u.userId === id_(p.userId, 'User'));
   if (!target) throw err_.notFound('Volunteer not found.');
-  // Readable temporary password, e.g. "minds-7k2p-9xq4"; the volunteer changes it under Profile.
-  const raw = Utilities.getUuid().replace(/-/g, '').toLowerCase();
-  const tempPassword = `minds-${raw.slice(0, 4)}-${raw.slice(4, 8)}`;
+  const tempPassword = tempPassword_(); // Dashboard.gs
   setPassword_(target.userId, tempPassword);
   return { tempPassword, name: target.name, resetBy: admin.name };
 }

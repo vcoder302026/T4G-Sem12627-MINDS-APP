@@ -55,6 +55,47 @@ function routes_() {
     saveGuideSection: { auth: 'admin', write: true, fn: saveGuideSection_ },
     deleteGuideSection: { auth: 'admin', write: true, fn: deleteGuideSection_ },
     moveContent: { auth: 'admin', write: true, fn: moveContent_ },
+
+    // Staff dashboard (web/admin/). Overview, attendance, hours, volunteers: Dashboard.gs
+    dashboardOverview: { auth: 'admin', fn: dashboardOverview_ },
+    listAttendance: { auth: 'admin', fn: listAttendance_ },
+    addAttendance: { auth: 'admin', write: true, fn: addAttendance_ },
+    updateAttendance: { auth: 'admin', write: true, fn: updateAttendance_ },
+    hoursReport: { auth: 'admin', fn: hoursReport_ },
+    createVolunteer: { auth: 'admin', write: true, fn: createVolunteer_ },
+    // Trainees.gs
+    listTraineeRecords: { auth: 'admin', fn: listTraineeRecords_ },
+    traineeProfile: { auth: 'admin', fn: traineeProfile_ },
+    createTrainee: { auth: 'admin', write: true, fn: createTrainee_ },
+    updateTrainee: { auth: 'admin', write: true, fn: updateTrainee_ },
+    // Fundraising.gs
+    listFundraisers: { auth: 'admin', fn: listFundraisers_ },
+    fundraiserDetail: { auth: 'admin', fn: fundraiserDetail_ },
+    createFundraiser: { auth: 'admin', write: true, fn: createFundraiser_ },
+    updateFundraiser: { auth: 'admin', write: true, fn: updateFundraiser_ },
+    saveProduct: { auth: 'admin', write: true, fn: saveProduct_ },
+    createOrder: { auth: 'admin', write: true, fn: createOrder_ },
+    updateOrder: { auth: 'admin', write: true, fn: updateOrder_ },
+    // Outings.gs
+    listOutings: { auth: 'admin', fn: listOutings_ },
+    outingDetail: { auth: 'admin', fn: outingDetail_ },
+    createOuting: { auth: 'admin', write: true, fn: createOuting_ },
+    updateOuting: { auth: 'admin', write: true, fn: updateOuting_ },
+    assignOutingTrainee: { auth: 'admin', write: true, fn: assignOutingTrainee_ },
+    updateOutingAssignment: { auth: 'admin', write: true, fn: updateOutingAssignment_ },
+    // Trips.gs
+    listTrips: { auth: 'admin', fn: listTrips_ },
+    tripDetail: { auth: 'admin', fn: tripDetail_ },
+    createTrip: { auth: 'admin', write: true, fn: createTrip_ },
+    updateTrip: { auth: 'admin', write: true, fn: updateTrip_ },
+    addTripParticipant: { auth: 'admin', write: true, fn: addTripParticipant_ },
+    updateTripParticipant: { auth: 'admin', write: true, fn: updateTripParticipant_ },
+    addTripLogistics: { auth: 'admin', write: true, fn: addTripLogistics_ },
+    updateTripLogistics: { auth: 'admin', write: true, fn: updateTripLogistics_ },
+    addTripExpense: { auth: 'admin', write: true, fn: addTripExpense_ },
+    // Visits.gs
+    listVisits: { auth: 'admin', fn: listVisits_ },
+    createVisit: { auth: 'admin', write: true, fn: createVisit_ },
   };
 }
 

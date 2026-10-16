@@ -8,6 +8,7 @@
 @import "tailwindcss" source(none);
 @source "../index.html";
 @source "../js";
+@source "../admin";
 
 @custom-variant dark (&:where(.dark, .dark *));
 

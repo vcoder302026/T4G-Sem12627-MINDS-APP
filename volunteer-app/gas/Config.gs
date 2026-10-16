@@ -133,7 +133,9 @@ const CONFIG = {
         hours: 'Hours',
         clockInBy: 'Clocked In By',
         clockOutBy: 'Clocked Out By',
-        method: 'Method',        // QR | QR (offline) | Manual
+        method: 'Method',        // QR | QR (offline) | Manual | Dashboard
+        editedBy: 'Edited By',   // staff who corrected the times on the dashboard
+        editedAt: 'Edited At',
       },
       numeric: ['hours'],
     },
@@ -212,6 +214,180 @@ const CONFIG = {
       },
       numeric: ['order'],
     },
+
+    /* ----- staff dashboard (web/admin/) ----- */
+    fundraisers: {
+      tab: 'Fundraisers',
+      columns: {
+        fundraiserId: 'Fundraiser ID',
+        name: 'Fundraiser',
+        description: 'Description',
+        startDate: 'Start Date',
+        endDate: 'End Date',
+        status: 'Status',        // open | closed
+        createdBy: 'Created By',
+        createdAt: 'Created At',
+      },
+    },
+    products: {
+      tab: 'Products',
+      columns: {
+        productId: 'Product ID',
+        fundraiserId: 'Fundraiser ID',
+        fundraiserName: 'Fundraiser',
+        name: 'Product',
+        price: 'Price (SGD)',
+        status: 'Status',        // active | archived
+        createdBy: 'Added By',
+        createdAt: 'Added At',
+      },
+      numeric: ['price'],
+    },
+    orders: {
+      tab: 'Orders',
+      columns: {
+        orderId: 'Order ID',
+        fundraiserId: 'Fundraiser ID',
+        fundraiserName: 'Fundraiser',
+        customerName: 'Customer',
+        customerContact: 'Contact',
+        items: 'Items',          // readable summary, e.g. "2 × Cookies, 1 × Tote bag"
+        total: 'Total (SGD)',    // worked out by the server from the product prices
+        paymentStatus: 'Payment',     // unpaid | paid
+        collectionStatus: 'Collection', // pending | collected
+        notes: 'Notes',
+        createdBy: 'Taken By',
+        createdAt: 'Taken At',
+        updatedBy: 'Updated By',
+        updatedAt: 'Updated At',
+      },
+      numeric: ['total'],
+    },
+    orderItems: {
+      tab: 'Order Items',
+      columns: {
+        itemId: 'Item ID',
+        orderId: 'Order ID',
+        productId: 'Product ID',
+        productName: 'Product',
+        quantity: 'Quantity',
+        unitPrice: 'Unit Price (SGD)',
+        lineTotal: 'Line Total (SGD)',
+      },
+      numeric: ['quantity', 'unitPrice', 'lineTotal'],
+    },
+    outings: {
+      tab: 'Outings',
+      columns: {
+        outingId: 'Outing ID',
+        title: 'Outing',
+        date: 'Date',
+        startTime: 'Start Time',
+        location: 'Location',
+        notes: 'Notes',
+        status: 'Status',        // planned | done | cancelled
+        createdBy: 'Created By',
+        createdAt: 'Created At',
+      },
+    },
+    outingAssignments: {
+      tab: 'Outing Assignments',
+      columns: {
+        assignmentId: 'Assignment ID',
+        outingId: 'Outing ID',
+        outingTitle: 'Outing',
+        traineeId: 'Trainee ID',
+        traineeName: 'Trainee Name',
+        userId: 'Volunteer User ID',
+        volunteerName: 'Volunteer Name',
+        group: 'Group',
+        bus: 'Bus',
+        boarded: 'Boarded',      // Yes | (blank)
+        boardedAt: 'Boarded At',
+        updatedBy: 'Updated By',
+        updatedAt: 'Updated At',
+      },
+    },
+    trips: {
+      tab: 'Trips',
+      columns: {
+        tripId: 'Trip ID',
+        title: 'Trip',
+        destination: 'Destination',
+        startDate: 'Start Date',
+        endDate: 'End Date',
+        notes: 'Notes',
+        status: 'Status',        // planning | confirmed | done | cancelled
+        createdBy: 'Created By',
+        createdAt: 'Created At',
+      },
+    },
+    tripParticipants: {
+      tab: 'Trip Participants',
+      columns: {
+        participantId: 'Participant ID',
+        tripId: 'Trip ID',
+        tripTitle: 'Trip',
+        traineeId: 'Trainee ID',
+        traineeName: 'Trainee Name',
+        userId: 'Volunteer User ID',
+        volunteerName: 'Volunteer Name',
+        status: 'Status',        // registered | confirmed | withdrawn
+        medicalNotes: 'Medical Notes (for this trip)', // copied from the trainee at sign-up
+        dietaryNotes: 'Dietary Notes (for this trip)',
+        notes: 'Notes',
+        registeredBy: 'Registered By',
+        registeredAt: 'Registered At',
+        updatedBy: 'Updated By',
+        updatedAt: 'Updated At',
+      },
+    },
+    tripLogistics: {
+      tab: 'Trip Logistics',
+      columns: {
+        itemId: 'Item ID',
+        tripId: 'Trip ID',
+        description: 'Item',
+        dueDate: 'Due Date',
+        status: 'Status',        // pending | done
+        doneBy: 'Done By',
+        doneAt: 'Done At',
+        createdBy: 'Added By',
+        createdAt: 'Added At',
+      },
+    },
+    tripExpenses: {
+      tab: 'Trip Expenses',
+      columns: {
+        expenseId: 'Expense ID',
+        tripId: 'Trip ID',
+        description: 'Expense',
+        amount: 'Amount (SGD)',
+        date: 'Date',
+        paidBy: 'Paid By',
+        createdBy: 'Added By',
+        createdAt: 'Added At',
+      },
+      numeric: ['amount'],
+    },
+    houseVisits: {
+      tab: 'House Visits',
+      columns: {
+        visitId: 'Visit ID',
+        traineeId: 'Trainee ID',
+        traineeName: 'Trainee Name',
+        userId: 'Volunteer User ID',
+        volunteerName: 'Volunteer Name',
+        date: 'Visit Date',
+        family: 'Family',
+        dailyLiving: 'Daily Living',
+        social: 'Social',
+        health: 'Health',
+        followUp: 'Follow-up',
+        createdBy: 'Recorded By',
+        createdAt: 'Recorded At',
+      },
+    },
   },
 
   /* Your EXISTING trainee list. Only `id` and `name` are required; any other
@@ -230,6 +406,7 @@ const CONFIG = {
       interests: 'Interests',
       supportNeeds: 'Support Needs',
       medicalNotes: 'Medical Notes',
+      dietaryNotes: 'Dietary Notes',
       caregiverName: 'Caregiver Name',
       caregiverPhone: 'Caregiver Phone',
       active: 'Active',                      // optional: "No" keeps a trainee out of auto-pairing

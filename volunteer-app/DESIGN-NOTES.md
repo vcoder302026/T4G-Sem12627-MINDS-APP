@@ -191,11 +191,39 @@ over. A new name is copied to upcoming bookings; past attendance keeps the name
 used at the time. Deactivating someone blocks sign-in immediately (every request
 re-reads their row) without deleting their hours.
 
+## The staff dashboard
+
+The phone app is for the day itself (book, pair, scan, feedback). The record
+keeping MINDS staff do at a desk (people, hours reports, fundraising, outings,
+trips, house visits, the old Prototype 1 modules) lives in a separate page,
+`web/admin/`, built for a computer screen.
+
+- **One backend, one sheet.** The dashboard calls the same Apps Script API as
+  the phone app, and its data is more tabs in the same Google Sheet. A second
+  database (like Prototype 1's SQLite) would let volunteers, trainees and hours
+  drift apart between the two. Here a volunteer added on the dashboard can sign
+  in on the phone the next minute, and every scan shows up in the hours report.
+- **Same accounts.** Any volunteer leader can open it; there is no third role
+  to manage. Every dashboard action is leaders-only on the server, not just
+  hidden in the page.
+- **Prototype 1's rules carried over.** Money is summed in whole cents and order
+  totals come from stored prices; each trainee is assigned once per outing;
+  trip participants keep their own copy of medical and dietary notes; house
+  visit history is add-only; nothing is deleted.
+- **Names by ID.** New tabs store the volunteer and trainee IDs (plus a readable
+  name for people browsing the sheet). Lists look the current name up by ID, so
+  renaming someone shows everywhere without rewriting old rows.
+- **Trainee tab safety.** Adding or editing a trainee writes only the mapped
+  columns, cell by cell, and adds a mapped column (e.g. "Dietary Notes") only
+  the first time someone fills it in. MINDS's own extra columns are untouched.
+- **Same look and code.** It reuses the phone app's helpers (`web/js/api.js`,
+  `ui.js`) and Tailwind styles, so it needs no build step or framework either.
+
 ## Next steps worth considering
 
 - Telegram reminders the day before a session (Apps Script time-driven trigger
   + Telegram Bot API).
 - Same-gender or interest-based pairing rules (see above).
-- A monthly hours summary tab (or a pivot table) for MINDS reporting.
+- Charts on the dashboard overview (hours per month, sales over time).
 - Move the two CDN libraries into the repo once you have npm access, so the
   very first load also works without a CDN.

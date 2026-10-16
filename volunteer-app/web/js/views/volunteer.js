@@ -334,7 +334,8 @@ export function renderMe(root, app, ctx) {
         list(
           linkRow('#/review', 'inbox', 'Notes to review', 'Volunteer observations waiting to be shared', reviewCount),
           linkRow('#/guide-edit', 'book', 'Volunteer guide & projects', 'What new volunteers read: projects, attire, expectations'),
-          linkRow('#/venues', 'building', 'Venues', 'The venue list for new sessions')),
+          linkRow('#/venues', 'building', 'Venues', 'The venue list for new sessions'),
+          linkRow('admin/', 'dashboard', 'Staff dashboard', 'On a computer: hours reports, people, fundraising, outings, trips, house visits')),
       ] : null,
       el('h2', { class: 'group-label' }, 'Account'),
       el('section', { class: 'card overflow-hidden' },

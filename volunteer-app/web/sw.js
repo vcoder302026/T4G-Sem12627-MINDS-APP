@@ -58,6 +58,8 @@ self.addEventListener('fetch', (event) => {
   }
 
   if (url.origin !== self.location.origin) return;
+  // The staff dashboard (admin/) is used online on a computer: always fetch it fresh.
+  if (url.pathname.includes('/admin/')) return;
 
   // Stale-while-revalidate for the app's own files.
   event.respondWith(

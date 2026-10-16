@@ -5,6 +5,11 @@ It replaces paper attendance and manual hour logging. Volunteers book sessions a
 QR pass, leaders scan it to clock them in and out, and the hours are recorded in a Google
 Sheet straight away.
 
+It comes with a **staff dashboard** for computers (`web/admin/`) for the record keeping:
+volunteer and trainee lists, attendance corrections and hours reports, fundraising,
+outings, overseas trips and house visits. The phone app and the dashboard share one
+backend and one Google Sheet.
+
 <table>
   <tr>
     <td><img src="docs/screenshots/guide.png" width="150" alt="Volunteer Guide shown to a new volunteer"></td>
@@ -30,7 +35,7 @@ Google Apps Script and a real Google Sheet is the next stage (see
 
 | Part | What it covers |
 | --- | --- |
-| [Part 1: App features](#part-1-app-features) | What volunteers and leaders can do today |
+| [Part 1: App features](#part-1-app-features) | What volunteers, leaders and staff (dashboard) can do today |
 | [Part 2: Test environment](#part-2-setting-up-the-test-environment) | Run the tests and the local demo on your own computer |
 | [Part 3: Apps Script & Google Sheets](#part-3-integrating-google-apps-script--google-sheets) | How to connect the app to Google, from test sheet to production |
 | [Part 4: Reference](#part-4-reference) | Sheet tabs, repo layout, team workflow, troubleshooting, limits |
@@ -64,12 +69,30 @@ gives an overview of both apps.
 | **4. Review notes** | Volunteer observations stay private until a leader shares them as trainee notes. Leaders can also add or hide notes. |
 | **5. Manage content and people** | Edit the Volunteer Guide, projects and venues. Edit anyone's details, change roles, reset passwords and deactivate accounts. |
 
+### Staff dashboard (computer)
+
+Open `admin/` on the same site (locally: <http://localhost:5173/admin/>) and sign in with a
+**leader** account. Volunteers who try it see "Leaders only". The dashboard is built for a
+laptop or desktop screen; the phone app stays the tool for the day itself.
+
+| Section | What staff can do |
+| --- | --- |
+| **1. Overview & people** | **Overview:** counts, hours this month, unpaid orders, upcoming sessions, outings and trips. **Attendance:** every clock record for a date range; fix a missed scan-out, or add someone who was never scanned (hours are worked out again, and the row records who edited it). **Volunteer hours:** completed hours per volunteer for any date range, exported as CSV. **Volunteers:** add people (with a temporary password, or list-only), edit, change roles, reset passwords, deactivate. **Trainees:** add and edit trainees (including medical, dietary and caregiver details), notes for volunteers, and each trainee's sessions, outings, trips and visits on one page. |
+| **2. Fundraising** | Fundraisers, products with SGD prices, orders with several items, paid/unpaid and collected/to collect, total and paid sales. The server works out every total from the stored prices. |
+| **3. Outings** | Outings, each trainee assigned once to a volunteer with group and bus labels, and a boarded tick-list with a running count. |
+| **4. Overseas trips** | Trips with checked date ranges, participants (their medical and dietary notes are copied in at sign-up, so later profile edits don't change the trip copy), volunteer and status per participant, a logistics checklist and expenses with a running total. |
+| **5. House visits** | Visit records (family, daily living, social, health, follow-up). History is add-only and newest first, filterable by trainee. |
+
+Records are never deleted from the dashboard: people are deactivated, trainees marked
+inactive, products taken off sale, and outings or trips cancelled.
+
 ### Behind the scenes
 
 - **Every action is written to a Google Sheet.** Hours, bookings, feedback and notes are
   rows that staff can read, filter and correct directly.
 - **Works with MINDS's existing trainee list.** The app reads the trainee tab by column
-  header names and never deletes or reorders existing data.
+  header names. Staff can add and edit trainees on the dashboard, which only writes the
+  columns it knows and never deletes or reorders rows.
 - **Privacy:** volunteers only see the trainee fields they need for a session. Medical and
   caregiver details stay visible to leaders only.
 - **Installable** on a phone home screen as a web app (PWA). No app store needed.
@@ -84,12 +107,14 @@ behind the design are in [DESIGN-NOTES.md](DESIGN-NOTES.md).
 flowchart LR
   V[Volunteer phone<br/>web app on GitHub Pages] -- "requests" --> G[Google Apps Script<br/>backend API]
   L[Leader phone<br/>camera scanner] -- "scans" --> G
-  G -- "reads and writes rows" --> S[(Google Sheet<br/>Volunteers · Sessions · Bookings<br/>Attendance · Feedback · Notes<br/>+ existing Trainees tab)]
+  D[Staff computer<br/>dashboard at /admin/] -- "requests" --> G
+  G -- "reads and writes rows" --> S[(Google Sheet<br/>Volunteers · Sessions · Bookings<br/>Attendance · Feedback · Notes<br/>Fundraising · Outings · Trips · Visits<br/>+ existing Trainees tab)]
 ```
 
 | Layer | Technology | Where it lives |
 | --- | --- | --- |
 | Phone app | HTML, vanilla JavaScript, Tailwind CSS | `volunteer-app/web/`, published to GitHub Pages |
+| Staff dashboard | Same, reusing the phone app's helpers | `volunteer-app/web/admin/`, published with the phone app |
 | Backend API | Google Apps Script | `volunteer-app/gas/`, pasted or pushed into an Apps Script project |
 | Database | Google Sheets | A sheet owned by MINDS |
 | Deployment | GitHub Actions + clasp | `.github/workflows/` |
@@ -135,9 +160,12 @@ There's nothing to `npm install`, because the volunteer app has no dependencies.
 npm test
 ```
 
-Expected result: `# tests 37`, `# pass 37`, `# fail 0`. The tests cover the full flow:
-register, read the guide, book, pair a trainee, scan in and out, give feedback, and write
-trainee notes. They also run automatically on every pull request.
+Expected result: `ℹ tests 56`, `ℹ pass 56`, `ℹ fail 0`. `tests/gas.test.js` covers the
+phone app's flow: register, read the guide, book, pair a trainee, scan in and out, give
+feedback, and write trainee notes. `tests/dashboard.test.js` covers the staff dashboard:
+leaders-only access, attendance fixes and hours reports, adding volunteers and trainees,
+order totals, outings, trips and house visits. They also run automatically on every pull
+request.
 
 ### Step 4: Start the local demo
 
@@ -151,6 +179,7 @@ You should see:
 MINDS Volunteer app (local mock) → http://localhost:5173
   Leader:    leader@example.com / LeaderDemo123
   Volunteer: volunteer@example.com / VolunteerDemo123
+  Staff dashboard: http://localhost:5173/admin/
   Sheet view: http://localhost:5173/__sheet
 ```
 
@@ -162,8 +191,14 @@ Open **<http://localhost:5173>** and sign in with a demo account:
 | Volunteer | `volunteer@example.com` | `VolunteerDemo123` |
 | Second volunteer | `sam@example.com` | `VolunteerDemo123` |
 
+Open **<http://localhost:5173/admin/>** for the staff dashboard (sign in as the leader). It
+already has a demo fundraiser, outing, overseas trip and house visits.
+
 Open **<http://localhost:5173/__sheet>** in another tab to see what the app would write to
 Google Sheets. Refresh it after each action.
+
+The phone app and the dashboard share a sign-in on the same browser, so signing out of one
+signs you out of the other.
 
 - To **stop** the demo, press **Ctrl+C**. All demo data resets when it stops.
 - To use **another port**, run `PORT=5174 npm run dev`.
@@ -183,6 +218,10 @@ leader, so you can be signed in as both at once.
 | 6 | Volunteer | Submit feedback with a trainee observation | It waits for a leader to review it |
 | 7 | Leader | Share the observation | It appears in **Trainee Notes** |
 | 8 | Leader | Add a venue, edit the guide, edit a volunteer's details | The changes show up in the app and in `/__sheet` |
+| 9 | Dashboard | Add a volunteer, then sign in to the phone app with the temporary password | The new volunteer is asked to read the guide |
+| 10 | Dashboard | Attendance → **Fix** a record; Volunteer hours → **Export totals (CSV)** | Hours are worked out again; the CSV opens in Excel or Sheets |
+| 11 | Dashboard | Add a trainee, then open a session in the phone app as a leader | The new trainee can be paired |
+| 12 | Dashboard | Take an order, tick a trainee as boarded, record a trip expense and a house visit | Totals and counts update; rows appear in `/__sheet` |
 
 ### Step 6: Check the phone layout
 
@@ -232,7 +271,7 @@ Always set up **Exp first** and only move to Prod once Exp has been tested end t
    | --- | --- | --- |
    | `Name` | **Yes** | Leaders only |
    | `Preferred Name`, `Gender`, `Communication`, `Behaviours`, `Things to Take Note`, `Interests`, `Support Needs` | No | Yes, to the paired volunteer |
-   | `Medical Notes`, `Caregiver Name`, `Caregiver Phone` | No | Leaders only |
+   | `Medical Notes`, `Dietary Notes`, `Caregiver Name`, `Caregiver Phone` | No | Leaders only |
    | `Active` | No | "No" keeps a trainee out of auto-pairing |
    | `Trainee ID` | No | Filled in automatically by `setup()` |
 
@@ -248,7 +287,8 @@ Always set up **Exp first** and only move to Prod once Exp has been tested end t
 1. In the sheet, open **Extensions → Apps Script**.
 2. For each file in [`gas/`](gas), create a script file with the
    same name (**+ → Script**) and paste in its contents: `Admin`, `Attendance`, `Auth`,
-   `Config`, `Content`, `Db`, `Main`, `Profile`, `Setup`, `Trainees`, `Util`, `Volunteer`.
+   `Config`, `Content`, `Dashboard`, `Db`, `Fundraising`, `Main`, `Outings`, `Profile`,
+   `Setup`, `Trainees`, `Trips`, `Util`, `Visits`, `Volunteer`.
    Delete the default `Code.gs`.
 3. In **Project Settings** (the gear icon), tick **Show "appsscript.json" manifest file in
    editor**. Then replace that file's contents with
@@ -287,7 +327,9 @@ Sheet IDs are kept here rather than in the code, so they never end up on GitHub.
    without changing anything.
 3. Run **`setup()`**. It:
    - creates the app's tabs (Volunteers, Sessions, Bookings, Attendance, Feedback, Trainee
-     Notes, Venues, Projects, Volunteer Guide, and the hidden `_Auth`);
+     Notes, Venues, Projects, Volunteer Guide, and the hidden `_Auth`) and the staff
+     dashboard's tabs (Fundraisers, Products, Orders, Order Items, Outings, Outing
+     Assignments, Trips, Trip Participants, Trip Logistics, Trip Expenses, House Visits);
    - adds any missing columns to existing tabs;
    - gives every trainee a Trainee ID;
    - adds a starter venue, guide and project;
@@ -320,7 +362,8 @@ its own sign-in checks on every request.
 3. Go to **Actions → Volunteer app · deploy web → Run workflow**. After that, it runs by
    itself whenever `volunteer-app/web/` changes on `main`.
 4. Open the site. The link is under Settings → Pages and looks like
-   `https://vcoder302026.github.io/T4G-Sem12627-MINDS-APP/`.
+   `https://vcoder302026.github.io/T4G-Sem12627-MINDS-APP/`. The staff dashboard is the same
+   link plus `admin/`.
 
 The URL is added to `web/js/config.js` during deployment, so it's never committed to the repo.
 
@@ -402,14 +445,25 @@ Only start this after Exp has been tested end to end and MINDS has agreed.
 | _Auth (hidden) | person | Salted password hashes. Never shown in the app |
 | Sessions | session | Venue, project, trainees attending; status `open` / `closed` / `cancelled` |
 | Bookings | booking | `pending` → `confirmed` or `cancelled`; paired trainee; walk-in flag |
-| Attendance | clock record | Clock in, clock out, hours, who scanned, method (`QR`, `QR (offline)`, `Manual`) |
+| Attendance | clock record | Clock in, clock out, hours, who scanned, method (`QR`, `QR (offline)`, `Manual`, `Dashboard`), who edited it on the dashboard |
 | Feedback | submission | Rating 1–5, comments, trainee observation, review status |
 | Trainee Notes | note | What future volunteers see; `shared` or `hidden` |
 | Venues, Projects, Volunteer Guide | item | Editable by leaders in the app |
-| Trainees (existing) | trainee | Read by the app. It only adds Trainee ID, missing columns and two observation columns |
+| Trainees (existing) | trainee | The phone app only adds Trainee ID and two observation columns. The dashboard adds and edits trainees, writing only the mapped columns |
+| Fundraisers, Products | fundraiser / product | Prices in SGD; products are archived rather than deleted |
+| Orders, Order Items | order / line | Total worked out by the server; each line keeps the price it was sold at |
+| Outings, Outing Assignments | outing / trainee | One row per trainee per outing, with volunteer, group, bus and boarded |
+| Trips, Trip Participants, Trip Logistics, Trip Expenses | trip / trainee / item / expense | Participants keep their own copy of medical and dietary notes |
+| House Visits | visit | Add-only history |
 
-Staff can edit the sheet directly, for example to fix a clock-out time. The app re-reads
-it on every request. Only rename a header together with `Config.gs`.
+Staff can still edit the sheet directly, but the dashboard is safer: it checks every value
+and keeps hours, totals and names consistent. The app re-reads the sheet on every request.
+Only rename a header together with `Config.gs`.
+
+A fictional copy of the whole sheet, with every tab filled in, is in
+[`docs/demo-data/MINDS-Volunteer-Demo-Data.xlsx`](docs/demo-data/MINDS-Volunteer-Demo-Data.xlsx).
+Import it into Google Sheets (File → Import → Replace spreadsheet) to test Part 3 without
+real data.
 
 ### Repository layout
 
@@ -417,9 +471,10 @@ it on every request. Only rename a header together with `Config.gs`.
 volunteer-app/
   gas/              Apps Script backend (goes into the Apps Script project)
   web/              phone app (published to GitHub Pages)
+  web/admin/        staff dashboard (published with it, at admin/)
   dev/              local demo server and in-memory Google Sheets stand-in
   tests/            backend tests (npm test)
-  docs/             user guide and screenshots
+  docs/             user guide, screenshots and the demo spreadsheet
   README.md         this file
   DESIGN-NOTES.md   why it's built this way
 .github/workflows/  deploy web (GitHub Pages) and backend (clasp)
@@ -464,7 +519,11 @@ How each screen works for volunteers and leaders: [docs/USER-GUIDE.md](docs/USER
 - Apps Script requests take 1–2 s and handle about 30 at once: fine for
   session-sized groups, not for thousands of simultaneous users.
 - Pairing doesn't consider gender, skills or preferences yet; leaders adjust it.
-- Trainee details are edited in the trainee sheet, not in the app.
+- The dashboard never deletes records (deactivate, archive or cancel instead), and an
+  order can't be changed after it's taken (only paid and collected).
+- The dashboard loads whole lists at once. That's fine for MINDS-sized data (hundreds of
+  rows) but would need paging for many thousands.
+- The phone app and the dashboard share one sign-in per browser.
 - The scanner library (`html5-qrcode` 2.3.8) is no longer actively maintained;
   it loads from a CDN with a fallback and is cached for offline use.
 - Agree with MINDS which trainee fields volunteers may see (PDPA).

@@ -1,6 +1,6 @@
 # Using the MINDS Volunteer App
 
-For volunteers and volunteer leaders. Setup and code are covered in the
+For volunteers, volunteer leaders and MINDS staff (the dashboard). Setup and code are covered in the
 [README](../README.md).
 
 The app has two modes. Volunteers see **Home · QR pass · Sessions · Me**.
@@ -88,6 +88,66 @@ Good to know:
 | Add or change projects | **Volunteer guide & projects** → **Add project** / **Edit** / **Archive** |
 | Manage venues | **Venues** → **Add venue**, **Edit** (renaming updates today's and future sessions) or **Archive** |
 | See it as volunteers do | **Volunteer guide & projects** → **Preview as a volunteer** |
+
+## For staff: the dashboard (on a computer)
+
+Open the site's `admin/` page (the phone app links to it under **Me → Leader
+tools → Staff dashboard**) and sign in with your leader account. The menu on the
+left has five sections.
+
+**1. Overview & people**
+
+| I want to… | Click |
+| --- | --- |
+| See how things stand | **Overview**: volunteers, trainees, hours this month, unpaid orders, what's coming up |
+| Fix a missed scan-out | **Attendance** → choose the dates → **Fix** on the row → enter the times → **Save times** |
+| Record someone who was never scanned | **Attendance** → **Add by hand** → session, volunteer, times |
+| Get hours for certificates or reports | **Volunteer hours** → pick the dates (or **This month / This year / All time**) → **Export totals (CSV)** or **Export every record (CSV)** |
+| Add a volunteer | **Volunteers** → **Add volunteer**. Keep **Create a login now** ticked to get a temporary password to give them |
+| Edit someone, make a leader, reset a password, deactivate | **Volunteers** → their name |
+| Add a trainee | **Trainees** → **Add trainee** (gets the next ID, e.g. T-0009) |
+| Change a trainee's details | **Trainees** → name → **Edit details**. Fields marked "Paired volunteers see this" show in the phone app |
+| Stop pairing a trainee who has left | **Edit details** → **Active: No** (the row stays in the sheet) |
+
+**2. Fundraising**
+
+| I want to… | Click |
+| --- | --- |
+| Start a fundraiser | **Fundraisers** → **New fundraiser**, then **Add product** for each item and price |
+| Take an order | Open the fundraiser → **Take an order** → customer, quantities → **Save order**. The total is worked out from the prices |
+| Mark paid or collected | Change **Payment** or **Collection** on the order's row |
+| Change a price or stop selling something | **Edit** or **Stop selling** on the product. Past orders keep the price they were sold at |
+| Stop taking orders | **Close fundraiser** (you can reopen it) |
+
+**3. Outings**
+
+| I want to… | Click |
+| --- | --- |
+| Plan an outing | **Outings** → **New outing** |
+| Pair trainees with volunteers | Open the outing → **Assign a trainee** → trainee, volunteer, group, bus. Each trainee can only be assigned once |
+| Check everyone onto the bus | Tick **Boarded** for each trainee; the count shows at the top. Filter by group to work through one bus |
+| Mark it done or cancelled | **Edit** → **Status** |
+
+**4. Overseas trips**
+
+| I want to… | Click |
+| --- | --- |
+| Plan a trip | **Trips** → **New trip** |
+| Register a trainee | Open the trip → **Register a trainee**. Their medical and dietary notes are copied for this trip |
+| Assign a volunteer, confirm, or withdraw | Change the **Status** on their row, or **Edit** for the volunteer and the trip's own notes |
+| Track what needs doing | **Add item** to the logistics checklist, and tick it when done |
+| Record spending | **Add expense**; the total updates |
+
+**5. House visits**
+
+| I want to… | Click |
+| --- | --- |
+| Record a visit | **Visit records** → **Record a visit** → trainee, who visited, date, at least one area, follow-up |
+| See one trainee's visits | Choose them under **Trainee**, or open the trainee's page |
+
+Visit records can't be edited afterwards, so the history stays a true record.
+Nothing on the dashboard deletes records: deactivate people, mark trainees
+inactive, stop selling products, and cancel outings or trips instead.
 
 ## How the app decides things
 

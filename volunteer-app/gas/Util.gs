@@ -104,6 +104,23 @@ function telegram_(value) {
   return s; // stored without "@" (a leading @ would need formula-escaping in Sheets)
 }
 
+/**
+ * Money in SGD, e.g. 5.5 or "5.50" → 550 (whole cents). Sums are done in cents,
+ * so 0.1 + 0.2 never turns into 0.30000000000000004. The sheet shows dollars.
+ */
+function cents_(value, label, opts) {
+  const o = opts || {};
+  const s = typeof value === 'number' ? String(value) : str_(value, label, { required: true, max: 12 }).replace(/^\$|^SGD\s*/i, '');
+  if (!/^\d+(\.\d{1,2})?$/.test(s)) throw err_.validation(`${label} must be an amount in dollars, e.g. 5.50.`);
+  const c = Math.round(Number(s) * 100);
+  if (c < (o.min === undefined ? 0 : o.min) || c > 10000000) throw err_.validation(`${label} must be between $${((o.min || 0) / 100).toFixed(2)} and $100,000.`);
+  return c;
+}
+/** Cents → dollars for the sheet (5.5 shows as 5.5; the app formats it as $5.50). */
+const dollars_ = (c) => Math.round(c) / 100;
+/** Sheet dollars → cents. */
+const toCents_ = (d) => Math.round((Number(d) || 0) * 100);
+
 /* ---------- time (all stored as readable Singapore time) ---------- */
 
 function now_() {
