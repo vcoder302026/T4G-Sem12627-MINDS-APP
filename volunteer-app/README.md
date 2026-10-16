@@ -397,9 +397,75 @@ the `/exec` URL never changes and phones keep working. Without the secrets, it s
 the tests and skips the deploy. Remember to run `setup()` again after updates that add
 columns.
 
-### Stage 9: Going to production (future)
+### Stage 9: Test rounds on Exp (deploy, test, fix, redeploy)
 
-Only start this after Exp has been tested end to end and MINDS has agreed.
+Once Exp works, improve the app in **rounds** until MINDS is happy:
+
+```text
+snapshot → deploy → users test and give feedback → pause → fix → next round
+```
+
+Every round runs on the **Exp** sheet, never on the real MINDS sheet. Each step can be
+undone without changing the `/exec` URL, so phones keep working between rounds.
+
+**The switches you use:**
+
+| You want to | Do this | Undo it |
+| --- | --- | --- |
+| Keep a safe copy of the data | In the Exp sheet: **File → Make a copy**, named e.g. `MINDS-Exp-backup-r1-2026-10-20` | — |
+| Go back to the old data | Script properties: set `SPREADSHEET_ID` to the backup copy's ID | Set it back to the previous ID |
+| Go back to the old backend code | **Deploy → Manage deployments → ✏️ → Version:** pick the previous version **→ Deploy** | Pick the newer version again |
+| Go back to the old website | Revert the commit on `main` (or re-run the web deploy from the previous tag) | Revert the revert |
+
+Notes:
+
+- The backup copy includes every tab, including the hidden `_Auth`, so logins keep
+  working after a switch. `APP_SECRET` lives in script properties, not in the sheet, so it
+  doesn't change.
+- If the script was created from the sheet (Extensions → Apps Script), the copy also gets
+  its own copy of the script. Ignore it and never deploy from it.
+- Switching to a backup loses anything entered after that backup was made. Write down
+  what testers did since then.
+- `setup()` only ever adds tabs and columns, and the backend finds columns by their
+  header. So older backend code still works on a sheet that newer code has set up, and
+  rolling back the code is safe.
+
+**Each round:**
+
+1. **Freeze.** Merge the round's fixes into `main` and tag it: `git tag test-r1 && git push
+   origin test-r1`.
+2. **Snapshot.** Make a dated copy of the Exp sheet (see the table above).
+3. **Deploy.** Publish a new version of the existing deployment (or let Stage 8 do it), run
+   the web deploy, then run `setup()`.
+4. **Test and collect feedback.** Agree a test window (e.g. 3–5 days) and use one
+   feedback place, such as a Google Form or a "Tester feedback" tab with: round, page,
+   what happened, what you expected, how serious.
+5. **Pause.** At the end of the window, tell testers to stop and export the feedback.
+   Decide what to fix.
+6. **Fix locally.** Work on a branch against the local demo (`npm run dev`) and `npm test`.
+   Add a test for each bug found. **Don't merge into `main` during a test window:** with
+   Stage 8 set up, a merge redeploys the backend in the middle of the round.
+7. **Choose the data for the next round.** If it's fine, keep it. If the round damaged
+   it, switch `SPREADSHEET_ID` to the snapshot. Then start the next round at step 1.
+
+**If something breaks during a round** (data lost, wrong rows written, nobody can sign
+in): tell testers to stop, roll back the backend version, switch to the snapshot if the
+data was damaged, and only then look for the cause.
+
+**Keep a round log** (one row per round), so there's a record of every release:
+
+| Round | Git tag | Apps Script version | Snapshot | Test dates | Result | Fixed |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 (example) | `test-r1` | 4 | `MINDS-Exp-backup-r1-2026-10-20` | 20–24 Oct | Kept data | Booking time zone, CSV header |
+
+**Not built yet** (planned helpers to make rounds quicker): a `snapshot()` function that
+makes the dated copy in one click, and a `MAINTENANCE_MODE` script property that makes
+the backend refuse changes (read-only) during the pause. Until then, use the manual steps
+above and pause by telling testers to stop.
+
+### Stage 10: Going to production (future)
+
+Only start this after the Exp test rounds (Stage 9) are finished and MINDS has agreed.
 
 1. **Create a separate Apps Script project** on the real MINDS sheet (repeat Stages 2–5).
    Script properties belong to each project, so Exp and Prod never share data or secrets.

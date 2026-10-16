@@ -283,6 +283,28 @@ to go live: only the connections do. The full step-by-step guide is in
 | 7 | **Create the first leader** | MINDS | Register in the app, then run `makeFirstAdmin()` once. That leader promotes others in the app. |
 | 8 | **Test with real phones** | Everyone | One phone shows a QR pass, a leader's phone scans it, and the row appears in the Sheet. |
 | 9 | **Automatic updates (optional)** | Team | With a few GitHub settings, every approved code change updates the backend and website by itself. |
+| 10 | **Test rounds (Test only)** | Everyone | Repeat until MINDS is happy: back up the Sheet → deploy → users test and give feedback → pause → fix → redeploy. See below. |
+
+**Test rounds, with a safe way back.** Improvements are made in rounds on the Test
+Sheet, never on the real one:
+
+```text
+back up the Sheet → deploy → users test and give feedback → pause → fix → next round
+```
+
+- **Back up first.** Before each round, the team makes a dated copy of the Test Sheet.
+- **Safe mode: three switches, each undone in about a minute.** If something breaks, the
+  team can (1) point the backend back at the backup copy, (2) switch the backend to its
+  previous version, and (3) put back the previous website. The web address stays the
+  same, so testers' phones keep working.
+- **Pause and fix.** At the end of each test window (e.g. 3–5 days), testers stop, the
+  feedback is collected in one place (a form or a feedback tab), and the team fixes and
+  tests the changes on the laptop demo before the next round.
+- **A round log** records each round's version, backup, test dates and what was fixed.
+- **Not built yet:** a one-click backup and a "read-only" switch for the pause. Until
+  then the team does these by hand.
+
+Full steps: `volunteer-app/README.md`, Part 3, Stage 9.
 
 **Before the live launch, MINDS should:**
 
@@ -338,7 +360,8 @@ to go live: only the connections do. The full step-by-step guide is in
 ### Suggested next steps
 
 1. Connect to a **test Google Sheet** and try everything with real phones (section 3.4).
-2. A **walkthrough with MINDS staff** to collect feedback on the dashboard.
+2. Run **test rounds** with MINDS staff and volunteers (section 3.4) until they are happy,
+   then go live on the real Sheet.
 3. Agree the **PDPA** rules for what volunteers see.
 4. Possible Version 2 ideas: Telegram reminders before sessions, pairing by gender or
    interests, charts on the dashboard overview.
