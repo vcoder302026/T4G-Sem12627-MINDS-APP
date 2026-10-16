@@ -225,6 +225,7 @@ const TABS = {
     { key: 'pass', href: '#/pass', label: 'QR pass', icon: 'qr' },
     { key: 'sessions', href: '#/sessions', label: 'Sessions', icon: 'calendar' },
     { key: 'me', href: '#/me', label: 'Me', icon: 'user', also: ['edit-me'] },
+    { key: 'dashboard', href: 'admin/', label: 'Dashboard', icon: 'dashboard' },
   ],
   leader: [
     { key: 'today', href: '#/today', label: 'Sessions', icon: 'calendar', also: ['session', 'new-session', 'review'] },
