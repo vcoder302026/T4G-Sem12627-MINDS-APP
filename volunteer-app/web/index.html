@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#4f46e5">
   <title>MINDS Volunteers</title>
-  <meta name="description" content="Book MINDS volunteering sessions, show your QR pass and log your hours.">
+  <meta name="description" content="Sign up for MINDS volunteering sessions, show your QR pass and log your hours. MINDS admins manage sessions, pairing and records in the same app.">
   <meta property="og:title" content="MINDS Volunteers">
-  <meta property="og:description" content="Book MINDS volunteering sessions, show your QR pass and log your hours.">
+  <meta property="og:description" content="Sign up for MINDS volunteering sessions, show your QR pass and log your hours.">
   <link rel="manifest" href="manifest.json">
   <link rel="icon" type="image/png" href="icons/icon-192.png">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
@@ -24,29 +24,36 @@
   </script>
 </head>
 <body class="min-h-dvh">
-  <div class="sticky top-0 z-30 shadow-sm">
-    <div id="env-bar" class="w-full py-0.5 text-center text-xs font-bold uppercase tracking-widest text-white" hidden></div>
-    <div id="offline-bar" class="w-full bg-slate-900 px-4 py-1 text-center text-xs font-bold text-white dark:bg-neutral-800" role="status" hidden>
-      You're offline. Showing what was saved on this phone.
-    </div>
-    <header class="border-b border-slate-200 bg-white dark:border-neutral-900 dark:bg-neutral-950">
-      <div class="mx-auto flex h-16 max-w-2xl items-center justify-between gap-2 px-4">
-        <a href="#/" class="flex min-w-0 items-center gap-3">
-          <span id="brand-icon" class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-lg shadow-indigo-200 dark:shadow-none"></span>
-          <span class="min-w-0">
-            <span class="block truncate text-base font-extrabold leading-tight tracking-tight text-slate-900 sm:text-lg dark:text-white">MINDS Volunteers</span>
-            <span id="brand-sub" class="block truncate text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-neutral-400">Welcome</span>
-          </span>
-        </a>
-        <div id="header-actions" class="flex shrink-0 items-center gap-0.5"></div>
-      </div>
-      <nav id="tabs" class="mx-auto max-w-2xl px-4 pb-3" aria-label="Main" hidden>
-        <div id="tabs-list" class="seg"></div>
-      </nav>
-    </header>
-  </div>
+  <!-- Desktop (lg and wider): the menu is a sidebar. Phones: tabs under the header. Same pages either way. -->
+  <aside id="sidebar" class="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-slate-200 bg-white dark:border-neutral-900 dark:bg-neutral-950" aria-label="Menu"></aside>
 
-  <main id="view" class="mx-auto max-w-2xl px-4 pb-28 pt-5" tabindex="-1"></main>
+  <div id="shell">
+    <div class="sticky top-0 z-20 shadow-sm">
+      <div id="env-bar" class="w-full py-0.5 text-center text-xs font-bold uppercase tracking-widest text-white" hidden></div>
+      <div id="offline-bar" class="w-full bg-slate-900 px-4 py-1 text-center text-xs font-bold text-white dark:bg-neutral-800" role="status" hidden>
+        You're offline. Showing what was saved on this device.
+      </div>
+      <header class="border-b border-slate-200 bg-white dark:border-neutral-900 dark:bg-neutral-950">
+        <div id="header-row" class="mx-auto flex h-16 max-w-2xl items-center justify-between gap-2 px-4">
+          <a href="#/" id="brand" class="flex min-w-0 items-center gap-3">
+            <span id="brand-icon" class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-lg shadow-indigo-200 dark:shadow-none"></span>
+            <span class="min-w-0">
+              <span class="block truncate text-base font-extrabold leading-tight tracking-tight text-slate-900 sm:text-lg dark:text-white">MINDS Volunteers</span>
+              <span id="brand-sub" class="block truncate text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-neutral-400">Welcome</span>
+            </span>
+          </a>
+          <p id="crumb" class="hidden min-w-0 truncate text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-neutral-400"></p>
+          <div id="header-actions" class="flex shrink-0 items-center gap-0.5"></div>
+        </div>
+        <nav id="tabs" class="mx-auto max-w-2xl px-4 pb-3 lg:hidden" aria-label="Main" hidden>
+          <div id="tabs-list" class="seg"></div>
+        </nav>
+        <nav id="subnav" class="flex gap-1 overflow-x-auto px-4 pb-3 lg:hidden" aria-label="Admin sections" hidden></nav>
+      </header>
+    </div>
+
+    <main id="view" class="mx-auto max-w-2xl px-4 pb-28 pt-5" tabindex="-1"></main>
+  </div>
 
   <div id="toast" class="pointer-events-none fixed inset-x-0 top-4 z-[100] flex justify-center px-4" role="status" aria-live="polite"></div>
 

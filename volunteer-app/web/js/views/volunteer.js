@@ -1,19 +1,20 @@
-// Volunteer screens: Home, QR pass, Sessions, Me, Feedback. (The Volunteer
-// Guide is in content.js, the trainee card in trainees.js, Edit my details in profile.js.)
+// Volunteer screens: Home, QR pass, Schedule, Me, Feedback. (The Volunteer
+// Guide is in content.js, trainees in trainees.js, Edit my details in profile.js.)
 // Every screen draws instantly from what's saved on the phone, then refreshes.
+// MINDS staff use these screens too; the Admin menu is opened from Me.
 
 import { call, isNetworkError } from '../api.js';
 import { drawQr } from '../qr.js';
 import {
   backLink, badge, busy, clockTime, el, errorBlock, field, fmtDay, fmtHours, fmtTimes, formData, fuzzyFilter, icon,
-  initials, likert, loading, mapsLink, mount, searchBox, section, statusBadge, toast, todaySG,
+  initials, likert, loading, mapsLink, mount, searchBox, section, toast, todaySG, typeBadge,
 } from '../ui.js';
-import { traineeCard } from './trainees.js';
+import { traineeCards, traineeChips } from './trainees.js';
 
 /** Draw from cache, then from the server. `draw` gets the volunteerHome payload. */
 async function withHome(root, app, ctx, draw) {
   const cached = app.cachedHome();
-  if (cached) draw(cached);
+  if (cached && cached.schedule) draw(cached);
   else mount(root, loading());
   try {
     const fresh = await app.fetchHome();
@@ -50,16 +51,29 @@ function sessionMeta(s) {
   ];
 }
 
+const typeChip = (s) => (s.type && s.type !== 'Volunteer session' ? badge(s.type, 'purple') : null);
+
 function guideBanner() {
   return el('a', { href: '#/guide', class: 'card mt-4 flex items-center gap-4 border-l-4 border-l-emerald-500 p-4 hover:shadow-md' },
     el('span', { class: 'flex size-11 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' }, icon('book', 'size-6')),
     el('span', { class: 'min-w-0 flex-1' },
       el('span', { class: 'block font-bold text-slate-900 dark:text-white' }, 'New here? Start with the Volunteer Guide'),
-      el('span', { class: 'block text-sm muted' }, 'Projects, what to wear and what to expect. Read it before your first booking.')),
+      el('span', { class: 'block text-sm muted' }, 'Projects, what to wear and what to expect. Read it before your first session.')),
     icon('chevron', 'size-5 text-slate-400'));
 }
 
-const PENDING_HINT = "Waiting for a leader to confirm. You'll see your trainee here once it's confirmed.";
+/** "Regular volunteer", or how many sessions until they become one. */
+function typeLine(h) {
+  const u = h.user;
+  if (u.type === 'regular') return el('p', { class: 'mt-2' }, badge('Regular volunteer', 'emerald', 'heart'));
+  if (u.typeSetting === 'new') return el('p', { class: 'mt-2' }, badge('New volunteer', 'indigo', 'sparkle'));
+  const left = Math.max(0, (h.regularAfter || 10) - (u.completedSessions || 0));
+  return el('div', { class: 'mt-3' },
+    el('div', { class: 'flex items-center justify-between text-xs font-bold muted' },
+      el('span', {}, 'New volunteer'), el('span', {}, `${left} more session${left === 1 ? '' : 's'} to become a regular`)),
+    el('div', { class: 'mt-1 h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-neutral-800' },
+      el('div', { class: 'h-full rounded-full bg-emerald-500', style: `width:${Math.round(100 * (u.completedSessions || 0) / (h.regularAfter || 10))}%` })));
+}
 
 function attendanceBox(a) {
   if (!a) return null;
@@ -68,16 +82,16 @@ function attendanceBox(a) {
       ? badge('Clocked out', 'emerald', 'check')
       : badge('Clocked in today', 'emerald', 'check'),
     el('p', { class: 'mt-1.5 text-xs text-slate-600 dark:text-neutral-400' }, a.clockOut
-      ? `${clockTime(a.clockIn)}–${clockTime(a.clockOut)}, ${fmtHours(a.hours)} recorded in Google Sheets.`
+      ? `${clockTime(a.clockIn)}–${clockTime(a.clockOut)}, ${fmtHours(a.hours)} recorded.`
       : `Your clock-in was recorded at ${clockTime(a.clockIn)}. Show your pass again at the end to clock out.`));
 }
 
-function cancelButton(app, booking, redraw) {
+function cantMakeIt(app, booking, redraw) {
   if (!booking.canCancel) return null;
-  const btn = el('button', { class: 'text-sm font-bold text-red-600 hover:underline dark:text-red-400' }, 'Cancel booking');
+  const btn = el('button', { class: 'text-sm font-bold text-red-600 hover:underline dark:text-red-400' }, "Can't make it");
   btn.addEventListener('click', () => {
-    if (!confirm(`Cancel your booking for ${booking.session.title}?`)) return;
-    busy(btn, 'Cancelling…', async () => {
+    if (!confirm(`Tell MINDS you can't make it to ${booking.session.title} on ${fmtDay(booking.session.date)}?`)) return;
+    busy(btn, 'Saving…', async () => {
       const res = await call('cancelBooking', { bookingId: booking.bookingId });
       app.saveHome(res.home);
       redraw(res.home);
@@ -86,6 +100,10 @@ function cancelButton(app, booking, redraw) {
   });
   return btn;
 }
+
+const noTraineeYet = (h) => el('p', { class: 'alert alert-info mt-4' }, h.user.type === 'regular'
+  ? 'No free trainee yet. MINDS staff will pair you on the day.'
+  : 'A MINDS admin will pair you with a trainee. You\'ll see them here, and under Trainees.');
 
 /* ---------------- Home ---------------- */
 
@@ -100,6 +118,7 @@ export function renderHome(root, app, ctx) {
       el('p', { class: 'mt-1 text-sm muted' }, h.totals.sessions
         ? `You've volunteered ${fmtHours(h.totals.hours)} over ${h.totals.sessions} session${h.totals.sessions === 1 ? '' : 's'}.`
         : 'Your volunteering hours will show here after your first session.'),
+      typeLine(h),
       h.guideRead === false ? guideBanner() : null,
 
       h.pendingFeedback.map((f) => el('div', { class: 'card mt-4 border-l-4 border-l-amber-400 p-4' },
@@ -116,16 +135,15 @@ export function renderHome(root, app, ctx) {
           el('div', { class: 'min-w-0' },
             el('h3', { class: 'text-xl font-extrabold leading-snug text-slate-900 dark:text-white' }, u.session.title),
             sessionMeta(u.session)),
-          u.attendance ? null : statusBadge(u.status)),
+          typeChip(u.session)),
         attendanceBox(u.attendance),
-        traineeCard(u.trainee),
-        u.status === 'pending' && !u.attendance
-          ? el('p', { class: 'alert alert-info mt-4' }, 'You can still come: your leader confirms you when they scan your pass.')
-          : null,
+        u.trainees.length ? traineeCards(u.trainees) : noTraineeYet(h),
         u.attendance && u.attendance.clockOut ? null
           : el('a', { href: '#/pass', class: 'btn btn-primary mt-4 w-full' }, icon('qr'), 'Show my QR pass'))),
 
-      el('h2', { class: 'group-label' }, 'Coming up'),
+      el('div', { class: 'flex items-center justify-between' },
+        el('h2', { class: 'group-label' }, 'Coming up'),
+        el('a', { href: '#/schedule', class: 'link mt-6 mb-2 text-xs' }, 'Full schedule')),
       later.length
         ? list(later.map((u) => el('div', { class: 'p-4' },
           el('div', { class: 'flex items-start justify-between gap-3' },
@@ -133,12 +151,16 @@ export function renderHome(root, app, ctx) {
               el('p', { class: 'text-sm font-bold text-indigo-600 dark:text-indigo-400' }, fmtDay(u.session.date, today)),
               el('h3', { class: 'font-bold text-slate-900 dark:text-white' }, u.session.title),
               el('p', { class: 'text-sm muted' }, `${fmtTimes(u.session)}, `, venueLink(u.session))),
-            statusBadge(u.status)),
-          u.status === 'pending' ? el('p', { class: 'mt-2 text-xs muted' }, PENDING_HINT) : null,
-          traineeCard(u.trainee),
-          el('div', { class: 'mt-2' }, cancelButton(app, u, draw)))))
-        : emptyState('calendar', 'No sessions booked yet', 'Find a session that suits you and book a slot.',
-          el('a', { href: h.guideRead === false ? '#/guide' : '#/sessions', class: 'btn btn-primary mt-5' }, h.guideRead === false ? 'Read the guide first' : 'Find a session')));
+            badge("You're coming", 'emerald', 'tick')),
+          u.trainees.length ? traineeChips(u.trainees) : el('p', { class: 'mt-2 text-xs muted' }, h.user.type === 'regular' ? 'No trainee yet.' : 'A MINDS admin will pair you with a trainee before the day.'),
+          el('div', { class: 'mt-2' }, cantMakeIt(app, u, draw)))))
+        : emptyState('calendar', 'No sessions yet', 'Pick the sessions you can come to from the schedule.',
+          el('a', { href: h.guideRead === false ? '#/guide' : '#/schedule', class: 'btn btn-primary mt-5' }, h.guideRead === false ? 'Read the guide first' : 'Open the schedule')),
+
+      h.myPairs && h.myPairs.length ? [
+        el('h2', { class: 'group-label' }, 'Your regular trainees'),
+        el('div', { class: 'flex flex-wrap gap-2' }, h.myPairs.map((x) => el('a', { href: `#/trainee/${encodeURIComponent(x.traineeId)}`, class: 'btn btn-secondary btn-sm' }, icon('heart', 'size-4 text-emerald-600'), x.traineeName))),
+      ] : null);
   };
   return withHome(root, app, ctx, draw);
 }
@@ -167,8 +189,8 @@ export function renderPass(root, app, ctx) {
         entry ? canvas : el('p', { class: 'p-4 text-sm font-bold text-amber-700' }, "Today's pass isn't saved on this phone yet. Connect to the internet and reopen this page.")),
       el('p', { class: 'mt-5 font-bold text-slate-900 dark:text-white' }, fmtDay(today, today)),
       todays.length
-        ? todays.map((u) => el('p', { class: 'text-sm muted' }, `${u.session.title}, ${fmtTimes(u.session)}`))
-        : el('p', { class: 'text-sm muted' }, 'No session booked today. A leader can still add you as a walk-in.'),
+        ? todays.map((u) => el('p', { class: 'text-sm muted' }, `${u.session.title}, ${fmtTimes(u.session)}${u.trainees.length ? `, with ${u.trainees.map((t) => t.name).join(' and ')}` : ''}`))
+        : el('p', { class: 'text-sm muted' }, 'No session today on your list. MINDS staff can still add you as a walk-in.'),
       att ? el('div', { class: 'mt-3' }, att.clockOut
         ? badge(`Clocked out, ${fmtHours(att.hours)}`, 'indigo', 'check')
         : badge(`Clocked in at ${clockTime(att.clockIn)}`, 'emerald', 'check')) : null,
@@ -176,7 +198,7 @@ export function renderPass(root, app, ctx) {
         ? el('div', { class: 'mt-4 space-y-3' },
           el('p', { class: 'alert alert-success' }, 'All done for today. Thank you for volunteering!'),
           h.pendingFeedback.length ? el('a', { href: `#/feedback/${h.pendingFeedback[0].bookingId}`, class: 'btn btn-primary w-full' }, 'Give feedback') : null)
-        : el('p', { class: 'alert alert-info mt-4' }, 'Show this to your volunteer leader to clock in, and again to clock out.'),
+        : el('p', { class: 'alert alert-info mt-4' }, 'Show this to MINDS staff to clock in, and again to clock out.'),
       el('p', { class: 'mt-3 text-xs muted' }, 'Turn your screen brightness up if the scan is slow.')));
 
     if (entry) {
@@ -185,7 +207,7 @@ export function renderPass(root, app, ctx) {
   };
 
   const ready = withHome(root, app, ctx, draw);
-  // While the pass is open, check every 20 s so it updates when the leader scans.
+  // While the pass is open, check every 20 s so it updates when staff scan it.
   const timer = setInterval(async () => {
     if (!ctx.alive() || document.hidden || navigator.onLine === false) return;
     try {
@@ -199,64 +221,117 @@ export function renderPass(root, app, ctx) {
   return ready;
 }
 
-/* ---------------- Sessions ---------------- */
+/* ---------------- Schedule ---------------- */
 
-export function renderSessions(root, app, ctx) {
+/** Plain-text list of sessions, for sharing with caregivers (Telegram, WhatsApp…). */
+function scheduleText(sessions, today) {
+  const lines = ['MINDS volunteering: upcoming sessions', ''];
+  let last = '';
+  sessions.forEach((s) => {
+    if (s.date !== last) {
+      if (last) lines.push('');
+      lines.push(fmtDay(s.date, today));
+      last = s.date;
+    }
+    lines.push(`• ${fmtTimes(s)}  ${s.title}${s.venue ? ` @ ${s.venue}` : ''}`);
+  });
+  return lines.join('\n');
+}
+
+export function renderSchedule(root, app, ctx) {
   let query = '';
   let latest = null;
+  const picked = new Set();
   const host = el('div', {});
-  const bookButton = (s) => {
-    const btn = el('button', { class: 'btn btn-primary btn-sm shrink-0' }, 'Book');
-    btn.addEventListener('click', () => {
-      if (latest && latest.guideRead === false) {
-        toast('Please read the Volunteer Guide before booking your first session.', 'warn');
-        app.go('#/guide');
-        return;
-      }
-      busy(btn, '', async () => {
-        try {
-          const res = await call('bookSession', { sessionId: s.sessionId });
-          app.saveHome(res.home);
-          latest = res.home;
-          drawList();
-          toast(res.message);
-        } catch (err) {
-          if (err.code !== 'GUIDE_REQUIRED') throw err;
-          toast(err.message, 'warn');
-          app.go('#/guide');
-        }
-      });
-    });
-    return btn;
-  };
-  const sessionRow = (s) => {
-    const full = s.spotsLeft === 0 && !s.myStatus;
-    let action;
-    if (s.myStatus) action = statusBadge(s.myStatus);
-    else if (full) action = el('button', { class: 'btn btn-primary btn-sm shrink-0', disabled: true }, 'Full');
-    else action = bookButton(s);
-    let spots = null;
-    if (s.spotsLeft !== null && !s.myStatus) {
-      spots = s.spotsLeft === 0 ? badge('No spots left', 'red')
-        : badge(`${s.spotsLeft} spot${s.spotsLeft === 1 ? '' : 's'} left`, s.spotsLeft <= 2 ? 'amber' : 'emerald');
+  const bar = el('div', { class: 'action-bar', hidden: true });
+
+  const comeTo = (ids, btn) => {
+    if (latest && latest.guideRead === false) {
+      toast('Please read the Volunteer Guide before signing up for your first session.', 'warn');
+      app.go('#/guide');
+      return;
     }
-    return el('div', { class: 'flex items-start justify-between gap-3 p-4' },
+    busy(btn, 'Saving…', async () => {
+      try {
+        const res = ids.length === 1
+          ? await call('bookSession', { sessionId: ids[0] })
+          : await call('signUpSessions', { sessionIds: ids });
+        app.saveHome(res.home);
+        latest = res.home;
+        picked.clear();
+        drawList();
+        toast(res.message, res.results && res.results.some((r) => !r.ok) ? 'warn' : 'ok');
+      } catch (err) {
+        if (err.code !== 'GUIDE_REQUIRED') throw err;
+        toast(err.message, 'warn');
+        app.go('#/guide');
+      }
+    });
+  };
+
+  const drawBar = () => {
+    bar.hidden = picked.size === 0;
+    if (bar.hidden) return;
+    const go = el('button', { class: 'btn btn-primary flex-1' }, icon('tick'), `I'm coming to ${picked.size} session${picked.size === 1 ? '' : 's'}`);
+    go.addEventListener('click', () => comeTo([...picked], go));
+    mount(bar, el('div', { class: 'mx-auto flex max-w-2xl gap-3' },
+      el('button', { class: 'btn btn-secondary', onclick: () => { picked.clear(); drawList(); } }, 'Clear'), go));
+  };
+
+  const sessionRow = (s) => {
+    const mine = Boolean(s.myBookingId);
+    let action;
+    if (mine) action = badge("You're coming", 'emerald', 'tick');
+    else if (s.status === 'closed') action = badge('Sign-ups closed', 'slate');
+    else if (s.spotsLeft === 0) action = badge('Full', 'red');
+    else {
+      const box = el('input', { type: 'checkbox', class: 'size-6 shrink-0 accent-indigo-600', checked: picked.has(s.sessionId), 'aria-label': `I'm coming to ${s.title} on ${fmtDay(s.date)}` });
+      box.addEventListener('change', () => { if (box.checked) picked.add(s.sessionId); else picked.delete(s.sessionId); drawBar(); });
+      action = el('label', { class: 'flex shrink-0 cursor-pointer flex-col items-center gap-0.5 text-[11px] font-bold muted' }, box, 'Coming');
+    }
+    let spots = null;
+    if (s.spotsLeft !== null && !mine && s.status === 'open') {
+      spots = s.spotsLeft === 0 ? null : badge(`${s.spotsLeft} spot${s.spotsLeft === 1 ? '' : 's'} left`, s.spotsLeft <= 2 ? 'amber' : 'emerald');
+    }
+    return el('div', { class: `flex items-start justify-between gap-3 p-4 ${mine ? 'bg-emerald-50/50 dark:bg-emerald-950/20' : ''}` },
       el('div', { class: 'min-w-0' },
         el('h3', { class: 'font-bold text-slate-900 dark:text-white' }, s.title),
         el('p', { class: 'text-sm text-slate-700 dark:text-neutral-300' }, `${fmtTimes(s)}, `, venueLink(s)),
         s.notes ? el('p', { class: 'mt-1 text-sm muted' }, s.notes) : null,
-        spots || s.project ? el('div', { class: 'mt-2 flex flex-wrap gap-1.5' }, s.project ? badge(s.project, 'emerald') : null, spots) : null),
+        spots || s.project || typeChip(s) ? el('div', { class: 'mt-2 flex flex-wrap gap-1.5' }, typeChip(s), s.project ? badge(s.project, 'emerald') : null, spots) : null),
       action);
   };
+
+  const share = async (btn) => {
+    const h = latest;
+    if (!h) return;
+    const text = scheduleText(h.schedule, h.today);
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: 'MINDS volunteering sessions', text });
+        return;
+      }
+    } catch (err) {
+      if (err && err.name === 'AbortError') return;
+    }
+    try {
+      await navigator.clipboard.writeText(text);
+      toast('Schedule copied. Paste it into a chat to share it.');
+    } catch {
+      toast('Take a screenshot of this page to share it.', 'warn');
+    }
+    btn.blur();
+  };
+
   const drawList = () => {
     const h = latest;
     if (!h) return;
-    const matches = fuzzyFilter(h.openSessions, query, (s) => [s.title, s.venue, s.project, s.notes, fmtDay(s.date, h.today), s.date]);
+    const matches = fuzzyFilter(h.schedule, query, (s) => [s.title, s.type, s.venue, s.project, s.notes, fmtDay(s.date, h.today), s.date]);
     const byDate = {};
     matches.forEach((s) => { (byDate[s.date] = byDate[s.date] || []).push(s); });
     const dates = query.trim() ? [...new Set(matches.map((s) => s.date))] : Object.keys(byDate).sort();
     let empty = null;
-    if (!h.openSessions.length) empty = emptyState('calendar', 'No sessions open right now', 'New sessions appear here as soon as a leader posts them.');
+    if (!h.schedule.length) empty = emptyState('calendar', 'No sessions planned yet', 'New sessions appear here as soon as MINDS adds them.');
     else if (!matches.length) empty = emptyState('search', 'No session matches that search', 'Try a different word, a venue or a day like "Sat".');
     mount(host,
       h.guideRead === false ? guideBanner() : null,
@@ -264,13 +339,19 @@ export function renderSessions(root, app, ctx) {
       dates.map((date) => [
         el('h2', { class: 'group-label' }, fmtDay(date, h.today)),
         list(byDate[date].map(sessionRow)),
-      ]));
+      ]),
+      el('div', { class: 'h-20' }));
+    drawBar();
   };
+  const shareBtn = el('button', { class: 'btn btn-secondary btn-sm shrink-0' }, icon('share', 'size-4'), 'Share');
+  shareBtn.addEventListener('click', () => share(shareBtn));
   mount(root,
-    el('h1', { class: 'page-title' }, 'Find a session'),
-    el('p', { class: 'mb-4 mt-1 text-sm muted' }, 'Tap Book to ask for a slot. A leader confirms it and pairs you with a trainee.'),
+    el('div', { class: 'flex items-center justify-between gap-3' }, el('h1', { class: 'page-title' }, 'Schedule'), shareBtn),
+    el('p', { class: 'mb-4 mt-1 text-sm muted' }, 'Every upcoming session. Tick the ones you can come to, then tap "I\'m coming". Share the list, or screenshot it, for trainees\' caregivers.'),
     searchBox('Search by activity, venue, project or day', (q) => { query = q; drawList(); }),
-    host);
+    host,
+    bar);
+  ctx.onLeave(() => bar.remove());
   return withHome(host, app, ctx, (h) => { latest = h; drawList(); });
 }
 
@@ -308,8 +389,23 @@ export function renderMe(root, app, ctx) {
         el('span', { class: 'block text-sm muted' }, text)),
       count ? badge(String(count), 'amber') : null,
       icon('chevron', 'size-5 text-slate-300 dark:text-neutral-700'));
-    const leaderTools = u.role === 'admin' && app.mode === 'leader';
-    const reviewCount = leaderTools ? ((app.cachedAdminHome() || {}).reviewCount || 0) : 0;
+
+    const adminCard = app.isAdmin
+      ? el('div', { class: 'card mt-3 p-4' },
+        el('div', { class: 'flex items-center gap-3' },
+          el('span', { class: 'flex size-10 shrink-0 items-center justify-center rounded-xl bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300' }, icon('unlock')),
+          el('div', { class: 'min-w-0 flex-1' },
+            el('p', { class: 'font-bold text-slate-900 dark:text-white' }, 'Admin is open on this device'),
+            el('p', { class: 'text-sm muted' }, `Until ${app.adminUntil}. Changes are recorded with your name.`))),
+        el('div', { class: 'mt-3 flex gap-2' },
+          el('a', { href: '#/admin', class: 'btn btn-primary btn-sm flex-1' }, icon('dashboard', 'size-4'), 'Go to admin'),
+          el('button', { class: 'btn btn-secondary btn-sm', onclick: () => app.lockAdmin() }, icon('lock', 'size-4'), 'Leave admin')))
+      : el('div', { class: 'card mt-3 flex items-center gap-3 p-4' },
+        el('span', { class: 'flex size-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-600 dark:bg-neutral-900 dark:text-neutral-300' }, icon('lock')),
+        el('div', { class: 'min-w-0 flex-1' },
+          el('p', { class: 'font-bold text-slate-900 dark:text-white' }, 'MINDS staff'),
+          el('p', { class: 'text-sm muted' }, 'Sessions, pairing, scanning and records.')),
+        el('button', { class: 'btn btn-secondary btn-sm shrink-0', onclick: () => app.openUnlock() }, 'Admin'));
 
     mount(root,
       el('div', { class: 'card flex items-center gap-4 p-5' },
@@ -317,10 +413,11 @@ export function renderMe(root, app, ctx) {
         el('div', { class: 'min-w-0' },
           el('h1', { class: 'truncate text-xl font-extrabold text-slate-900 dark:text-white' }, u.name),
           el('p', { class: 'truncate font-mono text-xs muted' }, u.email),
-          el('div', { class: 'mt-1.5' }, u.role === 'admin' ? badge('Volunteer leader', 'purple', 'shield') : badge('Volunteer', 'indigo')))),
+          el('div', { class: 'mt-1.5' }, typeBadge(u.type)))),
       el('div', { class: 'mt-3 grid grid-cols-2 gap-3' },
         el('div', { class: 'card p-4' }, el('p', { class: 'text-3xl font-extrabold text-indigo-600 dark:text-indigo-400' }, fmtHours(h.totals.hours)), el('p', { class: 'mt-1 text-xs font-bold uppercase tracking-wider muted' }, 'Hours volunteered')),
         el('div', { class: 'card p-4' }, el('p', { class: 'text-3xl font-extrabold text-emerald-600 dark:text-emerald-400' }, String(h.totals.sessions)), el('p', { class: 'mt-1 text-xs font-bold uppercase tracking-wider muted' }, h.totals.sessions === 1 ? 'Session' : 'Sessions'))),
+      typeLine(h),
       el('h2', { class: 'group-label' }, 'History'),
       h.history.length
         ? list(h.history.map((a) => el('div', { class: 'flex items-center justify-between gap-3 p-4' },
@@ -329,28 +426,16 @@ export function renderMe(root, app, ctx) {
             el('p', { class: 'text-sm muted' }, `${fmtDay(a.date, h.today)}, ${clockTime(a.clockIn)}–${clockTime(a.clockOut)}`)),
           badge(fmtHours(a.hours), 'indigo'))))
         : emptyState('clock', 'No completed sessions yet', 'Sessions you finish will be listed here with your hours.'),
-      leaderTools ? [
-        el('h2', { class: 'group-label' }, 'Leader tools'),
-        list(
-          linkRow('#/review', 'inbox', 'Notes to review', 'Volunteer observations waiting to be shared', reviewCount),
-          linkRow('#/guide-edit', 'book', 'Volunteer guide & projects', 'What new volunteers read: projects, attire, expectations'),
-          linkRow('#/venues', 'building', 'Venues', 'The venue list for new sessions'),
-          linkRow('admin/', 'dashboard', 'Staff dashboard', 'On a computer: hours reports, people, fundraising, outings, trips, house visits')),
-      ] : null,
       el('h2', { class: 'group-label' }, 'Account'),
       el('section', { class: 'card overflow-hidden' },
         el('div', { class: 'section-head section-blue' }, 'My details',
           el('a', { href: '#/edit-me', class: 'btn btn-secondary btn-sm normal-case tracking-normal' }, icon('pencil', 'size-4'), 'Edit')),
         el('dl', { class: 'divide-y divide-slate-100 px-4 py-2 text-sm dark:divide-neutral-800' },
-          detail('Email', u.email), detail('Phone', u.phone), detail('Telegram', u.telegram ? `@${u.telegram}` : ''), detail('Birthday', u.birthday),
-          detail('Emergency contact', `${u.emergencyName || ''}${u.emergencyRelation ? ` (${u.emergencyRelation})` : ''}`),
-          detail('Emergency phone', u.emergencyPhone))),
+          detail('Email', u.email), detail('Phone', u.phone), detail('Telegram', u.telegram ? `@${u.telegram}` : ''), detail('Birthday', u.birthday))),
       accordion('Change password', 'indigo', pwForm),
       el('div', { class: 'mt-3' }, list(linkRow('#/guide', 'book', 'Volunteer Guide', 'Projects, what to wear and what we expect'))),
-      u.role === 'admin'
-        ? el('a', { href: '#/mode', class: 'btn btn-secondary mt-6 w-full' }, icon('dashboard'), 'Switch mode')
-        : null,
-      el('button', { class: 'btn btn-danger mt-3 w-full', onclick: () => app.signOut() }, icon('logout'), 'Sign out'));
+      adminCard,
+      el('button', { class: 'btn btn-danger mt-6 w-full', onclick: () => app.signOut() }, icon('logout'), 'Sign out'));
   };
   return withHome(root, app, ctx, draw);
 }
@@ -373,7 +458,7 @@ export function renderFeedback(root, app, ctx, bookingId) {
         field('traineeObservation', `Notes for future volunteers working with ${item.traineeName}`, {
           type: 'textarea', optional: true, rows: 4, maxlength: 5000,
           placeholder: 'e.g. Calmer with a 5-minute warning before changing activity. Loved the colouring sheets.',
-          hint: `What helped, what to avoid, new skills or changes you noticed. A volunteer leader reads it first, then it is added to ${item.traineeName}'s notes for the next volunteer.`,
+          hint: `What helped, what to avoid, new skills or changes you noticed. A MINDS admin reads it first, then it is added to ${item.traineeName}'s notes for the next volunteer.`,
         })) : null,
       el('div', { class: 'action-bar' }, el('div', { class: 'mx-auto flex max-w-2xl gap-3' },
         el('a', { href: '#/home', class: 'btn btn-secondary' }, 'Not now'), submit)));

@@ -185,7 +185,7 @@ function parseIds_(value) {
  *     then by name, so volunteers are spread evenly.
  * Returns { trainees: [rows], reason } or null.
  */
-function pickTrainees_(booking, session) {
+function pickTrainees_(booking, session, opts) {
   const bookings = table_('bookings').rows();
   let pool = traineeTable_().rows().filter((r) => r.id && r.name && isActiveTrainee_(r));
   const attending = parseIds_(session.traineeIds);
@@ -196,6 +196,7 @@ function pickTrainees_(booking, session) {
   const mine = pairs.filter((x) => x.userId === booking.userId).map((x) => String(x.traineeId));
   const standing = pool.filter((t) => mine.indexOf(String(t.id)) >= 0);
   if (standing.length) return { trainees: standing, reason: 'regular pair' };
+  if (opts && opts.pairsOnly) return null;
 
   const others = bookings.filter((b) => b.sessionId === session.sessionId && b.status !== 'cancelled' && b.bookingId !== booking.bookingId);
   const taken = {};
@@ -230,19 +231,21 @@ function pickTrainees_(booking, session) {
 }
 
 /**
- * Pairs a coming volunteer who has no trainee yet. Regulars are paired
- * automatically (AUTO_PAIR_REGULARS); new volunteers only when AUTO_PAIR_NEW,
- * or when an admin asks (opts.force). Returns the pairing or null.
+ * Pairs a coming volunteer who has no trainee yet. Anyone with a regular pair
+ * (an admin's choice, in the Pairing List) gets that trainee. Otherwise regulars
+ * are paired automatically (AUTO_PAIR_REGULARS); new volunteers only when
+ * AUTO_PAIR_NEW, or when an admin asks (opts.force). Returns the pairing or null.
  */
 function autoPair_(booking, session, user, opts) {
   const o = opts || {};
   if (booking.traineeId || booking.status === 'cancelled') return null;
+  let pairsOnly = false;
   if (!o.force) {
     const u = user || table_('users').find((x) => x.userId === booking.userId);
     if (!u) return null;
-    if (isRegular_(u) ? !CONFIG.AUTO_PAIR_REGULARS : !CONFIG.AUTO_PAIR_NEW) return null;
+    pairsOnly = isRegular_(u) ? !CONFIG.AUTO_PAIR_REGULARS : !CONFIG.AUTO_PAIR_NEW;
   }
-  const pick = pickTrainees_(booking, session);
+  const pick = pickTrainees_(booking, session, { pairsOnly });
   if (!pick) return null;
   const first = pick.trainees[0];
   const rest = pick.trainees.slice(1);

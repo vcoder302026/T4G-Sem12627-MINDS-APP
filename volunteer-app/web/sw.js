@@ -13,17 +13,29 @@ const SHELL = [
   './manifest.json',
   './icons/icon-192.png',
   './icons/icon-512.png',
+  './img/on-the-day.svg',
   './js/app.js',
   './js/api.js',
   './js/config.js',
+  './js/media.js',
   './js/qr.js',
   './js/ui.js',
   './js/views/auth.js',
   './js/views/content.js',
-  './js/views/leader.js',
   './js/views/profile.js',
   './js/views/trainees.js',
   './js/views/volunteer.js',
+  './js/admin/kit.js',
+  './js/admin/views/attendance.js',
+  './js/admin/views/fundraising.js',
+  './js/admin/views/outings.js',
+  './js/admin/views/overview.js',
+  './js/admin/views/pairs.js',
+  './js/admin/views/people.js',
+  './js/admin/views/sessions.js',
+  './js/admin/views/settings.js',
+  './js/admin/views/trips.js',
+  './js/admin/views/visits.js',
 ];
 const CDN_HOSTS = ['cdn.jsdelivr.net', 'unpkg.com', 'fonts.googleapis.com', 'fonts.gstatic.com'];
 
@@ -58,7 +70,7 @@ self.addEventListener('fetch', (event) => {
   }
 
   if (url.origin !== self.location.origin) return;
-  // The staff dashboard (admin/) is used online on a computer: always fetch it fresh.
+  // admin/ only redirects old dashboard links into the app: always fetch it fresh.
   if (url.pathname.includes('/admin/')) return;
 
   // Stale-while-revalidate for the app's own files.

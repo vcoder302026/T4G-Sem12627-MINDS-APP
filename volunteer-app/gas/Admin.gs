@@ -237,6 +237,7 @@ function pairUnpaired_(p) {
   open.forEach((b) => { if (autoPair_(b, session, null, { force: true })) paired += 1; });
   const still = open.length - paired;
   let message = 'Everyone coming already has a trainee.';
-  if (open.length) message = `${paired} paired with a trainee.${still ? ` ${still} still need${still === 1 ? 's' : ''} one: there are no free trainees left.` : ''}`;
+  if (open.length && !paired) message = `No free trainee left for ${still} volunteer${still === 1 ? '' : 's'}. Pair them by hand: a trainee can be with more than one volunteer.`;
+  else if (open.length) message = `${paired} paired with a trainee.${still ? ` ${still} still need${still === 1 ? 's' : ''} one: there are no free trainees left.` : ''}`;
   return { detail: sessionDetail_({ sessionId }), message };
 }

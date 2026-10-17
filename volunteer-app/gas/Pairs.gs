@@ -97,7 +97,7 @@ function addPair_(p, admin) {
   const notes = str_(p.notes, 'Notes', { max: 500 });
   if (!insertPair_(user, trainee, admin, notes, 'app')) throw err_.conflict(`${user.name} and ${trainee.name} are already a pair.`);
   const others = activePairs_().filter((x) => String(x.traineeId) === String(trainee.id) && x.userId !== user.userId).length;
-  return Object.assign(listPairs_({}), {
+  return Object.assign(listPairs_({ showEnded: true }), {
     message: `${user.name} and ${trainee.name} are now a regular pair.${others ? ` ${trainee.name} has ${others + 1} regular volunteers.` : ''}`,
   });
 }
@@ -108,7 +108,7 @@ function endPair_(p, admin) {
   if (row.status === 'ended') throw err_.conflict('This pair has already ended.');
   table.update(row, { status: 'ended', endedBy: admin.name, endedAt: fmtDateTime_(now_()) });
   delete DB_.memo.activePairs;
-  return Object.assign(listPairs_({}), { message: `${row.volunteerName} and ${row.traineeName} are no longer a regular pair (kept as history).` });
+  return Object.assign(listPairs_({ showEnded: true }), { message: `${row.volunteerName} and ${row.traineeName} are no longer a regular pair (kept as history).` });
 }
 
 /* ---------- import ---------- */
@@ -214,7 +214,7 @@ function importPairs_(p, admin) {
   const parts = [`Imported ${added} pair${added === 1 ? '' : 's'}`];
   if (already) parts.push(`${already} already on the list`);
   if (unmatched.length) parts.push(`${unmatched.length} not matched`);
-  return Object.assign(listPairs_({}), { imported: { added, already, unmatched: unmatched.slice(0, 50) }, message: `${parts.join(', ')}.` });
+  return Object.assign(listPairs_({ showEnded: true }), { imported: { added, already, unmatched: unmatched.slice(0, 50) }, message: `${parts.join(', ')}.` });
 }
 
 /* ---------- partner history ---------- */

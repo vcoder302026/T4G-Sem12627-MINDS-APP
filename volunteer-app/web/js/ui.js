@@ -67,6 +67,17 @@ const ICONS = {
   inbox: '<path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/>',
   building: '<rect width="16" height="20" x="4" y="2" rx="2"/><path d="M9 22v-4h6v4M8 6h.01M16 6h.01M12 6h.01M12 10h.01M12 14h.01M16 10h.01M16 14h.01M8 10h.01M8 14h.01"/>',
   info: '<circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/>',
+  lock: '<rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
+  unlock: '<rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/>',
+  link: '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
+  share: '<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.59 13.51 6.83 3.98M15.41 6.51l-6.82 3.98"/>',
+  settings: '<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>',
+  history: '<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5M12 7v5l4 2"/>',
+  image: '<rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.09-3.09a2 2 0 0 0-2.82 0L6 21"/>',
+  file: '<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4M10 13H8M16 17H8M16 13h-2"/>',
+  upload: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m17 8-5-5-5 5M12 3v12"/>',
+  pair: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-.87 0-1.6.12-2.3.5"/>',
+  copy: '<rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>',
   heart: '<path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>',
   ear: '<path d="M6 8.5a6.5 6.5 0 1 1 13 0c0 6-6 6-6 10a3.5 3.5 0 1 1-7 0"/><path d="M15 8.5a2.5 2.5 0 0 0-5 0v1a2 2 0 1 1 0 4"/>',
   shirt: '<path d="M20.38 3.46 16 2a4 4 0 0 1-8 0L3.62 3.46a2 2 0 0 0-1.34 2.23l.58 3.47a1 1 0 0 0 .99.84H6v10c0 1.1.9 2 2 2h8a2 2 0 0 0 2-2V10h2.15a1 1 0 0 0 .99-.84l.58-3.47a2 2 0 0 0-1.34-2.23z"/>',
@@ -131,10 +142,14 @@ export function badge(text, tone = 'slate', iconName) {
 }
 
 export function statusBadge(status) {
-  if (status === 'confirmed') return badge('Confirmed', 'emerald', 'tick');
-  if (status === 'pending') return badge('Pending', 'amber');
+  if (status === 'confirmed' || status === 'pending' || status === 'coming') return badge("You're coming", 'emerald', 'tick');
   if (status === 'cancelled') return badge('Cancelled', 'red');
   return badge(status);
+}
+
+/** "Regular" / "New" volunteer badge. */
+export function typeBadge(type) {
+  return type === 'regular' ? badge('Regular', 'emerald', 'heart') : badge('New', 'indigo', 'sparkle');
 }
 
 export function backLink(href, text = 'Back') {
@@ -422,7 +437,7 @@ export function multiPick({ name, options, values = [], placeholder = 'Search', 
   };
 }
 
-/** Renders leader-written text safely: "- " lines become bullets, "1. " lines numbered steps. */
+/** Renders admin-written text safely: "- " lines become bullets, "1. " lines numbered steps. */
 export function richText(body) {
   const blocks = [];
   let para = [];
@@ -494,6 +509,69 @@ export function labelled(label, control, { hint, optional } = {}) {
     el('p', { class: 'label' }, label, optional ? el('span', { class: 'font-normal text-slate-400' }, ' (optional)') : null),
     control,
     hint ? el('p', { class: 'hint' }, hint) : null);
+}
+
+/**
+ * Press and hold (touch), right-click or Enter/Space (keyboard) on `node` calls fn().
+ * Used for volunteer details on the admin session page, so the list stays uncluttered.
+ */
+export function onLongPress(node, fn, { ms = 450, onTap } = {}) {
+  let timer = null;
+  let fired = false;
+  let startX = 0;
+  let startY = 0;
+  const cancel = () => { clearTimeout(timer); timer = null; };
+  node.addEventListener('pointerdown', (e) => {
+    if (e.button > 0) return;
+    fired = false;
+    startX = e.clientX;
+    startY = e.clientY;
+    cancel();
+    timer = setTimeout(() => {
+      fired = true;
+      if (navigator.vibrate) navigator.vibrate(15);
+      fn(e);
+    }, ms);
+  });
+  node.addEventListener('pointermove', (e) => { if (timer && Math.hypot(e.clientX - startX, e.clientY - startY) > 10) cancel(); });
+  ['pointerup', 'pointerleave', 'pointercancel'].forEach((t) => node.addEventListener(t, cancel));
+  node.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    if (!fired) fn(e);
+  });
+  node.addEventListener('click', (e) => {
+    if (fired) { e.preventDefault(); fired = false; return; }
+    if (onTap) onTap(e);
+  });
+  node.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fn(e); }
+  });
+  return node;
+}
+
+/** Asks for the admin password again (for sensitive changes). Resolves to the password, or null. */
+export function askPassword(title, message, confirmLabel = 'Confirm') {
+  return new Promise((resolve) => {
+    let done = false;
+    const input = el('input', { type: 'password', class: 'input', autocomplete: 'off', 'aria-label': 'Admin password', placeholder: 'Admin password' });
+    const ok = el('button', { type: 'submit', class: 'btn btn-danger' }, confirmLabel);
+    const cancelBtn = el('button', { type: 'button', class: 'btn btn-secondary' }, 'Cancel');
+    const form = el('form', { class: 'space-y-4', novalidate: true },
+      el('p', { class: 'text-sm' }, message),
+      el('label', { class: 'label', for: 'ask-pw' }, 'Type the MINDS admin password to confirm'),
+      input,
+      el('div', { class: 'flex justify-end gap-2' }, cancelBtn, ok));
+    input.id = 'ask-pw';
+    const dlg = modal(title, form, () => { if (!done) resolve(null); });
+    cancelBtn.addEventListener('click', () => dlg.close());
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      if (!input.value) { input.focus(); return; }
+      done = true;
+      resolve(input.value);
+      dlg.close();
+    });
+  });
 }
 
 /** Google Maps search link for an address (opens the Maps app on phones). */

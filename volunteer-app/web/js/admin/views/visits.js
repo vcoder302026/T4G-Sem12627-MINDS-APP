@@ -1,7 +1,9 @@
-// Section 5: House visits — add-only visit history, newest first.
+// Admin: House visits — MINDS's house-visit form responses (the "trainee
+// updates" database, read from the linked sheet) and the visits recorded in
+// the app (add-only history), newest first.
 
-import { call } from '../../../js/api.js';
-import { el, fuzzyFilter, labelled, mount, searchBox, todaySG, toast } from '../../../js/ui.js';
+import { call } from '../../api.js';
+import { badge, el, fuzzyFilter, labelled, mount, searchBox, todaySG, toast } from '../../ui.js';
 import { day, field, formModal, icon, load, pageHead, panel, plural, row, stat, statGrid, toolbar, traineePicker, volunteerPicker } from '../kit.js';
 
 const AREAS = [
@@ -15,7 +17,7 @@ function visitCard(v) {
   return el('article', { class: 'card overflow-hidden' },
     el('header', { class: 'flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-4 py-3 dark:border-neutral-800' },
       el('div', {},
-        el('a', { href: `#/trainee/${encodeURIComponent(v.traineeId)}`, class: 'link text-base' }, v.traineeName),
+        el('a', { href: `#/admin/trainee/${encodeURIComponent(v.traineeId)}`, class: 'link text-base' }, v.traineeName),
         el('p', { class: 'text-xs muted' }, `Visited by ${v.volunteerName} · recorded by ${v.createdBy}`)),
       el('span', { class: 'badge badge-indigo' }, day(v.date))),
     el('dl', { class: 'grid gap-x-6 gap-y-3 p-4 text-sm sm:grid-cols-2' },
@@ -27,8 +29,47 @@ function visitCard(v) {
       el('p', { class: 'mt-0.5 whitespace-pre-line' }, v.followUp)) : null);
 }
 
+function responseCard(r) {
+  return el('article', { class: 'card overflow-hidden' },
+    el('header', { class: 'flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-4 py-3 dark:border-neutral-800' },
+      el('div', {},
+        r.traineeId ? el('a', { href: `#/admin/trainee/${encodeURIComponent(r.traineeId)}`, class: 'link text-base' }, r.traineeName)
+          : el('span', { class: 'font-bold' }, r.traineeName, ' ', badge('Not on the trainee list', 'amber')),
+        el('p', { class: 'text-xs muted' }, [r.volunteers.length ? `Volunteers: ${r.volunteers.join(', ')}` : '', r.seniorVolunteers ? `Senior: ${r.seniorVolunteers}` : ''].filter(Boolean).join(' · '))),
+      el('span', { class: 'badge badge-indigo' }, day(r.visitDate))),
+    el('details', { class: 'group' },
+      el('summary', { class: 'cursor-pointer list-none px-4 py-2 text-sm font-bold text-indigo-600 dark:text-indigo-400' }, `${r.answers.length} answers`),
+      el('dl', { class: 'grid gap-x-6 gap-y-2 px-4 pb-4 text-sm sm:grid-cols-2' }, r.answers.map((a) => el('div', {},
+        el('dt', { class: 'text-xs font-bold uppercase tracking-wider muted' }, a.label),
+        el('dd', { class: 'mt-0.5 whitespace-pre-line' }, a.value))))));
+}
+
+function formResponses(host, ctx) {
+  let data = null;
+  let query = '';
+  const listHost = el('div', { class: 'space-y-3 p-4' });
+  const drawList = () => {
+    const rows = fuzzyFilter(data.rows, query, (r) => [r.traineeName, ...r.volunteers, r.seniorVolunteers, ...r.answers.map((a) => a.value)]);
+    mount(listHost, rows.length ? rows.slice(0, 60).map(responseCard) : el('p', { class: 'py-6 text-center text-sm muted' }, 'Nothing matches.'));
+  };
+  call('listTraineeUpdates', {}).then((d) => {
+    data = d;
+    if (!ctx.alive()) return;
+    if (!d.linked) {
+      mount(host, panel('From the house-visit form', el('a', { href: '#/admin/settings', class: 'link text-sm' }, 'Link it'),
+        el('p', { class: 'p-4 text-sm muted' }, d.error || "Link MINDS's house-visit form responses in Settings → Databases to show them here, keep each trainee's details up to date, and let volunteers add updates in the same format.")));
+      return;
+    }
+    mount(host, panel(`From the house-visit form (${d.total} responses, tab "${d.tab}")`, null,
+      el('div', { class: 'border-b border-slate-100 p-4 dark:border-neutral-800' }, searchBox('Trainee, volunteer or any answer', (q) => { query = q; drawList(); })),
+      listHost));
+    drawList();
+  }).catch((err) => { if (ctx.alive()) mount(host, el('p', { class: 'alert alert-error' }, err.message)); });
+}
+
 export function renderVisits(root, app, ctx) {
   const host = el('div', {});
+  const responses = el('div', { class: 'mb-6' });
   const listHost = el('div', { class: 'space-y-4 p-4' });
   let data = null;
   let query = '';
@@ -67,14 +108,15 @@ export function renderVisits(root, app, ctx) {
         stat('This month', d.visits.filter((v) => v.date.slice(0, 7) === month).length),
         stat('Trainees visited', traineeIds.length, { tone: 'purple' }),
         stat('With follow-up', d.visits.filter((v) => v.followUp).length, { tone: 'amber' })),
-      el('div', { class: 'mt-6' }, panel(`Visit history (${plural(d.visits.length, 'visit')}, newest first)`,
+      el('div', { class: 'mt-6' }, panel(`Recorded in the app (${plural(d.visits.length, 'visit')}, newest first)`,
         el('button', { class: 'btn btn-primary btn-sm', onclick: record }, icon('plus', 'size-4'), 'Record a visit'),
         toolbar(labelled('Trainee', traineeSelect),
-          el('div', { class: 'min-w-64 flex-1' }, labelled('Search', searchBox('Names or anything written in a visit', (q) => { query = q; drawList(); })))),
+          el('div', { class: 'min-w-56 flex-1' }, labelled('Search', searchBox('Names or anything written in a visit', (q) => { query = q; drawList(); })))),
         listHost)));
     drawList();
   };
 
-  mount(root, pageHead('House visits', 'Notes from visits to trainees\' homes. History is add-only, so it stays a true record.'), host);
+  mount(root, pageHead('House visits', 'MINDS\'s house-visit form responses, and visits recorded in the app. History is add-only, so it stays a true record.'), responses, host);
+  formResponses(responses, ctx);
   return load(host, ctx, () => call('listVisits', {}), draw);
 }

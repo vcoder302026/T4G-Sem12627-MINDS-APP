@@ -1,8 +1,8 @@
 // Section 4: Overseas trips — participants (with a medical/dietary copy for
 // the trip), the logistics checklist and expenses.
 
-import { call } from '../../../js/api.js';
-import { badge, el, mount, toast } from '../../../js/ui.js';
+import { call } from '../../api.js';
+import { badge, el, mount, toast } from '../../ui.js';
 import {
   backTo, dateRangeText, day, field, formModal, icon, inlineSelect, load, money, pageHead, panel, plural, row, selectField, stat, statGrid,
   table, traineePicker, volunteerPicker,
@@ -27,7 +27,7 @@ export function renderTrips(root, app, ctx) {
   const create = () => formModal('New overseas trip', tripFields(), 'Create trip', async (d) => {
     const res = await call('createTrip', d);
     toast(res.message);
-    location.hash = `#/trip/${res.trip.tripId}`;
+    location.hash = `#/admin/trip/${res.trip.tripId}`;
   });
   mount(root, pageHead('Overseas trips', 'Who is going, what still needs doing, and what it costs.',
     el('button', { class: 'btn btn-primary', onclick: create }, icon('plus', 'size-4'), 'New trip')), host);
@@ -42,7 +42,7 @@ export function renderTrips(root, app, ctx) {
       { label: 'Checklist', cell: (t) => `${t.logisticsDone} / ${t.logisticsTotal}`, class: 'text-right' },
       { label: 'Spent', cell: (t) => money(t.expensesCents), class: 'text-right whitespace-nowrap' },
     ];
-    const href = (t) => `#/trip/${t.tripId}`;
+    const href = (t) => `#/admin/trip/${t.tripId}`;
     mount(host,
       statGrid(stat('Upcoming trips', current.length, { tone: 'indigo' }), stat('Past or cancelled', past.length)),
       el('div', { class: 'mt-6 space-y-6' },
@@ -113,7 +113,7 @@ export function renderTrip(root, app, ctx, tripId) {
     const t = d.trip;
     const tot = d.totals;
     mount(host,
-      backTo('#/trips', 'Overseas trips'),
+      backTo('#/admin/trips', 'Overseas trips'),
       pageHead(t.title, `${t.destination} · ${dateRangeText(t.startDate, t.endDate)}`,
         tripBadge(t.status),
         el('button', { class: 'btn btn-secondary', onclick: edit }, icon('pencil', 'size-4'), 'Edit')),
@@ -126,7 +126,7 @@ export function renderTrip(root, app, ctx, tripId) {
       el('div', { class: 'mt-6' }, panel(`Participants (${plural(tot.participants, 'trainee')})`,
         t.status !== 'cancelled' ? el('button', { class: 'btn btn-primary btn-sm', onclick: addParticipant }, icon('plus', 'size-4'), 'Register a trainee') : null,
         table([
-          { label: 'Trainee', cell: (x) => el('a', { href: `#/trainee/${encodeURIComponent(x.traineeId)}`, class: 'link' }, x.traineeName) },
+          { label: 'Trainee', cell: (x) => el('a', { href: `#/admin/trainee/${encodeURIComponent(x.traineeId)}`, class: 'link' }, x.traineeName) },
           { label: 'Status', cell: (x) => inlineSelect(PARTICIPANT_STATUS, x.status, async (v) => {
             try { apply(await call('updateTripParticipant', { participantId: x.participantId, status: v })); } catch (err) { toast(err.message, 'error'); throw err; }
           }, `Status of ${x.traineeName}`) },

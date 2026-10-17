@@ -1,8 +1,8 @@
 // Section 3: Outings — which volunteer looks after which trainee, groups,
 // buses, and ticking who has boarded on the day.
 
-import { call } from '../../../js/api.js';
-import { badge, el, fmtTimes, fuzzyFilter, labelled, mount, searchBox, todaySG, toast } from '../../../js/ui.js';
+import { call } from '../../api.js';
+import { badge, el, fmtTimes, fuzzyFilter, labelled, mount, searchBox, todaySG, toast } from '../../ui.js';
 import {
   backTo, day, field, formModal, icon, load, pageHead, panel, row, selectField, stat, statGrid, table, toolbar,
   traineePicker, volunteerPicker,
@@ -25,7 +25,7 @@ export function renderOutings(root, app, ctx) {
   const create = () => formModal('New outing', outingFields(), 'Create outing', async (d) => {
     const res = await call('createOuting', d);
     toast(res.message);
-    location.hash = `#/outing/${res.outing.outingId}`;
+    location.hash = `#/admin/outing/${res.outing.outingId}`;
   });
   mount(root, pageHead('Outings', 'Plan outings, pair each trainee with a volunteer, and check everyone onto the bus.',
     el('button', { class: 'btn btn-primary', onclick: create }, icon('plus', 'size-4'), 'New outing')), host);
@@ -39,7 +39,7 @@ export function renderOutings(root, app, ctx) {
       { label: 'Trainees', cell: (o) => String(o.assigned), class: 'text-right' },
       { label: 'Boarded', cell: (o) => `${o.boarded} / ${o.assigned}`, class: 'text-right' },
     ];
-    const href = (o) => `#/outing/${o.outingId}`;
+    const href = (o) => `#/admin/outing/${o.outingId}`;
     mount(host,
       statGrid(stat('Upcoming outings', upcoming.length, { tone: 'indigo' }), stat('Past or cancelled', past.length)),
       el('div', { class: 'mt-6 space-y-6' },
@@ -110,7 +110,7 @@ export function renderOuting(root, app, ctx, outingId) {
     rows = fuzzyFilter(rows, query, (a) => [a.traineeName, a.volunteerName, a.group, a.bus]);
     mount(listHost, table([
       { label: 'Boarded', cell: boardBox, class: 'w-20' },
-      { label: 'Trainee', cell: (a) => el('a', { href: `#/trainee/${encodeURIComponent(a.traineeId)}`, class: 'link' }, a.traineeName) },
+      { label: 'Trainee', cell: (a) => el('a', { href: `#/admin/trainee/${encodeURIComponent(a.traineeId)}`, class: 'link' }, a.traineeName) },
       { label: 'Looked after by', cell: (a) => a.volunteerName },
       { label: 'Group', cell: (a) => a.group },
       { label: 'Bus', cell: (a) => a.bus },
@@ -131,7 +131,7 @@ export function renderOuting(root, app, ctx, outingId) {
     groupSelect.addEventListener('change', () => { groupFilter = groupSelect.value; drawList(); });
     const today = todaySG();
     mount(host,
-      backTo('#/outings', 'Outings'),
+      backTo('#/admin/outings', 'Outings'),
       pageHead(o.title, `${day(o.date)}${o.startTime ? `, ${fmtTimes({ startTime: o.startTime })}` : ''} · ${o.location}`,
         statusBadge(o.status),
         el('button', { class: 'btn btn-secondary', onclick: edit }, icon('pencil', 'size-4'), 'Edit'),
@@ -141,7 +141,7 @@ export function renderOuting(root, app, ctx, outingId) {
       countsHost,
       el('div', { class: 'mt-6' }, panel('Trainees and volunteers', null,
         toolbar(groups.length ? labelled('Group', groupSelect) : null,
-          el('div', { class: 'min-w-64 flex-1' }, labelled('Search', searchBox('Trainee, volunteer, group or bus', (q) => { query = q; drawList(); })))),
+          el('div', { class: 'min-w-56 flex-1' }, labelled('Search', searchBox('Trainee, volunteer, group or bus', (q) => { query = q; drawList(); })))),
         listHost)));
     drawCounts();
     drawList();

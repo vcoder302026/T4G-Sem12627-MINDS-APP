@@ -372,6 +372,14 @@ describe('saying "I\'m coming" and pairing', () => {
     assert.ok(JSON.stringify(r2.home.upcoming.find((u) => u.session.sessionId === alexOnly.sessionId).trainees).includes('Epilepsy'), 'regulars see medical notes');
   });
 
+  test('a new volunteer with a regular pair gets that trainee; without one they wait for an admin', () => {
+    ok(admin('addPair', { userId: vol.user.userId, traineeId: 'T-0003' }));
+    const s = createSession();
+    assert.match(ok(rt.call('bookSession', { sessionId: s.sessionId }, vol.token)).message, /You're with Chris Ng/);
+    const other = volunteer('other@example.com', 'Other New');
+    assert.match(ok(rt.call('bookSession', { sessionId: s.sessionId }, other.token)).message, /A MINDS admin will pair you/);
+  });
+
   test('"pair the rest" spreads volunteers out, skips inactive trainees, then runs out', () => {
     const s = createSession({ capacity: 5 });
     ['a', 'b', 'c', 'd'].forEach((x) => book(s.sessionId, volunteer(`${x}@example.com`, `Vol ${x}`)));

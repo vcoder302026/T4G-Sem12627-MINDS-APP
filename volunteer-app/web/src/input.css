@@ -92,3 +92,25 @@
 
 @keyframes pop-in { from { transform: scale(0.96); opacity: 0.4; } to { transform: scale(1); opacity: 1; } }
 .pop-in { animation: pop-in 200ms ease-out; }
+
+/* Admin tables: on phones each row becomes a card ("label: value" lines),
+   so the same pages work from mobile to desktop without sideways scrolling. */
+@media (width < 48rem) {
+  .rtable thead { display: none; }
+  .rtable, .rtable tbody, .rtable tr, .rtable td { display: block; width: 100%; }
+  .rtable tr { padding: 0.75rem 1rem; }
+  .rtable td { display: flex; gap: 0.75rem; justify-content: space-between; align-items: baseline; padding: 0.2rem 0 !important; text-align: right !important; white-space: normal !important; max-width: none !important; }
+  .rtable td::before { content: attr(data-label); flex-shrink: 0; text-align: left; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--color-slate-500); }
+  .rtable td:first-child { display: block; text-align: left !important; font-size: 1rem; padding-bottom: 0.35rem !important; }
+  .rtable td:first-child::before, .rtable td:not([data-label])::before { content: none; }
+  .rtable td:not([data-label]) { justify-content: flex-end; }
+  .rtable td.rt-blank { display: none; }
+}
+
+/* Press-and-hold targets: no text selection or iOS callout while holding. */
+.hold { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; touch-action: manipulation; }
+
+/* With the desktop sidebar, fixed bottom bars start after it. */
+@media (width >= 64rem) {
+  #shell.lg\:pl-64 .action-bar { left: 16rem; }
+}

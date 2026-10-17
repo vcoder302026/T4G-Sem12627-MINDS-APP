@@ -1,5 +1,12 @@
 # MINDS Volunteer Management: Version 1 report
 
+> **Updated October 2026:** after the partner meeting, the app changed in ways this report
+> does not describe yet: one app for everyone with an **Admin** menu opened by a shared admin
+> password (no leader accounts, no separate staff dashboard), "I'm coming" sign-ups without
+> confirmation, new and regular volunteers, a pairing list and more. See
+> [volunteer-app/docs/PARTNER-FEEDBACK-OCT-2026.md](volunteer-app/docs/PARTNER-FEEDBACK-OCT-2026.md)
+> and the [volunteer app README](volunteer-app/README.md) for the current version and demo accounts.
+
 NTU Tech for Good (Semester 1, AY2026/27) · Prepared for MINDS · October 2026
 
 This report explains what Version 1 does, how to demo it, and how it works

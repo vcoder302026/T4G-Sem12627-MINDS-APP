@@ -5,11 +5,12 @@ replace manual logging of volunteer hours and attendance.
 
 | App | What it is | Stack |
 | --- | --- | --- |
-| **[Volunteer app](volunteer-app/README.md)** (current) | Phone app for volunteers and volunteer leaders: registration, a guide for new volunteers, session booking, automatic trainee pairing, QR clock-in/out, feedback and trainee notes | Google Apps Script + Google Sheets, HTML/JS/Tailwind PWA on GitHub Pages |
-| **[Staff dashboard](volunteer-app/README.md#staff-dashboard-computer)** (current) | Computer dashboard for MINDS staff, on the same backend and Google Sheet: volunteers, trainees, attendance fixes and hours reports, fundraising, outings, overseas trips and house visits | Same as the volunteer app (`volunteer-app/web/admin/`) |
-| [Prototype 1](docs/prototype-1/README.md) (earlier) | Local, offline staff app: attendance, fundraising, outings, overseas trips and house visits. Its modules now live in the staff dashboard | Node.js 24, Express, SQLite |
+| **[Volunteer app](volunteer-app/README.md)** (current) | One app for volunteers and MINDS staff, on phones and computers: registration, a guide for new volunteers, a shared schedule with "I'm coming" sign-ups, new/regular volunteers and trainee pairing, trainee info and updates, QR clock-in/out, feedback. MINDS staff open an **Admin** menu with a shared admin password: sessions and pairing, scanning, the pairing list, volunteers, trainees, attendance, no-shows and hours, fundraising, outings, overseas trips, house visits, settings and an activity log | Google Apps Script + Google Sheets, HTML/JS/Tailwind PWA on GitHub Pages |
+| [Prototype 1](docs/prototype-1/README.md) (earlier) | Local, offline staff app: attendance, fundraising, outings, overseas trips and house visits. Its modules now live in the volunteer app's Admin menu | Node.js 24, Express, SQLite |
 
 **New here?** Read [VERSION-1.md](VERSION-1.md): what Version 1 does, how to demo it, and how it works.
+Then [the October 2026 changes](volunteer-app/docs/PARTNER-FEEDBACK-OCT-2026.md) made after the partner meeting
+(one app with an Admin menu instead of leader accounts and a separate dashboard).
 
 ## Quick start
 
@@ -19,10 +20,12 @@ needed (Node.js 20 or later):
 ```bash
 git clone https://github.com/vcoder302026/T4G-Sem12627-MINDS-APP.git
 cd T4G-Sem12627-MINDS-APP/volunteer-app
-npm run dev      # → http://localhost:5173  (leader@example.com / LeaderDemo123)
+npm run dev      # → http://localhost:5173
 ```
 
-The staff dashboard is at <http://localhost:5173/admin/> (same leader account).
+Sign in as MINDS staff (`staff@example.com` / `StaffDemo123`), then **Me → Admin** with the
+demo admin password `AdminDemo123`. Volunteers: `volunteer@example.com` (regular) and
+`sam@example.com` (new), password `VolunteerDemo123`.
 
 Prototype 1 runs from the repository root: `npm install && npm start` →
 <http://localhost:3000> (needs Node.js 24).
@@ -30,10 +33,10 @@ Prototype 1 runs from the repository root: `npm install && npm start` →
 ## Repository layout
 
 ```
-volunteer-app/        the volunteer app (backend in gas/, phone app in web/, staff dashboard in web/admin/)
+volunteer-app/        the volunteer app (backend in gas/, the app in web/, its Admin pages in web/js/admin/)
   README.md           features, setup on Google, configuration, development
   DESIGN-NOTES.md     why it's built this way
-  docs/USER-GUIDE.md  how volunteers and leaders use it
+  docs/USER-GUIDE.md  how volunteers and MINDS staff use it
 .github/workflows/    publish the volunteer app (GitHub Pages) and deploy its backend (clasp)
 server/ public/ tests/  Prototype 1 (local staff app)
 docs/prototype-1/     Prototype 1 README and usage guide

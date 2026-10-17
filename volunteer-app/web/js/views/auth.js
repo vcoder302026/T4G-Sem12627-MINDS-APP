@@ -37,11 +37,11 @@ export function renderLogin(root, app) {
     el('div', { class: 'mb-6 flex flex-col items-center text-center' },
       el('div', { class: 'mb-4 flex size-16 items-center justify-center rounded-2xl bg-indigo-100 text-indigo-600 dark:bg-indigo-900/50 dark:text-indigo-400' }, icon('qr', 'size-8')),
       el('h1', { class: 'mb-1 text-3xl font-extrabold text-slate-900 dark:text-white' }, 'Welcome'),
-      el('p', { class: 'font-medium muted' }, 'Book sessions, show your QR pass and track your hours.')),
+      el('p', { class: 'font-medium muted' }, 'Sign up for sessions, show your QR pass and track your hours.')),
 
     el('div', { class: 'card border-t-4 border-t-emerald-500 p-6 text-center shadow-md' },
       el('h2', { class: 'mb-1 text-xl font-bold text-slate-900 dark:text-white' }, 'New volunteer?'),
-      el('p', { class: 'mb-5 text-sm muted' }, 'Create an account to book your first session.'),
+      el('p', { class: 'mb-5 text-sm muted' }, 'Create an account to sign up for your first session.'),
       el('a', { href: '#/register', class: 'btn btn-success w-full text-lg' }, icon('userPlus'), 'Register now')),
 
     el('div', { class: 'card rounded-3xl p-6 shadow-md sm:p-8' },
@@ -49,7 +49,8 @@ export function renderLogin(root, app) {
         icon('shield', 'size-5 text-indigo-600 dark:text-indigo-400'),
         el('h2', { class: 'text-xl font-black tracking-tight text-slate-900 dark:text-white' }, 'Secure Login')),
       form,
-      el('p', { class: 'mt-4 text-center text-xs muted' }, 'Forgot your password? Ask a volunteer leader to reset it.'))));
+      el('p', { class: 'mt-4 text-center text-xs muted' }, 'Forgot your password? Ask a MINDS admin to reset it.'),
+      el('p', { class: 'mt-2 text-center text-xs muted' }, 'MINDS staff sign in with their own account too, then open Admin with the admin password.'))));
 }
 
 export function renderRegister(root, app) {
@@ -64,16 +65,12 @@ export function renderRegister(root, app) {
       field('birthday', 'Birthday', { type: 'date', max: todaySG(), autocomplete: 'bday' }),
       field('email', 'Email', { type: 'email', autocomplete: 'email', inputmode: 'email', hint: "You'll use this to sign in." }),
       field('phone', 'Phone', { type: 'tel', autocomplete: 'tel', placeholder: '+65 9123 4567' }),
-      field('telegram', 'Telegram handle', { optional: true, autocapitalize: 'none', placeholder: '@yourhandle' })),
-    section('Emergency contact', 'red',
-      field('emergencyName', 'Name'),
-      field('emergencyPhone', 'Phone', { type: 'tel', placeholder: '+65 9123 4567' }),
-      field('emergencyRelation', 'Relationship to you', { optional: true, placeholder: 'e.g. Mother' })),
+      field('telegram', 'Telegram handle', { autocapitalize: 'none', placeholder: '@yourhandle', hint: 'MINDS staff reach volunteers on Telegram. Find it in Telegram → Settings → Username.' })),
     section('Account', 'indigo',
       field('password', 'Password', { type: 'password', autocomplete: 'new-password', hint: 'At least 8 characters.' }),
       field('password2', 'Type it again', { type: 'password', autocomplete: 'new-password' }),
       el('label', { class: 'flex items-start gap-3 text-sm' }, consent,
-        el('span', {}, 'I agree that MINDS may collect and use these details to arrange volunteering, record my hours, and contact me or my emergency contact if needed, in line with the Personal Data Protection Act.'))),
+        el('span', {}, 'I agree that MINDS may collect and use these details to arrange volunteering, record my hours and contact me (including adding me to MINDS\'s Google Contacts), in line with the Personal Data Protection Act.'))),
     el('div', { class: 'action-bar' }, el('div', { class: 'mx-auto max-w-2xl' }, submit)));
 
   form.addEventListener('submit', (e) => {
@@ -85,8 +82,7 @@ export function renderRegister(root, app) {
       (!d.birthday && 'Enter your birthday.') ||
       (!d.email && 'Enter your email.') ||
       (!d.phone && 'Enter your phone number.') ||
-      (!d.emergencyName && 'Enter an emergency contact name.') ||
-      (!d.emergencyPhone && 'Enter an emergency contact phone number.') ||
+      (!d.telegram && 'Enter your Telegram handle.') ||
       (form.password.value.length < 8 && 'Choose a password with at least 8 characters.') ||
       (form.password.value !== form.password2.value && "The two passwords don't match.") ||
       (!consent.checked && 'Tick the box to agree to the personal data notice.');
@@ -104,13 +100,10 @@ export function renderRegister(root, app) {
           email: d.email,
           phone: d.phone,
           telegram: d.telegram,
-          emergencyName: d.emergencyName,
-          emergencyPhone: d.emergencyPhone,
-          emergencyRelation: d.emergencyRelation,
           password: form.password.value,
           consent: true,
         });
-        app.signedIn(res, 'Welcome! Start with this short guide, then book your first session.', '#/guide');
+        app.signedIn(res, 'Welcome! Start with this short guide, then sign up for your first session.', '#/guide');
       } catch (err) {
         error.textContent = err.message;
         error.hidden = false;
@@ -122,6 +115,6 @@ export function renderRegister(root, app) {
   mount(root,
     backLink('#/login', 'Back to sign in'),
     el('h1', { class: 'page-title' }, 'Volunteer Registration'),
-    el('p', { class: 'mb-6 mt-1 muted' }, 'It takes about two minutes. A leader will confirm your first booking.'),
+    el('p', { class: 'mb-6 mt-1 muted' }, 'It takes about two minutes. Then read the short guide and tell us which sessions you\'re coming to.'),
     form);
 }

@@ -1,7 +1,9 @@
-// The Volunteer Guide (what new volunteers read before booking), and the leader
-// screens that edit it: guide sections, projects and venues.
+// The Volunteer Guide (what new volunteers read before their first session),
+// and the admin screens that edit it: guide sections (text, a picture or a
+// PDF, or the built-in "On the day" infographic), projects and venues.
 
 import { call, isNetworkError, storage } from '../api.js';
+import { chooseUpload, forgetFile, openPdf, picture } from '../media.js';
 import {
   backLink, badge, busy, combobox, el, errorBlock, field, fuzzyFilter, icon, labelled, loading, mapsLink, modal, mount,
   richText, searchBox, section, toast,
@@ -22,19 +24,29 @@ function projectCard(pr) {
     pr.description ? el('div', { class: 'mt-2' }, richText(pr.description)) : null);
 }
 
+/** A section's picture, PDF or the built-in infographic. */
+export function mediaBlock(media, title) {
+  if (!media) return null;
+  if (media.kind === 'builtin') return el('img', { src: media.src, alt: `${title}: infographic`, class: 'w-full rounded-xl border border-slate-200 bg-white dark:border-neutral-800', loading: 'lazy' });
+  if (media.kind === 'image') return picture(media.fileId, `${title}: picture`);
+  const btn = el('button', { type: 'button', class: 'btn btn-secondary w-full' }, icon('file'), `Open ${media.name || 'the PDF'}`);
+  btn.addEventListener('click', () => openPdf(media.fileId));
+  return btn;
+}
+
 /* ---------------- volunteers: read the guide ---------------- */
 
 export function renderGuide(root, app, ctx) {
   const draw = (g) => {
     const read = Boolean(g.guideReadAt);
     const [first, ...rest] = g.sections;
-    const sectionCard = (s, i) => section(s.title, COLOURS[i % COLOURS.length], richText(s.body));
+    const sectionCard = (s, i) => section(s.title, COLOURS[i % COLOURS.length], s.body ? richText(s.body) : null, mediaBlock(s.media, s.title));
     let footer;
     if (read) {
       footer = el('div', { class: 'mt-6 space-y-3 text-center' },
-        el('p', { class: 'text-sm muted' }, `You read this guide on ${String(g.guideReadAt).slice(0, 10)}. Leaders update it from time to time.`),
-        el('a', { href: app.mode === 'leader' ? '#/guide-edit' : '#/sessions', class: 'btn btn-primary w-full' },
-          app.mode === 'leader' ? [icon('pencil'), 'Edit the guide'] : [icon('calendar'), 'Find a session']));
+        el('p', { class: 'text-sm muted' }, `You read this guide on ${String(g.guideReadAt).slice(0, 10)}. MINDS updates it from time to time.`),
+        el('a', { href: '#/schedule', class: 'btn btn-primary w-full' }, icon('calendar'), 'Open the schedule'),
+        app.isAdmin ? el('a', { href: '#/admin/guide', class: 'btn btn-secondary w-full' }, icon('pencil'), 'Edit the guide') : null);
     } else {
       const done = el('button', { type: 'button', class: 'btn btn-success w-full' }, icon('tick'), "I've read the guide");
       done.addEventListener('click', () => busy(done, 'Saving…', async () => {
@@ -42,7 +54,7 @@ export function renderGuide(root, app, ctx) {
         storage.set('minds.guide', { ...g, guideReadAt: new Date().toISOString().slice(0, 10) });
         app.saveHome(res.home);
         toast(res.message);
-        app.go('#/sessions');
+        app.go('#/schedule');
       }));
       footer = [
         el('div', { class: 'h-24' }),
@@ -50,12 +62,12 @@ export function renderGuide(root, app, ctx) {
       ];
     }
     mount(root,
-      app.mode === 'leader' ? backLink('#/guide-edit', 'Edit guide') : backLink('#/home', 'Home'),
+      backLink('#/home', 'Home'),
       el('div', { class: 'mb-5 flex items-center gap-3' },
         el('span', { class: 'flex size-12 shrink-0 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' }, icon('book', 'size-6')),
         el('div', {},
           el('h1', { class: 'page-title' }, 'Volunteer Guide'),
-          el('p', { class: 'text-sm muted' }, read ? 'Everything you need to know before a session.' : 'Please read this before booking your first session. It takes about 3 minutes.'))),
+          el('p', { class: 'text-sm muted' }, read ? 'Everything you need to know before a session.' : 'Please read this before your first session. It takes about 3 minutes.'))),
       el('div', { class: 'space-y-4' },
         first ? sectionCard(first, 0) : null,
         g.projects.length ? [
@@ -87,7 +99,7 @@ export function openVenueForm(venue, onSaved, prefill = '') {
   const form = el('form', { novalidate: true, class: 'space-y-4' },
     field('venueName', 'Venue name', { value: venue ? venue.name : prefill, placeholder: 'e.g. MINDS Woodlands Gardens School', maxlength: 120 }),
     field('address', 'Address', { optional: true, value: venue ? venue.address : '', placeholder: 'Street, postal code', hint: 'Volunteers get a Google Maps link to this address.' }),
-    field('venueNotes', 'Notes for leaders', { type: 'textarea', optional: true, rows: 2, value: venue ? venue.notes : '', placeholder: 'Where to meet, parking, who to call' }),
+    field('venueNotes', 'Notes for staff', { type: 'textarea', optional: true, rows: 2, value: venue ? venue.notes : '', placeholder: 'Where to meet, parking, who to call' }),
     venue && venue.name ? el('p', { class: 'hint' }, 'Renaming also renames this venue on today’s and future sessions.') : null,
     save);
   const dlg = modal(venue ? 'Edit venue' : 'Add a venue', form);
@@ -149,7 +161,7 @@ export function projectPicker(projects, value) {
   return picker;
 }
 
-/* ---------------- leaders: venues ---------------- */
+/* ---------------- admins: venues ---------------- */
 
 export function renderVenues(root, app, ctx) {
   let venues = null;
@@ -192,7 +204,7 @@ export function renderVenues(root, app, ctx) {
   const add = el('button', { type: 'button', class: 'btn btn-primary btn-sm' }, icon('plus', 'size-4'), 'Add venue');
   add.addEventListener('click', () => openVenueForm(null, (v, active) => { app.updateVenues(active); load(); }));
   mount(root,
-    backLink('#/me', 'Me'),
+    backLink('#/admin/guide', 'Guide & venues'),
     el('div', { class: 'flex items-center justify-between gap-3' }, el('h1', { class: 'page-title' }, 'Venues'), add),
     el('p', { class: 'mb-4 mt-1 text-sm muted' }, 'These appear in the venue dropdown when you create a session.'),
     searchBox('Search venues', (q) => { query = q; drawList(); }),
@@ -201,15 +213,15 @@ export function renderVenues(root, app, ctx) {
   return load();
 }
 
-/* ---------------- leaders: edit the guide and projects ---------------- */
+/* ---------------- admins: edit the guide and projects ---------------- */
 
 function sectionForm(s, onSaved) {
   const save = el('button', { type: 'submit', class: 'btn btn-primary w-full' }, s ? 'Save section' : 'Add section');
   const form = el('form', { novalidate: true, class: 'space-y-4' },
     field('title', 'Heading', { value: s ? s.title : '', placeholder: 'e.g. What to wear', maxlength: 120 }),
     field('body', 'Content', {
-      type: 'textarea', rows: 10, value: s ? s.body : '', maxlength: 5000,
-      hint: 'Start a line with "- " for a bullet point or "1. " for a numbered step. Leave an empty line between paragraphs.',
+      type: 'textarea', rows: 10, value: s ? s.body : '', maxlength: 5000, optional: Boolean(s),
+      hint: 'Start a line with "- " for a bullet point or "1. " for a numbered step. Leave an empty line between paragraphs. A section can also show a picture or a PDF: add it from the list after saving.',
     }),
     save);
   const dlg = modal(s ? 'Edit guide section' : 'New guide section', form);
@@ -217,8 +229,8 @@ function sectionForm(s, onSaved) {
     e.preventDefault();
     const title = form.title.value.trim();
     const body = form.body.value.trim();
-    if (!title || !body) {
-      toast('Add a heading and some content.', 'warn');
+    if (!title || (!body && !(s && s.media))) {
+      toast(s && !s.media ? 'Add some content, or a picture or PDF from the list.' : 'Add a heading and some content.', 'warn');
       return;
     }
     busy(save, 'Saving…', async () => {
@@ -283,12 +295,44 @@ export function renderGuideEdit(root, app, ctx) {
         if (!confirm(`Delete the "${s.title}" section from the guide?`)) return;
         busy(del, '', async () => { redraw(await call('deleteGuideSection', { sectionId: s.sectionId })); toast('Section deleted.'); });
       });
-      return el('div', { class: 'flex items-center gap-2 p-3' },
-        arrows('guide', s.sectionId, i, c.sections.length),
-        el('div', { class: 'min-w-0 flex-1' },
-          el('p', { class: 'font-bold text-slate-900 dark:text-white' }, s.title),
-          el('p', { class: 'line-clamp-2 text-sm muted' }, s.body.replace(/^[-•*]\s+/gm, '').replace(/\s+/g, ' '))),
-        edit, del);
+      const upload = el('button', { type: 'button', class: 'btn btn-secondary btn-sm' }, icon('upload', 'size-4'), s.media ? 'Replace picture/PDF' : 'Add picture/PDF');
+      upload.addEventListener('click', async () => {
+        let file;
+        try {
+          file = await chooseUpload('image/png,image/jpeg,image/webp,image/gif,application/pdf');
+        } catch (err) {
+          toast(err.message, 'error');
+          return;
+        }
+        if (!file) return;
+        busy(upload, 'Uploading…', async () => {
+          const res = await call('uploadGuideMedia', { sectionId: s.sectionId, ...file });
+          if (s.media) forgetFile(s.media.fileId);
+          redraw(res);
+          toast(res.message);
+        });
+      });
+      let removeMedia = null;
+      if (s.media) {
+        removeMedia = el('button', { type: 'button', class: 'text-xs font-bold text-red-600 hover:underline dark:text-red-400' }, s.media.kind === 'builtin' ? 'Remove infographic' : 'Remove');
+        removeMedia.addEventListener('click', () => {
+          if (!confirm(`Remove the ${s.media.kind === 'pdf' ? 'PDF' : 'picture'} from "${s.title}"?`)) return;
+          busy(removeMedia, '', async () => { const res = await call('removeGuideMedia', { sectionId: s.sectionId }); redraw(res); toast(res.message); });
+        });
+      }
+      const mediaLabel = s.media
+        ? el('p', { class: 'mt-1 flex items-center gap-1.5 text-xs font-bold text-emerald-700 dark:text-emerald-400' },
+          icon(s.media.kind === 'pdf' ? 'file' : 'image', 'size-4'),
+          s.media.kind === 'builtin' ? 'Built-in infographic' : s.media.name, removeMedia ? ' · ' : null, removeMedia)
+        : null;
+      return el('div', { class: 'flex flex-col gap-2 p-3 sm:flex-row sm:items-center' },
+        el('div', { class: 'flex min-w-0 flex-1 items-center gap-2' },
+          arrows('guide', s.sectionId, i, c.sections.length),
+          el('div', { class: 'min-w-0 flex-1' },
+            el('p', { class: 'font-bold text-slate-900 dark:text-white' }, s.title),
+            s.body ? el('p', { class: 'line-clamp-2 text-sm muted' }, s.body.replace(/^[-•*]\s+/gm, '').replace(/\s+/g, ' ')) : null,
+            mediaLabel)),
+        el('div', { class: 'flex flex-wrap gap-2 pl-11 sm:pl-0' }, upload, edit, del));
     };
 
     const projectRow = (pr, i, all) => {
@@ -315,10 +359,11 @@ export function renderGuideEdit(root, app, ctx) {
     addProject.addEventListener('click', () => projectForm(null, c.venues, app, redraw));
 
     mount(root,
-      backLink('#/me', 'Me'),
-      el('h1', { class: 'page-title' }, 'Volunteer guide & projects'),
-      el('p', { class: 'mt-1 text-sm muted' }, 'New volunteers read this before their first booking. Changes show straight away.'),
-      el('a', { href: '#/guide', class: 'btn btn-secondary btn-sm mt-3' }, icon('eye', 'size-4'), 'Preview as a volunteer'),
+      el('h1', { class: 'page-title' }, 'Guide & venues'),
+      el('p', { class: 'mt-1 text-sm muted' }, 'New volunteers read the guide before their first session. Changes show straight away.'),
+      el('div', { class: 'mt-3 flex flex-wrap gap-2' },
+        el('a', { href: '#/guide', class: 'btn btn-secondary btn-sm' }, icon('eye', 'size-4'), 'Preview as a volunteer'),
+        el('a', { href: '#/admin/venues', class: 'btn btn-secondary btn-sm' }, icon('building', 'size-4'), 'Venues')),
       el('div', { class: 'mt-6 flex items-center justify-between' }, el('h2', { class: 'group-label m-0' }, `Guide sections (${c.sections.length})`), addSection),
       el('div', { class: 'mt-2' }, c.sections.length ? list(c.sections.map(sectionRow)) : el('p', { class: 'text-sm muted' }, 'No sections yet.')),
       el('div', { class: 'mt-6 flex items-center justify-between' }, el('h2', { class: 'group-label m-0' }, `Projects (${c.projects.length})`), addProject),
@@ -326,5 +371,5 @@ export function renderGuideEdit(root, app, ctx) {
   };
   mount(root, loading());
   return call('leaderContent').then((c) => { if (ctx.alive()) draw(c); })
-    .catch((err) => { if (ctx.alive()) mount(root, backLink('#/me', 'Me'), errorBlock(err, () => app.rerender())); });
+    .catch((err) => { if (ctx.alive()) mount(root, errorBlock(err, () => app.rerender())); });
 }

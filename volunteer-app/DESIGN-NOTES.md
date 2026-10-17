@@ -4,6 +4,52 @@ This explains the two changes asked for, why they're built as a new
 `volunteer-app/` folder rather than as edits to the Node prototype in the
 repository root, and what to do if you must keep the Node app instead.
 
+## Update, October 2026: one app, a shared admin password
+
+After the partner meeting (see [docs/PARTNER-FEEDBACK-OCT-2026.md](docs/PARTNER-FEEDBACK-OCT-2026.md)),
+some decisions below were replaced. Where this file mentions **leaders**, **pending
+bookings**, **Confirm all**, the **Choose Mode** screen or the separate **staff dashboard**,
+read it with these changes in mind:
+
+- **No leader accounts; one shared admin password.** MINDS asked that admin access not
+  be tied to a person, and that one interface show the volunteer views plus an admin
+  submenu. Every request still carries the person's own sign-in token; admin requests
+  also carry a signed, 12-hour admin token from `adminUnlock` (the password is checked
+  against a salted hash in Script Properties, rate-limited per person). Because the admin
+  token is bound to the signed-in person, every admin change is logged with their name
+  (Admin Log tab), which gives accountability without personal admin accounts. The admin
+  token is signed with a version number, so changing the password ends every admin
+  session at once.
+- **"I'm coming" instead of booking + confirmation.** A sign-up is a confirmed booking
+  row. Pairing happens at sign-up for regulars (and anyone with a regular pair); new and
+  ad-hoc volunteers are paired by an admin. Old `pending` rows still count as coming.
+- **New and regular volunteers.** Stored as a "Volunteer Type" cell (blank = automatic,
+  regular after 10 completed sessions). Automatic promotion happens when a clock-out
+  completes the 10th session, so the sheet always shows the current type.
+- **Pairing list.** Standing pairs are a many-to-many tab. Automatic pairing gives a
+  volunteer all their regular trainees (sharing a trainee only between regular pairs) and
+  never gives another volunteer a trainee kept for their regular partner in the same
+  session. Admins can pair one trainee with several volunteers by hand.
+- **Linked databases.** The Data Sources tab maps a key (volunteers, trainees, trainee
+  updates, pairs, files) to a sheet link, optionally one tab (`#gid`). `table_('users')`
+  and the trainee table resolve through it, so the rest of the code is unchanged.
+- **The house-visit form as "trainee updates".** Read as raw rows by header name (only a
+  few headers identify the visit; every other column is trainee information), matched to
+  trainees by normalised full name. A volunteer's update appends a full row in the same
+  format (unchanged answers carried over, real dates in the date columns), so MINDS's
+  sheet stays a complete, append-only history that their own form and tools still read.
+- **What volunteers see** moved from `Config.gs` to a tab admins edit in the app, with
+  separate ticks for new and regular volunteers; `Config.gs` only holds the starting
+  values. House-visit answers start hidden.
+- **Files in Drive, served through the API.** Photos and guide PDFs stay private to the
+  deploying account; the API checks permission and returns base64. Upload types are
+  checked by their first bytes, not just the declared type.
+- **Google Contacts** via the People advanced service, best effort: a failure is written
+  to the person's row and never blocks registration.
+- **One responsive app.** The dashboard views moved into the main app (`web/js/admin/`);
+  phones get tabs, a chip row of admin sections and card-style tables (CSS only), and
+  computers a sidebar. `web/admin/` now just redirects.
+
 ## Why not bolt Sheets and QR onto the existing Node app?
 
 The root app (Prototype 1) was deliberately scoped as a **localhost-only staff

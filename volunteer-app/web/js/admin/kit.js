@@ -1,10 +1,11 @@
-// Building blocks for the staff dashboard: page headers, stat tiles, tables,
-// pop-up forms, pickers, money and CSV export. Built on the phone app's
-// helpers in ../../js/ui.js, so data is only ever rendered as text.
+// Building blocks for the admin pages: page headers, stat tiles, tables,
+// pop-up forms, pickers, money and CSV export. Built on the app's helpers in
+// ../ui.js, so data is only ever rendered as text. Tables become stacked cards
+// on phone-sized screens (the .rtable rules in src/input.css).
 
 import {
   badge, busy, combobox, el, errorBlock, field, fmtDay, formData, icon as baseIcon, labelled, loading, modal, mount, selectField,
-} from '../../js/ui.js';
+} from '../ui.js';
 
 // A few extra outline icons for the dashboard (same style as ui.js).
 const EXTRA = {
@@ -84,11 +85,13 @@ export function panel(title, actions, ...body) {
 /**
  * Table. columns: [{ label, cell: (row) => text|node, class }]
  * Options: empty (text when no rows), href(row) makes the first cell a link.
+ * On phones each row becomes a card: the first column is its title and the
+ * others are "label: value" lines (CSS only, see .rtable in src/input.css).
  */
 export function table(columns, rows, { empty = 'Nothing here yet.', href, rowClass } = {}) {
   if (!rows.length) return el('p', { class: 'px-4 py-8 text-center text-sm muted' }, empty);
-  return el('div', { class: 'overflow-x-auto' },
-    el('table', { class: 'w-full text-left text-sm' },
+  return el('div', { class: 'md:overflow-x-auto' },
+    el('table', { class: 'rtable w-full text-left text-sm' },
       el('thead', { class: 'bg-slate-50 text-xs font-bold uppercase tracking-wider text-slate-500 dark:bg-neutral-900 dark:text-neutral-400' },
         el('tr', {}, columns.map((c) => el('th', { scope: 'col', class: `whitespace-nowrap px-4 py-2.5 ${c.class || ''}` }, c.label)))),
       el('tbody', { class: 'divide-y divide-slate-100 dark:divide-neutral-800' },
@@ -96,8 +99,16 @@ export function table(columns, rows, { empty = 'Nothing here yet.', href, rowCla
           columns.map((c, i) => {
             const value = c.cell(r);
             const content = i === 0 && href ? el('a', { href: href(r), class: 'link' }, value) : value;
-            return el('td', { class: `px-4 py-3 ${c.class || ''}` }, content === '' || content === null || content === undefined ? '—' : content);
+            const blank = content === '' || content === null || content === undefined;
+            return el('td', { class: `px-4 py-3 ${c.class || ''} ${blank && i ? 'rt-blank' : ''}`, 'data-label': c.label || null }, blank ? '—' : content);
           }))))));
+}
+
+/** Horizontal tabs inside a page (e.g. Scan | By hand). items: [{ href, label, icon, active }] */
+export function tabs(items, cls = 'mb-4') {
+  return el('div', { class: `seg ${cls}`, role: 'tablist' }, items.map((t) => el('a', {
+    href: t.href, class: 'seg-item', role: 'tab', 'aria-current': t.active ? 'page' : null,
+  }, t.icon ? icon(t.icon, 'size-4') : null, t.label)));
 }
 
 /** Toolbar row above a table: search, filters, buttons. */

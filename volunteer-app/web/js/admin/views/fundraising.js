@@ -2,8 +2,8 @@
 // Totals shown while typing an order are only a preview: the server works out
 // the real total from the stored prices.
 
-import { call } from '../../../js/api.js';
-import { badge, busy, el, fuzzyFilter, labelled, mount, searchBox, toast } from '../../../js/ui.js';
+import { call } from '../../api.js';
+import { badge, busy, el, fuzzyFilter, labelled, mount, searchBox, toast } from '../../ui.js';
 import {
   backTo, dateRangeText, field, formModal, icon, inlineSelect, load, money, pageHead, panel, plural, row, stat, statGrid, table, toolbar,
 } from '../kit.js';
@@ -22,7 +22,7 @@ export function renderFundraisers(root, app, ctx) {
   const create = () => formModal('New fundraiser', fundraiserFields(), 'Create fundraiser', async (d) => {
     const res = await call('createFundraiser', d);
     toast(res.message);
-    location.hash = `#/fundraiser/${res.fundraiser.fundraiserId}`;
+    location.hash = `#/admin/fundraiser/${res.fundraiser.fundraiserId}`;
   });
   mount(root, pageHead('Fundraising', 'Fundraisers, what they sell, and every order taken.',
     el('button', { class: 'btn btn-primary', onclick: create }, icon('plus', 'size-4'), 'New fundraiser')), host);
@@ -43,7 +43,7 @@ export function renderFundraisers(root, app, ctx) {
         { label: 'Orders', cell: (f) => String(f.sales.orders), class: 'text-right' },
         { label: 'Sales', cell: (f) => money(f.sales.totalCents), class: 'text-right whitespace-nowrap' },
         { label: 'Paid', cell: (f) => money(f.sales.paidCents), class: 'text-right whitespace-nowrap' },
-      ], all, { empty: 'No fundraisers yet. Create one to add products and take orders.', href: (f) => `#/fundraiser/${f.fundraiserId}` }))));
+      ], all, { empty: 'No fundraisers yet. Create one to add products and take orders.', href: (f) => `#/admin/fundraiser/${f.fundraiserId}` }))));
   });
 }
 
@@ -151,7 +151,7 @@ export function renderFundraiser(root, app, ctx, fundraiserId) {
     showSelect.addEventListener('change', () => { showOrders = showSelect.value; drawOrders(); });
 
     mount(host,
-      backTo('#/fundraising', 'Fundraising'),
+      backTo('#/admin/fundraising', 'Fundraising'),
       pageHead(f.name, [dateRangeText(f.startDate, f.endDate), f.description].filter((x) => x && x !== '—').join(' · '),
         f.status === 'open' ? badge('Open', 'emerald') : badge('Closed', 'slate'),
         el('button', { class: 'btn btn-secondary', onclick: editFundraiser }, icon('pencil', 'size-4'), 'Edit'), toggle,
@@ -159,7 +159,7 @@ export function renderFundraiser(root, app, ctx, fundraiserId) {
       statsHost,
       el('div', { class: 'mt-6 space-y-6' },
         panel('Orders', null,
-          toolbar(labelled('Show', showSelect), el('div', { class: 'min-w-64 flex-1' }, labelled('Search', searchBox('Customer, contact or item', (q) => { query = q; drawOrders(); })))),
+          toolbar(labelled('Show', showSelect), el('div', { class: 'min-w-56 flex-1' }, labelled('Search', searchBox('Customer, contact or item', (q) => { query = q; drawOrders(); })))),
           ordersHost),
         panel('Products', el('button', { class: 'btn btn-secondary btn-sm', onclick: () => productModal(null) }, icon('plus', 'size-4'), 'Add product'),
           table([
