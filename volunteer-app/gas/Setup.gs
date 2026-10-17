@@ -5,9 +5,8 @@
  *   setup()           links the app to your sheet: creates missing tabs, appends
  *                     missing headers, adds Trainee IDs if needed, creates APP_SECRET.
  *                     Safe to re-run; it never deletes, reorders or overwrites data.
- *   makeFirstAdmin()  promotes the account whose email is in the FIRST_ADMIN_EMAIL
- *                     script property (register in the app first). After that,
- *                     leaders promote others from the People tab in the app.
+ *   setAdminPassword() sets the shared MINDS admin password from the
+ *                     NEW_ADMIN_PASSWORD script property (AdminAccess.gs).
  */
 
 function checkConfig() {
@@ -32,40 +31,59 @@ function setupInternal_(dryRun) {
 
   const ss = spreadsheet_();
   report.push(`Main sheet: "${ss.getName()}"`);
-  Object.keys(CONFIG.TABLES).forEach((key) => {
+  const headersOf = (def) => Object.keys(def.columns).map((k) => def.columns[k]);
+  // The Data Sources tab first: it says where the volunteer and trainee lists live.
+  report.push(describeTab_(ss, CONFIG.TABLES.dataSources.tab, headersOf(CONFIG.TABLES.dataSources), dryRun, {}));
+  if (!dryRun) seedDataSources_().forEach((line) => report.push(line));
+  resetDbCache_();
+  Object.keys(CONFIG.TABLES).filter((key) => key !== 'dataSources').forEach((key) => {
     const def = CONFIG.TABLES[key];
-    const headers = Object.keys(def.columns).map((k) => def.columns[k]);
-    report.push(describeTab_(ss, def.tab, headers, dryRun, { hidden: def.hidden }));
+    if (key === 'users' && ss.getSheetByName(CONFIG.TABLES.dataSources.tab)) {
+      const loc = sheetLocation_('volunteers');
+      report.push(describeTab_(loc.ss, loc.tab, headersOf(def), dryRun, {}) + (loc.linked ? ` (in "${loc.ss.getName()}")` : ''));
+      return;
+    }
+    report.push(describeTab_(ss, def.tab, headersOf(def), dryRun, { hidden: def.hidden }));
   });
 
   const t = CONFIG.TRAINEES;
-  const tss = traineeSpreadsheet_();
-  const tsheet = tss.getSheetByName(t.tab);
+  resetDbCache_();
+  const tloc = sheetLocation_('trainees');
+  const tss = tloc.ss;
+  const tab = tloc.tab;
+  const tsheet = tss.getSheetByName(tab);
   const traineeHeaders = [t.columns.id, t.columns.name]
     .concat(t.volunteerVisible.map((k) => t.columns[k]))
     .concat(t.writeBack ? Object.keys(t.writeBack).map((k) => t.writeBack[k]) : []);
   if (!tsheet) {
-    report.push(describeTab_(tss, t.tab, traineeHeaders, dryRun, {}) + ' — paste your trainee list into it.');
+    report.push(describeTab_(tss, tab, traineeHeaders, dryRun, {}) + ' — paste your trainee list into it.');
   } else {
     const lastCol = tsheet.getLastColumn();
     const existing = lastCol ? tsheet.getRange(1, 1, 1, lastCol).getValues()[0].map((h) => String(h).trim().toLowerCase()) : [];
     if (existing.indexOf(t.columns.name.toLowerCase()) === -1) {
-      throw new Error(`The "${t.tab}" tab has no "${t.columns.name}" column. Change CONFIG.TRAINEES.columns.name in Config.gs to your sheet's header.`);
+      throw new Error(`The "${tab}" tab has no "${t.columns.name}" column. Change CONFIG.TRAINEES.columns.name in Config.gs to your sheet's header.`);
     }
     const missingVisible = t.volunteerVisible.filter((k) => existing.indexOf(String(t.columns[k]).toLowerCase()) === -1);
     if (missingVisible.length && !CONFIG.ADD_MISSING_TRAINEE_COLUMNS) {
-      report.push(`Note: "${t.tab}" has no ${missingVisible.map((k) => `"${t.columns[k]}"`).join(', ')} column(s); volunteers simply won't see those fields.`);
+      report.push(`Note: "${tab}" has no ${missingVisible.map((k) => `"${t.columns[k]}"`).join(', ')} column(s); volunteers simply won't see those fields.`);
     }
     // Added to the trainee tab: the ID column, the two write-back columns and
     // (if ADD_MISSING_TRAINEE_COLUMNS) empty columns for volunteer-visible fields, for staff to fill.
     const required = [t.columns.id]
       .concat(CONFIG.ADD_MISSING_TRAINEE_COLUMNS ? missingVisible.map((k) => t.columns[k]) : [])
       .concat(t.writeBack ? Object.keys(t.writeBack).map((k) => t.writeBack[k]) : []);
-    report.push(describeTab_(tss, t.tab, required, dryRun, {}));
+    report.push(describeTab_(tss, tab, required, dryRun, {}));
     if (!dryRun) report.push(fillTraineeIds_());
   }
-  if (!dryRun) seedContent_().forEach((line) => report.push(line));
-  else report.push('Would add starter venues, Volunteer Guide sections and projects to any of those tabs that are empty.');
+  if (!dryRun) {
+    seedContent_().forEach((line) => report.push(line));
+    seedFieldAccess_().forEach((line) => report.push(line));
+  } else {
+    report.push('Would add starter venues, Volunteer Guide sections, projects and "what volunteers see" settings to any of those tabs that are empty.');
+  }
+  if (!adminPasswordIsSet_()) {
+    report.push('NEXT: set the shared admin password. Add a script property NEW_ADMIN_PASSWORD (10+ characters), then run setAdminPassword().');
+  }
   const text = report.join('\n');
   console.log(text);
   return text;
@@ -104,17 +122,4 @@ function fillTraineeIds_() {
     }
   });
   return filled ? `Added IDs to ${filled} trainee(s).` : 'All trainees already have IDs.';
-}
-
-function makeFirstAdmin() {
-  const email = String(PropertiesService.getScriptProperties().getProperty(CONFIG.PROP_FIRST_ADMIN_EMAIL) || '').trim().toLowerCase();
-  if (!email) throw new Error('Set the FIRST_ADMIN_EMAIL script property to the email you registered with in the app.');
-  resetDbCache_();
-  const users = table_('users');
-  const user = users.find((u) => String(u.email).toLowerCase() === email);
-  if (!user) throw new Error(`No registered account for ${email}. Register in the app first, then run this again.`);
-  users.update(user, { role: 'admin' });
-  const msg = `${user.name} (${email}) is now a volunteer leader.`;
-  console.log(msg);
-  return msg;
 }

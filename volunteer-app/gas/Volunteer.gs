@@ -1,16 +1,28 @@
 /**
  * Volunteer.gs — everything a volunteer does.
  *
+ * Signing up is just "I'm coming": there is no confirmation step. Regular
+ * volunteers are paired with a trainee straight away (their regular pairs
+ * first); new volunteers are paired by an admin. Volunteers can mark several
+ * sessions at once (signUpSessions), and everyone sees every upcoming session
+ * (the Schedule), so they can share it with trainees' caregivers.
+ *
  * Apps Script calls take ~1–2 s each, so the volunteer app loads its whole
  * screen state in ONE call (volunteerHome) and every volunteer action returns
  * the refreshed state, instead of making a second round trip.
  */
 
+/** A session's display name: its title, else its type. */
+function sessionTitle_(s) {
+  return String(s.title || s.type || 'Volunteer session');
+}
+
 function sessionOut_(s) {
   const venue = s.venue ? venueByName_(s.venue) : null;
   return {
     sessionId: s.sessionId,
-    title: s.title,
+    type: s.type || CONFIG.SESSION_TYPES[0],
+    title: sessionTitle_(s),
     date: s.date,
     startTime: s.startTime,
     endTime: s.endTime,
@@ -37,6 +49,15 @@ function attendanceOut_(a) {
   };
 }
 
+/** Every trainee on a booking: the main one, then "More Trainees". */
+function bookingTraineeIds_(b) {
+  const ids = [];
+  [String(b.traineeId || '')].concat(parseIds_(b.moreTrainees)).forEach((id) => {
+    if (id && ids.indexOf(id) === -1) ids.push(id);
+  });
+  return ids;
+}
+
 function qrCode_(userId, dateStr) {
   const ymd = dateStr.replace(/-/g, '');
   return `MINDS1.${userId}.${ymd}.${sign_(`qr|${userId}|${ymd}`).slice(0, 22)}`;
@@ -51,7 +72,7 @@ function volunteerHome_(p, user) {
   const mineBySession = byKey_(mine, 'sessionId');
   const attendance = table_('attendance').rows().filter((a) => a.userId === user.userId);
   const attByBooking = byKey_(attendance.filter((a) => a.bookingId), 'bookingId');
-  const feedbackByBooking = byKey_(table_('feedback').rows().filter((f) => f.userId === user.userId), 'bookingId');
+  const feedbackByBooking = byKey_(table_('feedback').rows().filter((f) => f.userId === user.userId && f.bookingId), 'bookingId');
 
   const taken = {};
   allBookings.forEach((b) => {
@@ -66,22 +87,23 @@ function volunteerHome_(p, user) {
     const a = attByBooking[b.bookingId];
     return {
       bookingId: b.bookingId,
-      status: b.status,
       walkIn: b.walkIn === 'Yes',
       session: sessionOut_(sessionById[b.sessionId]),
-      trainee: b.status === 'confirmed' && b.traineeId ? traineeForVolunteer_(b.traineeId) : null,
+      trainees: bookingTraineeIds_(b).map((id) => traineeForVolunteer_(id, user)).filter(Boolean), // TraineeUpdates.gs
       attendance: a ? attendanceOut_(a) : null,
       canCancel: !a,
     };
   });
 
-  const openSessions = sortBy_(sessions.filter((s) => s.status === 'open' && s.date >= today), when).map((s) => {
+  // The Schedule: every upcoming session, for everyone (closed ones too, so it can be shared as is).
+  const schedule = sortBy_(sessions.filter((s) => s.sessionId && s.status !== 'cancelled' && s.date >= today), when).map((s) => {
     const cap = Number(s.capacity) || 0;
     const booking = mineBySession[s.sessionId];
+    const spotsLeft = cap ? Math.max(0, cap - (taken[s.sessionId] || 0)) : null;
     return Object.assign(sessionOut_(s), {
-      spotsLeft: cap ? Math.max(0, cap - (taken[s.sessionId] || 0)) : null,
+      spotsLeft,
       myBookingId: booking ? booking.bookingId : null,
-      myStatus: booking ? booking.status : null,
+      canSignUp: !booking && s.status === 'open' && spotsLeft !== 0,
     });
   });
 
@@ -110,9 +132,11 @@ function volunteerHome_(p, user) {
     user: publicUser_(user),
     today,
     guideRead: Boolean(user.guideReadAt),
+    regularAfter: CONFIG.REGULAR_AFTER_SESSIONS,
     upcoming,
-    openSessions,
+    schedule,
     pendingFeedback,
+    myPairs: pairsFor_({ userId: user.userId }).map((x) => ({ traineeId: x.traineeId, traineeName: x.traineeName })),
     history: sortBy_(completed, (a) => a.clockIn).reverse().slice(0, 30).map(attendanceOut_),
     totals: { hours: Math.round(totalHours * 100) / 100, sessions: completed.length },
     qr: qrDates.map((d) => ({ date: d, code: qrCode_(user.userId, d) })),
@@ -125,45 +149,84 @@ function ownBooking_(bookingId, user) {
   return booking;
 }
 
-function bookSession_(p, user) {
-  onlyFields_(p, ['sessionId']);
-  const sessionId = id_(p.sessionId, 'Session');
+/**
+ * "I'm coming" for one session. Writes a confirmed booking (no admin
+ * confirmation). Regulars are paired straight away. Returns { booking, paired, message }.
+ */
+function comeToSession_(sessionId, user) {
   if (CONFIG.REQUIRE_GUIDE_BEFORE_BOOKING && !user.guideReadAt) {
-    throw new AppError('GUIDE_REQUIRED', 'Please read the Volunteer Guide before booking your first session.');
+    throw new AppError('GUIDE_REQUIRED', 'Please read the Volunteer Guide before signing up for your first session.');
   }
   const s = table_('sessions').find((x) => x.sessionId === sessionId);
   if (!s || s.status === 'cancelled') throw err_.notFound('Session not found.');
-  if (s.status !== 'open') throw err_.conflict('Bookings for this session are closed.');
-  if (s.date < todayStr_()) throw err_.conflict('This session has already happened.');
+  const title = sessionTitle_(s);
+  if (s.status !== 'open') throw err_.conflict(`Sign-ups for ${title} are closed.`);
+  if (s.date < todayStr_()) throw err_.conflict(`${title} has already happened.`);
   const bookings = table_('bookings');
   const active = bookings.filter((b) => b.sessionId === sessionId && b.status !== 'cancelled');
-  if (active.some((b) => b.userId === user.userId)) throw err_.conflict('You have already booked this session.');
+  if (active.some((b) => b.userId === user.userId)) throw err_.conflict(`You're already down as coming to ${title}.`);
   const cap = Number(s.capacity) || 0;
-  if (cap && active.length >= cap) throw err_.conflict('Sorry, this session is full.');
-  bookings.insert({
+  if (cap && active.length >= cap) throw err_.conflict(`Sorry, ${title} is full.`);
+  const booking = bookings.insert({
     bookingId: newId_('B'),
     sessionId,
     sessionDate: s.date,
-    sessionTitle: s.title,
+    sessionTitle: title,
     userId: user.userId,
     volunteerName: user.name,
-    status: 'pending',
+    status: 'confirmed',
     bookedAt: fmtDateTime_(now_()),
   });
-  return { message: "Booked! Once a leader confirms it, you'll see your trainee here.", home: volunteerHome_({}, user) };
+  const paired = autoPair_(booking, s, user); // Trainees.gs: only regulars, unless AUTO_PAIR_NEW
+  let message = `You're coming to ${title} on ${niceDate_(s.date)}.`;
+  if (paired) message += ` You're with ${paired.traineeNames}.`;
+  else if (!isRegular_(user)) message += ' A MINDS admin will pair you with a trainee before the day.';
+  return { booking, paired, message };
+}
+
+function bookSession_(p, user) {
+  onlyFields_(p, ['sessionId']);
+  const res = comeToSession_(id_(p.sessionId, 'Session'), user);
+  return { message: res.message, home: volunteerHome_({}, user) };
+}
+
+/** Several sessions at once (e.g. all four this month). Each one succeeds or fails on its own. */
+function signUpSessions_(p, user) {
+  onlyFields_(p, ['sessionIds']);
+  if (!Array.isArray(p.sessionIds) || !p.sessionIds.length || p.sessionIds.length > 31) throw err_.validation('Choose between 1 and 31 sessions.');
+  const ids = [];
+  p.sessionIds.forEach((x) => { const id = id_(x, 'Session'); if (ids.indexOf(id) === -1) ids.push(id); });
+  const results = ids.map((sessionId) => {
+    try {
+      const res = comeToSession_(sessionId, user);
+      return { sessionId, ok: true, message: res.message };
+    } catch (e) {
+      if (!(e instanceof AppError)) throw e;
+      if (e.code === 'GUIDE_REQUIRED') throw e;
+      return { sessionId, ok: false, message: e.message };
+    }
+  });
+  const okCount = results.filter((r) => r.ok).length;
+  const failed = results.filter((r) => !r.ok);
+  let message = okCount ? `You're coming to ${okCount} session${okCount === 1 ? '' : 's'}.` : 'No sessions were added.';
+  if (failed.length) message += ` ${failed.map((f) => f.message).join(' ')}`;
+  return { results, message, home: volunteerHome_({}, user) };
 }
 
 function cancelBooking_(p, user) {
   onlyFields_(p, ['bookingId']);
   const booking = ownBooking_(p.bookingId, user);
-  if (booking.status === 'cancelled') throw err_.conflict('This booking is already cancelled.');
+  if (booking.status === 'cancelled') throw err_.conflict('You have already said you can\'t make it.');
   if (table_('attendance').find((a) => a.bookingId === booking.bookingId)) {
     throw err_.conflict('You have already clocked in for this session, so it cannot be cancelled.');
   }
   const s = table_('sessions').find((x) => x.sessionId === booking.sessionId);
-  if (s && s.date < todayStr_()) throw err_.conflict('Past bookings cannot be cancelled.');
-  table_('bookings').update(booking, { status: 'cancelled', decidedBy: `${user.name} (self)`, decidedAt: fmtDateTime_(now_()) });
-  return { message: 'Booking cancelled.', home: volunteerHome_({}, user) };
+  if (s && s.date < todayStr_()) throw err_.conflict('Past sessions cannot be cancelled.');
+  table_('bookings').update(booking, {
+    status: 'cancelled', traineeId: '', traineeName: '', moreTrainees: '', pairing: '',
+    decidedBy: `${user.name} (self)`, decidedAt: fmtDateTime_(now_()),
+  });
+  return { message: 'Okay, you\'re no longer down for that session.', home: volunteerHome_({}, user) };
 }
 
 function submitFeedback_(p, user) {
@@ -181,6 +244,7 @@ function submitFeedback_(p, user) {
   const shareNow = Boolean(traineeObservation && booking.traineeId && CONFIG.AUTO_SHARE_OBSERVATIONS);
   const fb = feedback.insert({
     feedbackId: newId_('F'),
+    type: 'Session feedback',
     sessionId: booking.sessionId,
     bookingId: booking.bookingId,
     userId: user.userId,

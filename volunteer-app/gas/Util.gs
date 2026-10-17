@@ -12,7 +12,7 @@ class AppError extends Error {
 const err_ = {
   validation: (m) => new AppError('VALIDATION_ERROR', m),
   unauthorized: (m) => new AppError('UNAUTHORIZED', m || 'Please sign in again.'),
-  forbidden: (m) => new AppError('FORBIDDEN', m || 'Only volunteer leaders can do that.'),
+  forbidden: (m) => new AppError('FORBIDDEN', m || 'Only MINDS admins can do that.'),
   notFound: (m) => new AppError('NOT_FOUND', m),
   conflict: (m) => new AppError('CONFLICT', m),
   config: (m) => new AppError('CONFIG_ERROR', m),
@@ -97,8 +97,9 @@ function phone_(value, label, opts) {
   return s;
 }
 
-function telegram_(value) {
+function telegram_(value, opts) {
   const s = str_(value, 'Telegram handle', { max: 40 }).replace(/^@/, '');
+  if (!s && opts && opts.required) throw err_.validation('Telegram handle is required. MINDS admins use it to reach you.');
   if (!s) return '';
   if (!/^[A-Za-z0-9_]{5,32}$/.test(s)) throw err_.validation('Telegram handle should be 5–32 letters, numbers or underscores.');
   return s; // stored without "@" (a leading @ would need formula-escaping in Sheets)
@@ -140,6 +141,15 @@ function parseDateTime_(s) {
 function todayStr_() {
   return fmtDate_(now_());
 }
+/** "2026-10-14" → "Wed 14 Oct" (for messages). */
+function niceDate_(dateStr) {
+  const d = new Date(`${dateStr}T00:00:00Z`);
+  if (isNaN(d.getTime())) return String(dateStr || '');
+  const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  return `${days[d.getUTCDay()]} ${d.getUTCDate()} ${months[d.getUTCMonth()]}`;
+}
+
 function addDays_(dateStr, days) {
   const d = new Date(`${dateStr}T00:00:00Z`);
   d.setUTCDate(d.getUTCDate() + days);
@@ -176,6 +186,11 @@ function safeEqual_(a, b) {
   let diff = 0;
   for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
   return diff === 0;
+}
+
+/** Lower-case, single-spaced, letters and digits only: for matching names typed in different sheets. */
+function normName_(s) {
+  return String(s || '').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
 }
 
 function byKey_(rows, key) {

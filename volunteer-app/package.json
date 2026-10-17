@@ -9,7 +9,7 @@
   },
   "scripts": {
     "dev": "node dev/mock-server.js",
-    "test": "node --test tests/gas.test.js tests/dashboard.test.js",
+    "test": "node --test tests/gas.test.js tests/dashboard.test.js tests/partner.test.js",
     "build:css": "npx --yes @tailwindcss/cli@4 -i web/src/input.css -o web/styles.css --minify",
     "watch:css": "npx --yes @tailwindcss/cli@4 -i web/src/input.css -o web/styles.css --watch",
     "clasp:login": "npx --yes @google/clasp@2.4.2 login",

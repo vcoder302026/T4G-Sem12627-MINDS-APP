@@ -59,7 +59,7 @@ function scan_(p, admin) {
   });
 }
 
-/** Uploads scans queued while the leader's phone was offline, oldest first. */
+/** Uploads scans queued while the admin's phone was offline, oldest first. */
 function scanBatch_(p, admin) {
   onlyFields_(p, ['scans']);
   if (!Array.isArray(p.scans) || p.scans.length > 200) throw err_.validation('Send between 1 and 200 scans.');
@@ -78,7 +78,7 @@ function scanBatch_(p, admin) {
   return { results };
 }
 
-/** Fallback when a volunteer's phone is flat: the leader taps the booking instead. */
+/** Clock-in by hand (Admin → Scan → By hand), e.g. when a volunteer's phone is flat. */
 function manualClock_(p, admin) {
   onlyFields_(p, ['bookingId']);
   const booking = table_('bookings').find((b) => b.bookingId === id_(p.bookingId, 'Booking'));
@@ -88,7 +88,7 @@ function manualClock_(p, admin) {
   const session = table_('sessions').find((s) => s.sessionId === booking.sessionId);
   const day = todayStr_();
   if (!session || session.date !== day) {
-    throw err_.conflict('Manual clocking only works on the day of the session. Correct past times in the Attendance tab.');
+    throw err_.conflict('Clocking in by hand only works on the day of the session. Correct past times in Admin → Attendance.');
   }
   const result = clock_(user, {
     day,
@@ -118,7 +118,7 @@ function clock_(user, o) {
   const openAny = today.find((a) => a.clockIn && !a.clockOut);
   if (openAny && o.sessionId && openAny.sessionId !== o.sessionId) {
     const other = sessionById[openAny.sessionId];
-    throw err_.conflict(`${user.name} is still clocked in to "${other ? other.title : 'another session'}". Clock them out there first.`);
+    throw err_.conflict(`${user.name} is still clocked in to "${other ? sessionTitle_(other) : 'another session'}". Clock them out there first.`);
   }
   if (openAny) {
     const clockIn = parseDateTime_(openAny.clockIn);
@@ -135,7 +135,9 @@ function clock_(user, o) {
       clockOutBy: o.admin.name,
       method: openAny.method && openAny.method !== o.method ? `${openAny.method} / ${o.method}` : o.method,
     });
-    return clockResult_('out', user, sessionById[openAny.sessionId], openAny, booking, `${openAny.hours} h recorded (in at ${openAny.clockIn.slice(11, 16)}, out at ${openAny.clockOut.slice(11, 16)}).`);
+    const promoted = maybePromote_(user); // Profile.gs: regular after REGULAR_AFTER_SESSIONS
+    return clockResult_('out', user, sessionById[openAny.sessionId], openAny, booking,
+      `${openAny.hours} h recorded (in at ${openAny.clockIn.slice(11, 16)}, out at ${openAny.clockOut.slice(11, 16)}).${promoted}`);
   }
 
   // 2) Otherwise → clock IN against today's booking.
@@ -166,7 +168,7 @@ function clock_(user, o) {
       bookingId: newId_('B'),
       sessionId: s.sessionId,
       sessionDate: s.date,
-      sessionTitle: s.title,
+      sessionTitle: sessionTitle_(s),
       userId: user.userId,
       volunteerName: user.name,
       status: 'confirmed',
@@ -177,28 +179,24 @@ function clock_(user, o) {
     })];
   }
 
-  // Prefer a confirmed booking, then the session starting closest to now.
+  // The session starting closest to now.
   const nowMinutes = minutesOfDay_(Utilities.formatDate(o.when, CONFIG.TIMEZONE, 'HH:mm'));
   candidates.sort((a, b) =>
-    (a.status === 'confirmed' ? 0 : 1) - (b.status === 'confirmed' ? 0 : 1) ||
     Math.abs(minutesOfDay_(sessionById[a.sessionId].startTime) - nowMinutes) -
     Math.abs(minutesOfDay_(sessionById[b.sessionId].startTime) - nowMinutes));
   const booking = candidates[0];
   const session = sessionById[booking.sessionId];
   let note = '';
-  if (booking.status === 'pending') {
-    bookings.update(booking, { status: 'confirmed', decidedBy: o.admin.name, decidedAt: fmtDateTime_(now_()) });
-    note = ' Booking was pending, so it has been confirmed.';
-  }
-  const paired = autoPair_(booking, session);
-  if (paired) note += ` Paired with ${paired.traineeName}.`;
+  const paired = autoPair_(booking, session, user); // Trainees.gs: regulars only (new volunteers are paired by an admin)
+  if (paired) note += ` Paired with ${paired.traineeNames}.`;
+  else if (!booking.traineeId) note += ' No trainee yet: pair them on the session page.';
   const record = attendance.insert({
     attendanceId: newId_('A'),
     sessionId: session.sessionId,
     bookingId: booking.bookingId,
     userId: user.userId,
     volunteerName: user.name,
-    sessionTitle: session.title,
+    sessionTitle: sessionTitle_(session),
     date: o.day,
     clockIn: fmtDateTime_(o.when),
     clockInBy: o.admin.name,
@@ -213,8 +211,10 @@ function clockResult_(outcome, user, session, record, booking, message) {
     outcome, // in | out | already-in | already-out | not-booked
     message,
     volunteer: { userId: user.userId, name: user.name },
-    session: session ? { sessionId: session.sessionId, title: session.title, startTime: session.startTime, endTime: session.endTime } : null,
+    session: session ? { sessionId: session.sessionId, title: sessionTitle_(session), startTime: session.startTime, endTime: session.endTime } : null,
     attendance: record ? attendanceOut_(record) : null,
-    trainee: booking && booking.traineeName ? { name: booking.traineeName } : null,
+    trainee: booking && booking.traineeName
+      ? { name: bookingTraineeIds_(booking).map((id) => (id === String(booking.traineeId) ? booking.traineeName : (traineeById_(id) || {}).name || id)).join(' and ') }
+      : null,
   };
 }

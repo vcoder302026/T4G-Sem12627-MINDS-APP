@@ -1,9 +1,12 @@
 /**
- * Content.gs — things volunteer leaders manage in the app:
+ * Content.gs — things admins manage in the app:
  * venues, projects, and the Volunteer Guide new volunteers read first.
  *
- * Starting content is added by setup() only when a tab is empty. Leaders then
- * edit it in the app (Me → Leader tools), or directly in the sheet.
+ * Starting content is added by setup() only when a tab is empty. Admins then
+ * edit it in the app (Admin → Guide & venues), or directly in the sheet.
+ * Any guide section can show a picture or a PDF (Files.gs). The "On the day"
+ * section starts with a built-in infographic (web/img/on-the-day.svg), which
+ * admins can replace with their own picture or PDF.
  */
 
 const DEFAULT_GUIDE = [
@@ -17,15 +20,16 @@ const DEFAULT_GUIDE = [
   },
   {
     title: 'What we expect from you',
-    body: '- Arrive 10 to 15 minutes early\n- Stay with your paired trainee unless a leader asks you to switch\n- Be patient and kind, and speak to trainees with the respect you would give anyone their age\n- Keep your phone away during activities\n- No photos or videos of trainees unless a leader says it is allowed\n- Tell a leader straight away about any injury, distress or safety worry\n- Can\'t make it? Cancel your booking in the app as early as possible',
+    body: '- Arrive 10 to 15 minutes early\n- Stay with your paired trainee unless MINDS staff ask you to switch\n- Be patient and kind, and speak to trainees with the respect you would give anyone their age\n- Keep your phone away during activities\n- No photos or videos of trainees unless MINDS staff say it is allowed\n- Tell MINDS staff straight away about any injury, distress or safety worry\n- Can\'t make it? Tap "Can\'t make it" in the app as early as possible',
   },
   {
     title: 'On the day',
-    body: '1. Open the app and read your trainee\'s profile and notes.\n2. Show your QR pass to the volunteer leader to clock in.\n3. Stay with your trainee and follow the leader\'s plan for the session.\n4. At the end, show your QR pass again to clock out.\n5. Fill in the short feedback form. Your notes help the next volunteer.',
+    body: 'Your session day at a glance.',
+    media: 'builtin:on-the-day',
   },
   {
     title: 'Working with your trainee',
-    body: '- Use short, simple sentences and give time to answer\n- Show as well as tell: demonstrate, point, use pictures\n- Follow the "Things to take note" in your trainee\'s profile\n- Praise effort, not just results\n- If your trainee becomes upset, stay calm, give them space and call a leader',
+    body: '- Use short, simple sentences and give time to answer\n- Show as well as tell: demonstrate, point, use pictures\n- Follow the "Things to take note" in your trainee\'s profile\n- Praise effort, not just results\n- If your trainee becomes upset, stay calm, give them space and call MINDS staff',
   },
 ];
 
@@ -33,7 +37,7 @@ const DEFAULT_PROJECTS = [
   {
     name: 'School activity support',
     description: 'Help trainees during classroom and recreational activities: crafts, games, music and life-skills practice.',
-    schedule: 'See the open sessions in the app',
+    schedule: 'See the Schedule in the app',
     venue: 'MINDS Woodlands Gardens School',
   },
 ];
@@ -170,20 +174,32 @@ function saveProject_(p, admin) {
 
 /* ---------------- volunteer guide ---------------- */
 
+/** A guide section's picture or PDF: { fileId, kind: builtin | image | pdf, name, src } or null. */
+function guideMedia_(fileId) {
+  const id = String(fileId || '').trim();
+  if (!id) return null;
+  if (id === 'builtin:on-the-day') return { fileId: id, kind: 'builtin', name: 'On the day infographic', src: 'img/on-the-day.svg' };
+  const f = table_('files').find((x) => x.fileId === id);
+  if (!f) return null;
+  return { fileId: id, kind: f.mimeType === 'application/pdf' ? 'pdf' : 'image', name: f.name, sizeKb: Number(f.sizeKb) || 0 };
+}
+
 function guideSections_() {
   return sortBy_(table_('guide').rows().filter((g) => g.title || g.body), (g) => String(Number(g.order) || 0).padStart(5, '0'))
-    .map((g) => ({ sectionId: g.sectionId, title: g.title, body: g.body, order: Number(g.order) || 0 }));
+    .map((g) => ({ sectionId: g.sectionId, title: g.title, body: g.body, order: Number(g.order) || 0, media: guideMedia_(g.mediaFileId) }));
 }
 
 function saveGuideSection_(p, admin) {
-  onlyFields_(p, ['sectionId', 'title', 'body']);
+  onlyFields_(p, ['sectionId', 'title', 'body', 'useInfographic']);
   const guide = table_('guide');
   const fields = {
     title: str_(p.title, 'Title', { required: true }),
-    body: str_(p.body, 'Content', { required: true, max: LIMITS.NOTES }),
+    body: str_(p.body, 'Content', { max: LIMITS.NOTES }),
     updatedBy: admin.name,
     updatedAt: fmtDateTime_(now_()),
   };
+  if (p.useInfographic === true) fields.mediaFileId = 'builtin:on-the-day';
+  if (!fields.body && !p.sectionId && p.useInfographic !== true) throw err_.validation('Add some content, or a picture/PDF after saving.');
   if (p.sectionId) {
     const g = guide.find((x) => x.sectionId === id_(p.sectionId, 'Section'));
     if (!g) throw err_.notFound('Guide section not found.');
@@ -200,8 +216,11 @@ function deleteGuideSection_(p) {
   const guide = table_('guide');
   const g = guide.find((x) => x.sectionId === id_(p.sectionId, 'Section'));
   if (!g) throw err_.notFound('Guide section not found.');
+  const media = g.mediaFileId;
+  const title = g.title;
   guide.remove(g);
-  return contentForLeaders_();
+  deleteUpload_(media); // Files.gs
+  return Object.assign(contentForLeaders_(), { message: `Deleted "${title}" from the guide.` });
 }
 
 /** Moves a guide section or project one place up or down. */
@@ -235,10 +254,10 @@ function guide_(p, user) {
 
 function acknowledgeGuide_(p, user) {
   if (!user.guideReadAt) table_('users').update(user, { guideReadAt: fmtDateTime_(now_()) });
-  return { message: 'Thanks for reading the guide! You can now book sessions.', home: volunteerHome_({}, user) };
+  return { message: 'Thanks for reading the guide! You can now sign up for sessions.', home: volunteerHome_({}, user) };
 }
 
-/** Everything leaders edit on the Leader tools screens. */
+/** Everything admins edit on the Guide & venues screens. */
 function contentForLeaders_() {
   return {
     sections: guideSections_(),
@@ -259,9 +278,9 @@ function seedContent_() {
   }
   if (!table_('guide').rows().length) {
     DEFAULT_GUIDE.forEach((g, i) => table_('guide').insert({
-      sectionId: newId_('G'), order: i + 1, title: g.title, body: g.body, updatedBy: 'setup', updatedAt: fmtDateTime_(now_()),
+      sectionId: newId_('G'), order: i + 1, title: g.title, body: g.body, mediaFileId: g.media || '', updatedBy: 'setup', updatedAt: fmtDateTime_(now_()),
     }));
-    added.push(`Added ${DEFAULT_GUIDE.length} starter Volunteer Guide sections (edit them in the app: Me → Leader tools)`);
+    added.push(`Added ${DEFAULT_GUIDE.length} starter Volunteer Guide sections (edit them in the app: Admin → Guide & venues)`);
   }
   if (!projectRows_().length) {
     DEFAULT_PROJECTS.forEach((pr, i) => table_('projects').insert({

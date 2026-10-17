@@ -1,4 +1,4 @@
-// Tests for the staff dashboard's backend actions (Dashboard.gs, Fundraising.gs,
+// Tests for the admin dashboard's backend actions (Dashboard.gs, Fundraising.gs,
 // Outings.gs, Trips.gs, Visits.gs and the trainee editing in Trainees.gs),
 // run in Node against the in-memory spreadsheet. Run: npm test
 
@@ -10,6 +10,7 @@ const SHEET = 'sheet-1';
 const TODAY = '2026-10-14';
 const YESTERDAY = '2026-10-13';
 const SCHOOL = 'MINDS Woodlands Gardens School';
+const ADMIN_PW = 'Admin-Password-2026';
 const at = (hhmm, day = TODAY) => `${day}T${hhmm}:00+08:00`;
 
 function ok(res) {
@@ -24,16 +25,15 @@ function fails(res, code) {
 
 function volunteerPayload(overrides = {}) {
   return {
-    name: 'Vol One', birthday: '2001-05-06', email: 'v1@example.com', phone: '+65 9123 4567', telegram: '',
-    emergencyName: 'Parent One', emergencyPhone: '+65 8123 4567', emergencyRelation: 'Mother',
+    name: 'Vol One', birthday: '2001-05-06', email: 'v1@example.com', phone: '+65 9123 4567', telegram: 'vol_one',
     password: 'password123', consent: true, ...overrides,
   };
 }
 
 let rt;
-let leader; // token
+let staff; // { token, user, adminToken }: a staff member with admin unlocked
 let vol; // { token, user }
-const call = (action, payload = {}, token = leader) => rt.call(action, payload, token);
+const call = (action, payload = {}) => rt.call(action, payload, staff.token, staff.adminToken);
 
 beforeEach(() => {
   rt = createGasRuntime();
@@ -46,16 +46,16 @@ beforeEach(() => {
   rt.props.set('SPREADSHEET_ID', SHEET);
   rt.setNow(at('09:00'));
   rt.run('setup');
-  ok(rt.call('register', volunteerPayload({ name: 'Leader Lee', email: 'leader@example.com' })));
-  rt.props.set('FIRST_ADMIN_EMAIL', 'leader@example.com');
-  rt.run('makeFirstAdmin');
-  leader = ok(rt.call('login', { email: 'leader@example.com', password: 'password123' })).token;
+  rt.props.set('NEW_ADMIN_PASSWORD', ADMIN_PW);
+  rt.run('setAdminPassword');
+  staff = ok(rt.call('register', volunteerPayload({ name: 'Staff Lee', email: 'staff@example.com', telegram: 'staff_lee' })));
+  staff.adminToken = ok(rt.call('adminUnlock', { password: ADMIN_PW }, staff.token)).adminToken;
   vol = ok(rt.call('register', volunteerPayload()));
   ok(rt.call('acknowledgeGuide', {}, vol.token));
 });
 
 describe('dashboard access and setup', () => {
-  test('volunteers are blocked from every dashboard action', () => {
+  test('without the admin password every dashboard action is refused', () => {
     const actions = ['dashboardOverview', 'listAttendance', 'addAttendance', 'updateAttendance', 'hoursReport', 'createVolunteer',
       'listTraineeRecords', 'traineeProfile', 'createTrainee', 'updateTrainee', 'listFundraisers', 'fundraiserDetail',
       'createFundraiser', 'updateFundraiser', 'saveProduct', 'createOrder', 'updateOrder', 'listOutings', 'outingDetail',
@@ -63,7 +63,8 @@ describe('dashboard access and setup', () => {
       'updateTrip', 'addTripParticipant', 'updateTripParticipant', 'addTripLogistics', 'updateTripLogistics', 'addTripExpense',
       'listVisits', 'createVisit'];
     actions.forEach((a) => {
-      fails(rt.call(a, {}, vol.token), 'FORBIDDEN');
+      fails(rt.call(a, {}, vol.token), 'ADMIN_REQUIRED');
+      fails(rt.call(a, {}, staff.token), 'ADMIN_REQUIRED');
       fails(rt.call(a, {}), 'UNAUTHORIZED');
     });
   });
@@ -76,10 +77,15 @@ describe('dashboard access and setup', () => {
     assert.equal(JSON.stringify(rt.tab(SHEET, 'Trainees').dump()), before);
   });
 
-  test('overview counts people, hours and upcoming events', () => {
+  test('overview counts new and regular volunteers, hours and upcoming events', () => {
     const o = ok(call('dashboardOverview'));
-    assert.equal(o.counts.volunteers, 1);
-    assert.equal(o.counts.leaders, 1);
+    assert.equal(o.counts.volunteers, 2);
+    assert.equal(o.counts.newVolunteers, 2);
+    assert.equal(o.counts.regularVolunteers, 0);
+    assert.equal('leaders' in o.counts, false);
+    assert.equal('pendingBookings' in o.counts, false);
+    ok(call('updatePerson', { userId: vol.user.userId, volunteerType: 'regular' }));
+    assert.equal(ok(call('dashboardOverview')).counts.regularVolunteers, 1);
     assert.equal(o.counts.trainees, 2);
     assert.equal(o.counts.hoursTotal, 0);
     ok(call('createOuting', { title: 'Zoo', date: '2026-10-20', location: 'Singapore Zoo' }));
@@ -96,7 +102,10 @@ describe('volunteers and trainees', () => {
     assert.match(res.tempPassword, /^minds-\w{4}-\w{4}$/);
     assert.equal(res.person.hasAccount, true);
     const login = ok(rt.call('login', { email: 'new@example.com', password: res.tempPassword }));
-    assert.equal(login.user.role, 'volunteer');
+    assert.equal(login.user.type, 'new');
+    const reg = ok(call('createVolunteer', { name: 'Old Hand', email: 'old@example.com', volunteerType: 'regular' }));
+    assert.equal(reg.person.type, 'regular'); // e.g. someone who volunteered before the app
+    fails(call('createVolunteer', { name: 'X', email: 'x@example.com', role: 'admin' }), 'VALIDATION_ERROR');
     fails(call('createVolunteer', { name: 'Dup', email: 'new@example.com' }), 'CONFLICT');
     fails(call('createVolunteer', { name: '', email: 'x@example.com' }), 'VALIDATION_ERROR');
   });
@@ -169,7 +178,7 @@ describe('attendance and hours', () => {
     rt.setNow(at('15:00'));
     const res = ok(call('updateAttendance', { attendanceId: list.records[0].attendanceId, clockIn: '10:15', clockOut: '12:00' }));
     assert.equal(res.record.hours, 1.75);
-    assert.equal(res.record.editedBy, 'Leader Lee');
+    assert.equal(res.record.editedBy, 'Staff Lee');
     fails(call('updateAttendance', { attendanceId: list.records[0].attendanceId, clockIn: '12:00', clockOut: '11:00' }), 'VALIDATION_ERROR');
     fails(call('updateAttendance', { attendanceId: list.records[0].attendanceId, clockIn: '10:00', clockOut: '16:00' }), 'VALIDATION_ERROR');
     fails(call('updateAttendance', { attendanceId: 'A-NOPE', clockIn: '10:00', clockOut: '11:00' }), 'NOT_FOUND');
@@ -294,7 +303,7 @@ describe('overseas trips', () => {
     let d = ok(call('addTripLogistics', { tripId: t.tripId, description: 'Book flights', dueDate: '2026-11-01' }));
     d = ok(call('updateTripLogistics', { itemId: d.logistics[0].itemId, status: 'done' }));
     assert.equal(d.totals.logisticsDone, 1);
-    assert.equal(d.logistics[0].doneBy, 'Leader Lee');
+    assert.equal(d.logistics[0].doneBy, 'Staff Lee');
     ok(call('addTripExpense', { tripId: t.tripId, description: 'Flights', amount: '1200.10' }));
     d = ok(call('addTripExpense', { tripId: t.tripId, description: 'Hotel', amount: 0.2 }));
     assert.equal(d.totals.expensesCents, 120030);

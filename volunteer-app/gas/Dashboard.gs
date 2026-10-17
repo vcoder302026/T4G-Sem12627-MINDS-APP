@@ -1,10 +1,10 @@
 /**
- * Dashboard.gs — the staff dashboard (web/admin/): overview, attendance
- * corrections, the volunteer hours report and adding volunteers.
+ * Dashboard.gs — admin overview, attendance corrections, no-shows, the
+ * volunteer hours report and adding volunteers.
  * The dashboard's other sections live in Fundraising.gs, Outings.gs, Trips.gs
  * and Visits.gs; adding and editing trainees is in Trainees.gs.
  *
- * Every action here is leaders-only (Main.gs → routes_). Records keep the
+ * Every action here needs the admin password (Main.gs → routes_). Records keep the
  * volunteer's and trainee's ID; names are looked up when a list is shown, so a
  * renamed person appears with their current name everywhere.
  */
@@ -61,11 +61,11 @@ function traineeRef_(value, label) {
   return trainee;
 }
 
-/** Choices for the dashboard's volunteer and trainee pickers. */
+/** Choices for the admin volunteer and trainee pickers. */
 function pickLists_() {
   const volunteers = table_('users').rows()
     .filter((u) => u.userId && u.status !== 'inactive')
-    .map((u) => ({ userId: u.userId, name: u.name, email: u.email, role: u.role === 'admin' ? 'admin' : 'volunteer' }));
+    .map((u) => ({ userId: u.userId, name: u.name, email: u.email, type: volunteerTypeOf_(u).type }));
   return { volunteers: sortBy_(volunteers, (v) => String(v.name).toLowerCase()), trainees: traineeList_() };
 }
 
@@ -80,6 +80,34 @@ function dateRange_(p) {
 const round2_ = (n) => Math.round(n * 100) / 100;
 const sumHours_ = (rows) => round2_(rows.reduce((s, a) => s + (Number(a.hours) || 0), 0));
 
+/* ---------- no-shows ---------- */
+
+/**
+ * A no-show: the volunteer said they were coming to a session that has now
+ * happened (before today, not cancelled) and never clocked in.
+ * Returns { userId: [{ date, sessionId, sessionTitle, bookingId }] }, newest first.
+ */
+function noShowsByUser_() {
+  return memo_('noShows', () => {
+    const today = todayStr_();
+    const sessions = byKey_(table_('sessions').rows(), 'sessionId');
+    const attended = {};
+    table_('attendance').rows().forEach((a) => {
+      if (a.bookingId) attended[a.bookingId] = true;
+      attended[`${a.userId}|${a.sessionId}`] = true;
+    });
+    const out = {};
+    table_('bookings').rows().forEach((b) => {
+      const s = sessions[b.sessionId];
+      if (!s || b.status === 'cancelled' || s.status === 'cancelled' || !(s.date < today)) return;
+      if (attended[b.bookingId] || attended[`${b.userId}|${b.sessionId}`]) return;
+      (out[b.userId] = out[b.userId] || []).push({ date: s.date, sessionId: s.sessionId, sessionTitle: sessionTitle_(s), bookingId: b.bookingId });
+    });
+    Object.keys(out).forEach((k) => { out[k] = sortBy_(out[k], (x) => x.date).reverse(); });
+    return out;
+  });
+}
+
 /* ---------- overview ---------- */
 
 function dashboardOverview_() {
@@ -87,35 +115,43 @@ function dashboardOverview_() {
   const month = today.slice(0, 7);
   const users = table_('users').rows().filter((u) => u.userId);
   const activeUsers = users.filter((u) => u.status !== 'inactive');
+  const regulars = activeUsers.filter(isRegular_);
   const trainees = traineeTable_().rows().filter((t) => t.id && t.name);
   const attendance = table_('attendance').rows();
   const done = attendance.filter((a) => a.clockOut);
   const bookings = table_('bookings').rows();
-  const sessions = table_('sessions').rows().filter((s) => s.status !== 'cancelled');
+  const sessions = table_('sessions').rows().filter((s) => s.sessionId && s.status !== 'cancelled');
   const outings = table_('outings').rows().filter((o) => o.status !== 'cancelled');
   const trips = table_('trips').rows().filter((t) => t.status !== 'cancelled');
   const assignments = table_('outingAssignments').rows();
   const participants = table_('tripParticipants').rows().filter((x) => x.status !== 'withdrawn');
   const orders = table_('orders').rows();
+  const misses = noShowsByUser_();
+  const noShowsThisMonth = Object.keys(misses).reduce((n, k) => n + misses[k].filter((x) => x.date.slice(0, 7) === month).length, 0);
 
-  const upcomingSessions = sortBy_(sessions.filter((s) => s.date >= today), (s) => `${s.date} ${s.startTime}`).slice(0, 5)
+  const upcomingSessions = sortBy_(sessions.filter((s) => s.date >= today), (s) => `${s.date} ${s.startTime}`).slice(0, 6)
     .map((s) => Object.assign(sessionOut_(s), { stats: sessionStats_(s.sessionId, bookings, attendance) }));
   const upcomingOutings = sortBy_(outings.filter((o) => o.date >= today), (o) => `${o.date} ${o.startTime}`).slice(0, 5)
     .map((o) => Object.assign(outingOut_(o), { assigned: assignments.filter((a) => a.outingId === o.outingId).length }));
   const upcomingTrips = sortBy_(trips.filter((t) => t.endDate >= today), (t) => t.startDate).slice(0, 5)
     .map((t) => Object.assign(tripOut_(t), { participants: participants.filter((x) => x.tripId === t.tripId).length }));
+  const nextWeek = addDays_(today, 7);
 
   return {
     today,
+    regularAfter: CONFIG.REGULAR_AFTER_SESSIONS,
     counts: {
-      volunteers: activeUsers.filter((u) => u.role !== 'admin').length,
-      leaders: activeUsers.filter((u) => u.role === 'admin').length,
+      volunteers: activeUsers.length,
+      regularVolunteers: regulars.length,
+      newVolunteers: activeUsers.length - regulars.length,
+      newThisMonth: activeUsers.filter((u) => String(u.createdAt).slice(0, 7) === month).length,
       trainees: trainees.filter(isActiveTrainee_).length,
       sessionsThisMonth: sessions.filter((s) => String(s.date).slice(0, 7) === month).length,
       hoursThisMonth: sumHours_(done.filter((a) => String(a.date).slice(0, 7) === month)),
       hoursTotal: sumHours_(done),
       onSiteNow: attendance.filter((a) => a.date === today && a.clockIn && !a.clockOut).length,
-      pendingBookings: bookings.filter((b) => b.status === 'pending' && String(b.sessionDate) >= today).length,
+      unpairedThisWeek: bookings.filter((b) => b.status !== 'cancelled' && !b.traineeId && String(b.sessionDate) >= today && String(b.sessionDate) <= nextWeek).length,
+      noShowsThisMonth,
       reviewCount: table_('feedback').filter((f) => f.noteStatus === 'pending' && f.traineeObservation).length,
       openFundraisers: table_('fundraisers').filter((f) => f.status !== 'closed').length,
       unpaidOrders: orders.filter((o) => o.paymentStatus !== 'paid').length,
@@ -134,7 +170,7 @@ function attendanceRow_(a, names, sessionsById) {
   return {
     attendanceId: a.attendanceId,
     sessionId: a.sessionId,
-    sessionTitle: s.title || a.sessionTitle,
+    sessionTitle: s.sessionId ? sessionTitle_(s) : a.sessionTitle,
     venue: s.venue || '',
     date: a.date,
     userId: a.userId,
@@ -159,11 +195,25 @@ function listAttendance_(p) {
   const sessions = sortBy_(table_('sessions').filter((s) => s.status !== 'cancelled' && range.contains(s.date)), (s) => `${s.date} ${s.startTime}`)
     .reverse().map(sessionOut_);
   const completed = records.filter((r) => r.hours !== null);
+  // No-shows in the same date range, per volunteer (said they were coming, never clocked in).
+  const misses = noShowsByUser_();
+  const noShows = [];
+  Object.keys(misses).forEach((userId) => misses[userId].filter((x) => range.contains(x.date)).forEach((x) => {
+    noShows.push(Object.assign({ userId, volunteerName: names.users[userId] || '' }, x));
+  }));
+  const perVolunteer = {};
+  noShows.forEach((x) => {
+    const v = perVolunteer[x.userId] || (perVolunteer[x.userId] = { userId: x.userId, volunteerName: x.volunteerName, count: 0, last: '', total: (misses[x.userId] || []).length });
+    v.count += 1;
+    if (x.date > v.last) v.last = x.date;
+  });
   return {
     today: todayStr_(),
     records,
     sessions,
-    totals: { records: records.length, completed: completed.length, inProgress: records.length - completed.length, hours: sumHours_(completed) },
+    totals: { records: records.length, completed: completed.length, inProgress: records.length - completed.length, hours: sumHours_(completed), noShows: noShows.length },
+    noShows: sortBy_(noShows, (x) => x.date).reverse(),
+    noShowsByVolunteer: sortBy_(Object.keys(perVolunteer).map((k) => perVolunteer[k]), (v) => -v.count),
     volunteers: pickLists_().volunteers,
   };
 }
@@ -197,7 +247,9 @@ function updateAttendance_(p, admin) {
   }
   if (clockIn.getTime() > now_().getTime()) throw err_.validation('Clock-in cannot be in the future.');
   table.update(row, patch);
-  return { record: attendanceRow_(row, nameMaps_(), byKey_(table_('sessions').rows(), 'sessionId')), message: 'Attendance updated.' };
+  const user = table_('users').find((u) => u.userId === row.userId);
+  const promoted = user && patch.clockOut ? maybePromote_(user) : '';
+  return { record: attendanceRow_(row, nameMaps_(), byKey_(table_('sessions').rows(), 'sessionId')), message: `Attendance updated.${promoted}` };
 }
 
 /**
@@ -223,20 +275,19 @@ function addAttendance_(p, admin) {
   const stampNow = fmtDateTime_(now_());
   if (!booking) {
     booking = bookings.insert({
-      bookingId: newId_('B'), sessionId: session.sessionId, sessionDate: session.date, sessionTitle: session.title,
+      bookingId: newId_('B'), sessionId: session.sessionId, sessionDate: session.date, sessionTitle: sessionTitle_(session),
       userId: user.userId, volunteerName: user.name, status: 'confirmed', walkIn: 'Yes',
       bookedAt: stampNow, decidedBy: admin.name, decidedAt: stampNow,
     });
-  } else if (booking.status === 'pending') {
-    bookings.update(booking, { status: 'confirmed', decidedBy: admin.name, decidedAt: stampNow });
   }
   const record = attendance.insert({
     attendanceId: newId_('A'), sessionId: session.sessionId, bookingId: booking.bookingId, userId: user.userId,
-    volunteerName: user.name, sessionTitle: session.title, date: session.date,
+    volunteerName: user.name, sessionTitle: sessionTitle_(session), date: session.date,
     clockIn: fmtDateTime_(clockIn), clockOut: fmtDateTime_(clockOut), hours: hoursBetween_(clockIn, clockOut),
     clockInBy: admin.name, clockOutBy: admin.name, method: 'Dashboard', editedBy: admin.name, editedAt: stampNow,
   });
-  return { record: attendanceRow_(record, nameMaps_(), byKey_(table_('sessions').rows(), 'sessionId')), message: `Recorded ${record.hours} h for ${user.name}.` };
+  const promoted = maybePromote_(user);
+  return { record: attendanceRow_(record, nameMaps_(), byKey_(table_('sessions').rows(), 'sessionId')), message: `Recorded ${record.hours} h for ${user.name}.${promoted}` };
 }
 
 /* ---------- hours report ---------- */
@@ -254,12 +305,15 @@ function hoursReport_(p) {
     const u = users[a.userId] || {};
     const r = per[a.userId] || (per[a.userId] = {
       userId: a.userId, name: names.users[a.userId] || a.volunteerName, email: u.email || '', phone: u.phone || '',
-      status: u.status === 'inactive' ? 'inactive' : 'active', sessions: 0, hours: 0, firstDate: a.date, lastDate: a.date,
+      status: u.status === 'inactive' ? 'inactive' : 'active', type: u.userId ? volunteerTypeOf_(u).type : '',
+      sessions: 0, hours: 0, firstDate: a.date, lastDate: a.date, noShows: 0,
     });
     r.sessions += 1;
     r.hours = round2_(r.hours + (Number(a.hours) || 0));
     r.lastDate = a.date;
   });
+  const misses = noShowsByUser_();
+  Object.keys(per).forEach((k) => { per[k].noShows = (misses[k] || []).filter((x) => range.contains(x.date)).length; });
   const volunteers = sortBy_(Object.keys(per).map((k) => per[k]), (r) => String(r.name).toLowerCase());
   return {
     from: range.from,
@@ -279,37 +333,39 @@ function tempPassword_() {
 }
 
 /**
- * Staff add a volunteer. With createLogin (the default) they get a temporary
+ * An admin adds a volunteer. With createLogin (the default) they get a temporary
  * password to pass on; without it the person is only listed, and can register
  * in the app later with the same email (Auth.gs → register_ links the row).
  */
 function createVolunteer_(p, admin) {
-  onlyFields_(p, PROFILE_FIELDS.concat(['role', 'createLogin']));
+  onlyFields_(p, PROFILE_FIELDS.concat(['volunteerType', 'createLogin']));
   const rec = {
     name: str_(p.name, 'Full name', { required: true, max: LIMITS.SHORT }),
     email: email_(p.email),
     phone: phone_(p.phone, 'Phone', { optional: true }),
     birthday: date_(p.birthday, 'Birthday', { optional: true }),
     telegram: telegram_(p.telegram),
-    emergencyName: str_(p.emergencyName, 'Emergency contact name', { max: LIMITS.SHORT }),
-    emergencyPhone: phone_(p.emergencyPhone, 'Emergency contact phone', { optional: true }),
-    emergencyRelation: str_(p.emergencyRelation, 'Relationship', { max: 50 }),
   };
   if (rec.birthday && rec.birthday > todayStr_()) throw err_.validation('Birthday cannot be in the future.');
-  const role = p.role === undefined || p.role === '' ? 'volunteer' : oneOf_(p.role, 'Role', ['volunteer', 'admin']);
+  const type = p.volunteerType === undefined || p.volunteerType === '' ? 'auto' : oneOf_(p.volunteerType, 'Volunteer type', ['auto', 'regular', 'new']);
   const createLogin = p.createLogin !== false;
   const users = table_('users');
   if (users.find((u) => String(u.email).trim().toLowerCase() === rec.email)) {
     throw err_.conflict('Someone with this email is already on the volunteer list.');
   }
   const user = users.insert(Object.assign(rec, {
-    userId: newId_('U'), role, status: 'active', createdAt: fmtDateTime_(now_()),
+    userId: newId_('U'),
+    volunteerType: type === 'regular' ? 'Regular' : type === 'new' ? 'New' : '',
+    regularSince: type === 'regular' ? todayStr_() : '',
+    status: 'active',
+    createdAt: fmtDateTime_(now_()),
   }, stamp_(admin)));
   let tempPassword = '';
   if (createLogin) {
     tempPassword = tempPassword_();
     setPassword_(user.userId, tempPassword);
   }
+  syncContact_(user); // Contacts.gs
   return {
     person: personOut_(user, createLogin),
     tempPassword,

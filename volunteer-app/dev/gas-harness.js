@@ -1,7 +1,8 @@
 // Runs the real gas/*.gs files inside Node with in-memory stand-ins for the
-// Google services they use (SpreadsheetApp, Utilities, PropertiesService,
-// CacheService, LockService, ContentService). Used by the tests and by the
-// local mock server, so the frontend can be developed without deploying.
+// Google services they use (SpreadsheetApp, DriveApp, People (Google Contacts),
+// Utilities, PropertiesService, CacheService, LockService, ContentService).
+// Used by the tests and by the local mock server, so the frontend can be
+// developed without deploying.
 //
 // The fake spreadsheet imitates the Sheets behaviour that matters here:
 // cells not formatted as plain text ("@") auto-convert typed text, so
@@ -78,9 +79,10 @@ class FakeRange {
 }
 
 class FakeSheet {
-  constructor(parent, name) {
+  constructor(parent, name, sheetId) {
     this.parent = parent;
     this.name = name;
+    this.sheetId = sheetId;
     this.cells = new Map();
     this.formats = new Map();
     this.maxRows = 1000;
@@ -99,6 +101,9 @@ class FakeSheet {
   }
   getName() {
     return this.name;
+  }
+  getSheetId() {
+    return this.sheetId; // the number after #gid= in the sheet's link
   }
   getParent() {
     return this.parent;
@@ -186,10 +191,130 @@ class FakeSpreadsheet {
   }
   insertSheet(name) {
     if (this.getSheetByName(name)) throw new Error(`A sheet named "${name}" already exists`);
-    const sheet = new FakeSheet(this, name);
+    // Like Google Sheets: the first tab is gid 0, later tabs get other numbers.
+    const sheet = new FakeSheet(this, name, this.sheets.length ? 1000 + this.sheets.length * 137 : 0);
     this.sheets.push(sheet);
     return sheet;
   }
+}
+
+/* ---------------- fake Google Drive (files kept in memory) ---------------- */
+
+class FakeBlob {
+  constructor(bytes, contentType = 'application/octet-stream', name = 'file') {
+    this.bytes = bytes;
+    this.contentType = contentType;
+    this.name = name;
+  }
+  getBytes() {
+    return this.bytes.slice();
+  }
+  getContentType() {
+    return this.contentType;
+  }
+  getName() {
+    return this.name;
+  }
+  getDataAsString() {
+    return toBuffer(this.bytes).toString('utf8');
+  }
+}
+
+function createFakeDrive() {
+  const folders = new Map();
+  const files = new Map();
+  let seq = 0;
+  const iterator = (items) => {
+    let i = 0;
+    return { hasNext: () => i < items.length, next: () => items[i++] };
+  };
+  const makeFile = (blob, folderId) => {
+    const id = `drive-file-${++seq}`;
+    const file = {
+      id, folderId, blob, trashed: false,
+      getId: () => id,
+      getName: () => blob.getName(),
+      getMimeType: () => blob.getContentType(),
+      getSize: () => blob.bytes.length,
+      getBlob: () => blob,
+      setTrashed(v) { file.trashed = Boolean(v); return file; },
+      isTrashed: () => file.trashed,
+    };
+    files.set(id, file);
+    return file;
+  };
+  const makeFolder = (name) => {
+    const id = `drive-folder-${++seq}`;
+    const folder = { id, name, getId: () => id, getName: () => name, createFile: (blob) => makeFile(blob, id) };
+    folders.set(id, folder);
+    return folder;
+  };
+  return {
+    files,
+    folders,
+    DriveApp: {
+      createFolder: makeFolder,
+      getFoldersByName: (name) => iterator([...folders.values()].filter((f) => f.name === name)),
+      getFolderById(id) {
+        const f = folders.get(id);
+        if (!f) throw new Error(`No folder with ID ${id} (or no permission)`);
+        return f;
+      },
+      getFileById(id) {
+        const f = files.get(id);
+        if (!f || f.trashed) throw new Error(`No file with ID ${id} (or no permission)`);
+        return f;
+      },
+    },
+  };
+}
+
+/* ---------------- fake Google Contacts (People API advanced service) ---------------- */
+
+function createFakePeople(accountEmail) {
+  const contacts = new Map();
+  const groups = new Map();
+  let seq = 0;
+  const People = {
+    People: {
+      createContact(body) {
+        const resourceName = `people/c${1000 + (++seq)}`;
+        const person = { ...structuredClone(body), resourceName, etag: `e${seq}`, memberships: [], updated: new Date().toISOString() };
+        contacts.set(resourceName, person);
+        return structuredClone(person);
+      },
+      get(resourceName) {
+        const p = contacts.get(resourceName);
+        if (!p) throw new Error(`Requested entity was not found: ${resourceName}`);
+        return structuredClone(p);
+      },
+      updateContact(body, resourceName, opts) {
+        const p = contacts.get(resourceName);
+        if (!p) throw new Error(`Requested entity was not found: ${resourceName}`);
+        if (body.etag !== p.etag) throw new Error('The etag does not match (the contact changed)');
+        (opts.updatePersonFields || '').split(',').forEach((f) => { p[f] = structuredClone(body[f]); });
+        p.etag = `e${++seq}`;
+        p.updated = new Date().toISOString();
+        return structuredClone(p);
+      },
+    },
+    ContactGroups: {
+      list: () => ({ contactGroups: [...groups.values()].map((g) => ({ ...g })) }),
+      create({ contactGroup }) {
+        const g = { resourceName: `contactGroups/g${++seq}`, name: contactGroup.name, formattedName: contactGroup.name };
+        groups.set(g.resourceName, g);
+        return { ...g };
+      },
+      Members: {
+        modify({ resourceNamesToAdd = [] }, groupResourceName) {
+          const g = groups.get(groupResourceName);
+          resourceNamesToAdd.forEach((rn) => { const p = contacts.get(rn); if (p) p.memberships.push(g ? g.name : groupResourceName); });
+          return {};
+        },
+      },
+    },
+  };
+  return { People, contacts, groups, accountEmail };
 }
 
 /* ---------------- Utilities ---------------- */
@@ -223,10 +348,12 @@ function formatDate(date, tz, pattern) {
 
 /* ---------------- runtime ---------------- */
 
-export function createGasRuntime() {
+export function createGasRuntime({ contactsAccount = 'admin-account@example.com', people = true } = {}) {
   const books = new Map();
   const props = new Map();
   const cache = new Map();
+  const drive = createFakeDrive();
+  const google = createFakePeople(contactsAccount);
 
   const services = {
     SpreadsheetApp: {
@@ -244,9 +371,11 @@ export function createGasRuntime() {
       base64EncodeWebSafe(bytes) {
         return toBuffer(bytes).toString('base64').replace(/\+/g, '-').replace(/\//g, '_');
       },
+      base64Encode: (bytes) => toBuffer(bytes).toString('base64'),
+      base64Decode: (text) => toSigned(Buffer.from(String(text), 'base64')),
       formatDate,
       getUuid: () => crypto.randomUUID(),
-      newBlob: (s) => ({ getBytes: () => toSigned(Buffer.from(String(s), 'utf8')) }),
+      newBlob: (data, contentType, name) => new FakeBlob(typeof data === 'string' ? toSigned(Buffer.from(data, 'utf8')) : data.slice(), contentType, name),
     },
     PropertiesService: {
       getScriptProperties: () => ({
@@ -268,6 +397,7 @@ export function createGasRuntime() {
     LockService: {
       getScriptLock: () => ({ tryLock: () => true, waitLock: () => {}, releaseLock: () => {}, hasLock: () => true }),
     },
+    DriveApp: drive.DriveApp,
     ContentService: {
       MimeType: { JSON: 'application/json' },
       createTextOutput(content) {
@@ -277,6 +407,7 @@ export function createGasRuntime() {
     console: { log() {}, error: (...a) => console.error('[gas]', ...a), warn() {} },
   };
 
+  if (people) services.People = google.People; // people: false = the advanced service is not turned on
   const context = vm.createContext({ ...services });
   const files = fs.readdirSync(GAS_DIR).filter((f) => f.endsWith('.gs')).sort();
   for (const file of files) {
@@ -286,6 +417,8 @@ export function createGasRuntime() {
   const runtime = {
     context,
     props,
+    drive,
+    contacts: google,
     createSpreadsheet(id, name = id) {
       const book = new FakeSpreadsheet(id, name);
       books.set(id, book);
@@ -325,8 +458,8 @@ export function createGasRuntime() {
       runtime.setNow((context.__fixedNow ?? Date.now()) + minutes * 60000);
     },
     /** Same path a real request takes: doPost → JSON text → parsed object. */
-    call(action, payload = {}, token) {
-      const body = JSON.stringify({ action, token, payload });
+    call(action, payload = {}, token, adminToken) {
+      const body = JSON.stringify({ action, token, adminToken, payload });
       const out = context.doPost({ postData: { contents: body, type: 'text/plain' } });
       return JSON.parse(out.getContent());
     },

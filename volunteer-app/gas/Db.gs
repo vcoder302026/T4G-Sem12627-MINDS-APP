@@ -11,10 +11,23 @@
  * staff member editing another column of the same row is not overwritten.
  */
 
-const DB_ = { cache: {}, books: {} };
+const DB_ = { cache: {}, books: {}, memo: {} };
 
 function resetDbCache_() {
   DB_.cache = {};
+  DB_.memo = {}; // per-request derived values (data source links, session counts…)
+}
+
+/** Remembers fn() for the rest of this request. */
+function memo_(key, fn) {
+  if (!(key in DB_.memo)) DB_.memo[key] = fn();
+  return DB_.memo[key];
+}
+
+function openBook_(id) {
+  const key = `id:${id}`;
+  if (!DB_.books[key]) DB_.books[key] = SpreadsheetApp.openById(String(id).trim());
+  return DB_.books[key];
 }
 
 function spreadsheet_() {
@@ -26,7 +39,8 @@ function spreadsheet_() {
   return DB_.books.main;
 }
 
-function traineeSpreadsheet_() {
+/** The trainee spreadsheet when no Data Sources link is set (TRAINEE_SPREADSHEET_ID, else the main one). */
+function defaultTraineeSpreadsheet_() {
   if (!DB_.books.trainees) {
     const id = PropertiesService.getScriptProperties().getProperty(CONFIG.PROP_TRAINEE_SPREADSHEET_ID);
     DB_.books.trainees = id ? SpreadsheetApp.openById(String(id).trim()) : spreadsheet_();
@@ -34,9 +48,17 @@ function traineeSpreadsheet_() {
   return DB_.books.trainees;
 }
 
+function traineeSpreadsheet_() {
+  return sheetLocation_('trainees').ss;
+}
+
 /** Table for an app-owned tab: table_('users'), table_('bookings'), … */
 function table_(key) {
   const def = CONFIG.TABLES[key];
+  if (key === 'users') {
+    const loc = sheetLocation_('volunteers');
+    return new Table(loc.ss, loc.tab, def.columns, def.numeric || [], `app:${key}`);
+  }
   return new Table(spreadsheet_(), def.tab, def.columns, def.numeric || [], `app:${key}`);
 }
 
@@ -44,7 +66,70 @@ function table_(key) {
 function traineeTable_() {
   const t = CONFIG.TRAINEES;
   const columns = Object.assign({}, t.columns, t.writeBack || {});
-  return new Table(traineeSpreadsheet_(), t.tab, columns, [], 'trainees');
+  const loc = sheetLocation_('trainees');
+  return new Table(loc.ss, loc.tab, columns, [], 'trainees');
+}
+
+/* ---------- links to other databases (the "Data Sources" tab) ---------- */
+
+/** "https://docs.google.com/spreadsheets/d/<id>/edit#gid=<gid>" (or a bare ID) → { id, gid }. */
+function parseSheetUrl_(url) {
+  const s = String(url || '').trim();
+  if (!s) return null;
+  const m = /\/spreadsheets\/d\/([A-Za-z0-9_-]{6,})/.exec(s);
+  const id = m ? m[1] : /^[A-Za-z0-9_-]{6,}$/.test(s) ? s : '';
+  if (!id) return null;
+  const g = /[#?&]gid=(\d+)/.exec(s);
+  return { id, gid: g ? g[1] : '' };
+}
+
+/** "https://drive.google.com/drive/folders/<id>" (or a bare ID) → id. */
+function parseFolderUrl_(url) {
+  const s = String(url || '').trim();
+  const m = /\/folders\/([A-Za-z0-9_-]{6,})/.exec(s);
+  if (m) return m[1];
+  return /^[A-Za-z0-9_-]{6,}$/.test(s) ? s : '';
+}
+
+/** Rows of the Data Sources tab by key ({} before setup() has created the tab). */
+function dataSourceRows_() {
+  return memo_('dataSources', () => {
+    const def = CONFIG.TABLES.dataSources;
+    if (!spreadsheet_().getSheetByName(def.tab)) return {};
+    return byKey_(table_('dataSources').rows().filter((r) => r.key), 'key');
+  });
+}
+
+/**
+ * Where a linked database lives: { ss, tab, linked, url }.
+ * A link with #gid=… picks that tab; otherwise the Tab Name column, else the default tab.
+ * Returns null for an optional database that is not linked (trainee updates, pairs).
+ */
+function sheetLocation_(key) {
+  return memo_(`loc:${key}`, () => {
+    const def = dataSourceDefs_()[key];
+    const row = dataSourceRows_()[key];
+    const link = row && row.url ? parseSheetUrl_(row.url) : null;
+    if (row && row.url && !link) throw err_.config(`The "${def.label}" link in the Data Sources tab is not a Google Sheets link.`);
+    if (!link) {
+      if (key === 'volunteers') return { ss: spreadsheet_(), tab: CONFIG.TABLES.users.tab, linked: false, url: '' };
+      if (key === 'trainees') return { ss: defaultTraineeSpreadsheet_(), tab: CONFIG.TRAINEES.tab, linked: false, url: '' };
+      return null;
+    }
+    let ss;
+    try {
+      ss = openBook_(link.id);
+    } catch (e) {
+      throw err_.config(`The app cannot open the "${def.label}" sheet. Share it with the account that runs the app, or fix the link in Admin → Settings → Databases.`);
+    }
+    let tab = (row.tab || def.tab || '').trim();
+    if (link.gid) {
+      const sheet = ss.getSheets().find((sh) => String(sh.getSheetId()) === link.gid);
+      if (!sheet) throw err_.config(`The "${def.label}" link points at a tab that no longer exists. Fix it in Admin → Settings → Databases.`);
+      tab = sheet.getName();
+    }
+    return { ss, tab, linked: true, url: row.url };
+  });
 }
 
 class Table {
