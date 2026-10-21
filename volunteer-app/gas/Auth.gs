@@ -81,8 +81,9 @@ function register_(p) {
     email: email_(p.email),
     phone: sgPhone_(p.phone, 'Phone'),
     telegram: telegram_(p.telegram),
-    emergencyName: str_(p.emergencyName, 'Emergency contact name', { required: true, max: LIMITS.SHORT }),
-    emergencyPhone: sgPhone_(p.emergencyPhone, 'Emergency contact phone'),
+    // Not asked any more (MINDS only needs Telegram); still accepted from older versions of the app.
+    emergencyName: str_(p.emergencyName, 'Emergency contact name', { max: LIMITS.SHORT }),
+    emergencyPhone: sgPhone_(p.emergencyPhone, 'Emergency contact phone', { optional: true }),
     emergencyRelation: str_(p.emergencyRelation, 'Relationship', { max: 50 }),
   };
   if (rec.birthday > todayStr_()) throw err_.validation('Birthday cannot be in the future.');

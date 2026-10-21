@@ -67,7 +67,7 @@ ideally at least one regular; the app flags trainees without one.
 
 | Feature | What it does |
 | --- | --- |
-| **1. Register and profile** | Sign up with name, birthday, email, phone, Telegram and emergency contact. Edit details later under **Me**. (The fields will follow MINDS's registration form once it's shared.) |
+| **1. Register and profile** | Sign up with name, birthday, email, phone (+65 and 8 digits) and Telegram. No emergency contact: MINDS only needs Telegram. Edit details later under **Me**. (The fields will follow MINDS's registration form once it's shared.) |
 | **2. Volunteer Guide** | New volunteers read a short guide (text, plus any infographics: pictures or PDFs) and tap **I've read the guide** before their first sign-up. |
 | **3. Upcoming sessions** | Every volunteer sees the upcoming sessions. Tick every one you can come to and tap **I'm coming**: no waiting for a confirmation. **Can't make it** takes you off a session. |
 | **4. Your trainee** | Once paired, Home shows one line per session: your trainee's photo and name. **Press and hold** it for a quick card (key details and the latest note from earlier volunteers), or tap it for their full page. Regulars also see their fixed trainee once, at the top of Home. |
@@ -567,7 +567,7 @@ shows what would be saved.
 
 | Tab | One row per | Notes |
 | --- | --- | --- |
-| Volunteers | person | Profile (phone saved as `+65 91234567`), emergency contact, Role (`admin` = Admin menu), Volunteer Type (`volunteer`/`regular`) and who set it, Status (`inactive` blocks sign-in), Google Contact ID and status (when sync is on) |
+| Volunteers | person | Profile (phone saved as `+65 91234567`), emergency contact (no longer collected; kept from Version 1), Role (`admin` = Admin menu), Volunteer Type (`volunteer`/`regular`) and who set it, Status (`inactive` blocks sign-in), Google Contact ID and status (when sync is on) |
 | _Auth (hidden) | person | Salted password hashes. Never shown in the app |
 | Sessions | session | Venue, project(s) (several separated by commas), trainees attending; status `open` / `closed` / `cancelled` |
 | Bookings | sign-up | `confirmed` ("coming") or `cancelled`; paired trainee and how (`standing` = regular's fixed trainee, `manual` = an admin); walk-in flag |

@@ -882,6 +882,18 @@ describe('phone and email checks', () => {
     fails(rt.call('createVolunteer', { name: 'X', email: 'x2@example.com', phone: '12345' }, leader), 'VALIDATION_ERROR');
   });
 
+  test('registering needs no emergency contact (details sent by older app versions are still accepted)', () => {
+    const payload = volunteerPayload({ email: 'noemergency@example.com' });
+    delete payload.emergencyName;
+    delete payload.emergencyPhone;
+    delete payload.emergencyRelation;
+    const res = ok(rt.call('register', payload));
+    assert.equal(res.user.emergencyName, '');
+    ok(rt.call('updateProfile', { phone: '9333 2222' }, res.token)); // editing details doesn't ask for one either
+    const old = ok(rt.call('register', volunteerPayload({ email: 'olderapp@example.com' })));
+    assert.equal(old.user.emergencyPhone, '+65 81234567');
+  });
+
   test('emails must look like name@domain.tld', () => {
     ['name@example.com', 'first.last+minds@mail.example.sg', 'A_B-c@sub.domain.com.sg'].forEach((email, i) => {
       assert.equal(ok(rt.call('register', volunteerPayload({ email, phone: `+65 9000 000${i}` }))).user.email, email.toLowerCase());

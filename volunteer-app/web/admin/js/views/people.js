@@ -18,9 +18,6 @@ const PROFILE = [
   ['phone', 'Phone', { type: 'tel', inputmode: 'tel', placeholder: '+65 91234567', hint: '+65 followed by 8 digits.' }],
   ['birthday', 'Birthday', { type: 'date' }],
   ['telegram', 'Telegram', { placeholder: 'username, without @' }],
-  ['emergencyName', 'Emergency contact name', {}],
-  ['emergencyPhone', 'Emergency contact phone', { type: 'tel', inputmode: 'tel', placeholder: '+65 91234567', hint: '+65 followed by 8 digits.' }],
-  ['emergencyRelation', 'Relationship', { placeholder: 'e.g. Mother' }],
 ];
 
 function profileFields(p = {}) {
@@ -210,8 +207,9 @@ export function renderVolunteer(root, app, ctx, userId) {
             d.typeSetBy ? dl('Profile set by', d.typeSetBy) : null,
             d.contact && d.contact.on ? dl('Google Contacts', d.contact.saved ? d.contact.status
               : d.contact.status ? el('span', { class: 'font-bold text-red-600 dark:text-red-400' }, d.contact.status) : 'Not saved yet') : null,
-            dl('Emergency contact', `${p.emergencyName || ''}${p.emergencyRelation ? ` (${p.emergencyRelation})` : ''}`),
-            dl('Emergency phone', p.emergencyPhone), dl('Registered', p.createdAt),
+            // Emergency contacts aren't collected any more; details from before are still shown.
+            p.emergencyName || p.emergencyPhone ? dl('Emergency contact (old)', [p.emergencyName, p.emergencyRelation ? `(${p.emergencyRelation})` : '', p.emergencyPhone].filter(Boolean).join(' ')) : null,
+            dl('Registered', p.createdAt),
             p.updatedBy ? dl('Last edited', `${p.updatedAt} by ${p.updatedBy}`) : null)),
         el('div', { class: 'space-y-6' },
           panel('Recent sessions', el('a', { href: '#/hours', class: 'link text-sm' }, 'Hours report'),

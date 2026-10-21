@@ -37,8 +37,8 @@ function profilePatch_(p) {
   if (has('email')) patch.email = email_(p.email);
   if (has('phone')) patch.phone = sgPhone_(p.phone, 'Phone');
   if (has('telegram')) patch.telegram = telegram_(p.telegram);
-  if (has('emergencyName')) patch.emergencyName = str_(p.emergencyName, 'Emergency contact name', { required: true, max: LIMITS.SHORT });
-  if (has('emergencyPhone')) patch.emergencyPhone = sgPhone_(p.emergencyPhone, 'Emergency contact phone');
+  if (has('emergencyName')) patch.emergencyName = str_(p.emergencyName, 'Emergency contact name', { max: LIMITS.SHORT });
+  if (has('emergencyPhone')) patch.emergencyPhone = sgPhone_(p.emergencyPhone, 'Emergency contact phone', { optional: true });
   if (has('emergencyRelation')) patch.emergencyRelation = str_(p.emergencyRelation, 'Relationship', { max: 50 });
   return patch;
 }
