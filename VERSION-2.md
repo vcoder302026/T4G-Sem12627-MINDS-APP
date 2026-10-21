@@ -62,7 +62,6 @@ record in the demo is fictional.
 | New registrations added to Google Contacts (Telegram in notes) | Not yet: needs the People API enabled on the vcoder302026 account |
 | Attendance for special events and committee roles | Not yet |
 | Registration fields from MINDS's Google Form; drop emergency contact | Waiting for the form |
-| "By Thursday, update who's coming on Saturday" | Not yet (the dashboard shows who's coming; a reminder could follow) |
 | Revisit adding/editing sessions; merging session and outing attendance | Adding is now just picking dates (Regular session, 2:30–5:30 pm, Woodlands, from dropdowns). Editing and merging with outings: waiting for Mr Sadil |
 | Note the history of trainees' previous partners | **Done**, for admins: Pairing → History, history hints when pairing, and each regular's trainees over time |
 
