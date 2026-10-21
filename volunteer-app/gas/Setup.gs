@@ -40,32 +40,43 @@ function setupInternal_(dryRun) {
 
   const t = CONFIG.TRAINEES;
   const tss = traineeSpreadsheet_();
-  const tsheet = tss.getSheetByName(t.tab);
-  const traineeHeaders = [t.columns.id, t.columns.name]
-    .concat(t.volunteerVisible.map((k) => t.columns[k]))
+  const tabName = traineeTabName_();
+  const tsheet = tss.getSheetByName(tabName);
+  const head = (k) => primaryHeader_(t.columns[k]);
+  const traineeHeaders = [head('id'), head('name')]
+    .concat(t.volunteerVisible.map(head))
     .concat(t.writeBack ? Object.keys(t.writeBack).map((k) => t.writeBack[k]) : []);
+  if (tss.getId() !== ss.getId()) report.push(`Trainee sheet: "${tss.getName()}", tab "${tabName}"`);
   if (!tsheet) {
-    report.push(describeTab_(tss, t.tab, traineeHeaders, dryRun, {}) + ' — paste your trainee list into it.');
+    report.push(describeTab_(tss, tabName, traineeHeaders, dryRun, {}) + ' — paste your trainee list into it.');
   } else {
     const lastCol = tsheet.getLastColumn();
-    const existing = lastCol ? tsheet.getRange(1, 1, 1, lastCol).getValues()[0].map((h) => String(h).trim().toLowerCase()) : [];
-    if (existing.indexOf(t.columns.name.toLowerCase()) === -1) {
-      throw new Error(`The "${t.tab}" tab has no "${t.columns.name}" column. Change CONFIG.TRAINEES.columns.name in Config.gs to your sheet's header.`);
+    const existing = lastCol ? tsheet.getRange(1, 1, 1, lastCol).getValues()[0].map(normHeader_) : [];
+    const hasHeader = (k) => headerOptions_(t.columns[k]).some((o) => existing.indexOf(normHeader_(o)) >= 0);
+    if (!hasHeader('name')) {
+      throw new Error(`The "${tabName}" tab has no name column (${headerOptions_(t.columns.name).map((h) => `"${h}"`).join(' or ')}). ` +
+        'Add your header to CONFIG.TRAINEES.columns.name in Config.gs.');
     }
-    const missingVisible = t.volunteerVisible.filter((k) => existing.indexOf(String(t.columns[k]).toLowerCase()) === -1);
+    // A House Visit form sheet has its own detailed columns: don't add the simple-list ones to it.
+    const formSheet = existing.length > 30;
+    const missingVisible = formSheet ? [] : t.volunteerVisible.filter((k) => !hasHeader(k));
     if (missingVisible.length && !CONFIG.ADD_MISSING_TRAINEE_COLUMNS) {
-      report.push(`Note: "${t.tab}" has no ${missingVisible.map((k) => `"${t.columns[k]}"`).join(', ')} column(s); volunteers simply won't see those fields.`);
+      report.push(`Note: "${tabName}" has no ${missingVisible.map((k) => `"${head(k)}"`).join(', ')} column(s); volunteers simply won't see those fields.`);
     }
     // Added to the trainee tab: the ID column, the two write-back columns and
     // (if ADD_MISSING_TRAINEE_COLUMNS) empty columns for volunteer-visible fields, for staff to fill.
-    const required = [t.columns.id]
-      .concat(CONFIG.ADD_MISSING_TRAINEE_COLUMNS ? missingVisible.map((k) => t.columns[k]) : [])
+    const required = [head('id')]
+      .concat(CONFIG.ADD_MISSING_TRAINEE_COLUMNS ? missingVisible.map(head) : [])
       .concat(t.writeBack ? Object.keys(t.writeBack).map((k) => t.writeBack[k]) : []);
-    report.push(describeTab_(tss, t.tab, required, dryRun, {}));
+    report.push(describeTab_(tss, tabName, required, dryRun, {}));
     if (!dryRun) report.push(fillTraineeIds_());
   }
-  if (!dryRun) seedContent_().forEach((line) => report.push(line));
-  else report.push('Would add starter venues, Volunteer Guide sections and projects to any of those tabs that are empty.');
+  if (!dryRun) {
+    seedContent_().forEach((line) => report.push(line));
+    report.push(refreshVolunteerTypes_());
+  } else {
+    report.push('Would add starter venues, Volunteer Guide sections and projects to any of those tabs that are empty.');
+  }
   const text = report.join('\n');
   console.log(text);
   return text;
@@ -76,8 +87,8 @@ function describeTab_(ss, tab, headers, dryRun, opts) {
     const sheet = ss.getSheetByName(tab);
     if (!sheet) return `Would create tab "${tab}".`;
     const lastCol = sheet.getLastColumn();
-    const existing = lastCol ? sheet.getRange(1, 1, 1, lastCol).getValues()[0].map((h) => String(h).trim().toLowerCase()) : [];
-    const missing = headers.filter((h) => existing.indexOf(String(h).toLowerCase()) === -1);
+    const existing = lastCol ? sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(normHeader_) : [];
+    const missing = headers.filter((h) => !headerOptions_(h).some((o) => existing.indexOf(normHeader_(o)) >= 0)).map(primaryHeader_);
     return missing.length ? `Would add to "${tab}": ${missing.join(', ')}` : `"${tab}" is ready.`;
   }
   const r = ensureTab_(ss, tab, headers, opts);
@@ -114,7 +125,31 @@ function makeFirstAdmin() {
   const user = users.find((u) => String(u.email).toLowerCase() === email);
   if (!user) throw new Error(`No registered account for ${email}. Register in the app first, then run this again.`);
   users.update(user, { role: 'admin' });
-  const msg = `${user.name} (${email}) is now a volunteer leader.`;
+  const msg = `${user.name} (${email}) is now an admin.`;
+  logAdminAction_({ userId: '', name: 'Apps Script editor' }, 'makeFirstAdmin', { userId: user.userId }, null);
   console.log(msg);
   return msg;
+}
+
+/**
+ * Gives everyone a Volunteer Type and promotes anyone who has already
+ * attended REGULAR_AFTER_SESSIONS sessions (unless an admin set their type by hand).
+ */
+function refreshVolunteerTypes_() {
+  resetDbCache_();
+  const users = table_('users');
+  let filled = 0;
+  let promoted = 0;
+  users.rows().forEach((u) => {
+    if (!u.userId) return;
+    if (!u.volunteerType) {
+      users.update(u, { volunteerType: 'volunteer' });
+      filled += 1;
+    }
+    if (maybePromote_(u.userId)) promoted += 1;
+  });
+  const parts = [];
+  if (filled) parts.push(`set ${filled} volunteer type(s) to "volunteer"`);
+  if (promoted) parts.push(`promoted ${promoted} to regular (${CONFIG.REGULAR_AFTER_SESSIONS}+ sessions)`);
+  return parts.length ? `Volunteer types: ${parts.join(', ')}.` : 'Volunteer types are up to date.';
 }

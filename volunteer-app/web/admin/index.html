@@ -1,48 +1,13 @@
 <!doctype html>
-<html lang="en-SG" class="light">
+<html lang="en-SG">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#4f46e5">
   <meta name="robots" content="noindex">
-  <title>MINDS Staff Dashboard</title>
-  <meta name="description" content="MINDS staff dashboard: volunteers, trainees, hours, fundraising, outings, trips and house visits.">
-  <link rel="icon" type="image/png" href="../icons/icon-192.png">
-  <link rel="stylesheet" href="../styles.css">
-  <script>
-    // Same theme rule as the phone app: saved choice, else the computer's setting.
-    (function () {
-      var saved = null;
-      try { saved = localStorage.getItem('theme'); } catch (e) {}
-      var dark = saved ? saved === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
-      document.documentElement.classList.toggle('dark', dark);
-      document.documentElement.classList.toggle('light', !dark);
-    })();
-  </script>
+  <title>MINDS Volunteers</title>
+  <!-- The staff dashboard is now part of the app (Admin menu). Old links land there. -->
+  <meta http-equiv="refresh" content="0; url=../#/overview">
+  <script>location.replace('../#/overview');</script>
 </head>
-<body class="min-h-dvh">
-  <aside id="sidebar" class="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-slate-200 bg-white lg:flex dark:border-neutral-900 dark:bg-neutral-950" aria-label="Sections"></aside>
-
-  <div id="shell" class="lg:pl-64">
-    <div id="env-bar" class="w-full py-0.5 text-center text-xs font-bold uppercase tracking-widest text-white" hidden></div>
-    <header class="sticky top-0 z-20 border-b border-slate-200 bg-white/95 backdrop-blur dark:border-neutral-900 dark:bg-neutral-950/95">
-      <div class="flex h-16 items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
-        <a href="#/overview" class="flex min-w-0 items-center gap-3 lg:hidden">
-          <span id="brand-icon-top" class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-white"></span>
-          <span class="truncate text-base font-extrabold tracking-tight text-slate-900 dark:text-white">MINDS Staff</span>
-        </a>
-        <p id="crumb" class="hidden truncate text-sm font-bold uppercase tracking-wider muted lg:block"></p>
-        <div id="header-actions" class="flex shrink-0 items-center gap-1"></div>
-      </div>
-      <nav id="topnav" class="flex gap-1 overflow-x-auto px-4 pb-3 sm:px-6 lg:hidden" aria-label="Sections" hidden></nav>
-    </header>
-
-    <main id="view" class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8" tabindex="-1"></main>
-  </div>
-
-  <div id="toast" class="pointer-events-none fixed inset-x-0 top-4 z-[100] flex justify-center px-4" role="status" aria-live="polite"></div>
-
-  <noscript><p class="p-6">The dashboard needs JavaScript turned on.</p></noscript>
-  <script type="module" src="js/app.js"></script>
-</body>
+<body><p><a href="../#/overview">Open the MINDS Volunteers app</a></p></body>
 </html>

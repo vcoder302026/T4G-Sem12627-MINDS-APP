@@ -18,12 +18,22 @@ const SHELL = [
   './js/config.js',
   './js/qr.js',
   './js/ui.js',
+  './js/views/admin.js',
   './js/views/auth.js',
   './js/views/content.js',
   './js/views/leader.js',
+  './js/views/pairing.js',
   './js/views/profile.js',
   './js/views/trainees.js',
   './js/views/volunteer.js',
+  './admin/js/kit.js',
+  './admin/js/views/attendance.js',
+  './admin/js/views/fundraising.js',
+  './admin/js/views/outings.js',
+  './admin/js/views/overview.js',
+  './admin/js/views/people.js',
+  './admin/js/views/trips.js',
+  './admin/js/views/visits.js',
 ];
 const CDN_HOSTS = ['cdn.jsdelivr.net', 'unpkg.com', 'fonts.googleapis.com', 'fonts.gstatic.com'];
 

@@ -17,21 +17,65 @@ function resetDbCache_() {
   DB_.cache = {};
 }
 
+/**
+ * A sheet given as an ID or a full URL. A URL may end in #gid=123 to pick one
+ * tab, so staff can paste the address straight from the browser.
+ */
+function parseSheetRef_(value) {
+  const s = String(value || '').trim();
+  if (!s) return null;
+  const idMatch = /\/spreadsheets\/d\/([A-Za-z0-9_-]+)/.exec(s);
+  const gidMatch = /[#&?]gid=(\d+)/.exec(s);
+  return { id: idMatch ? idMatch[1] : s, gid: gidMatch ? Number(gidMatch[1]) : null };
+}
+
 function spreadsheet_() {
   if (!DB_.books.main) {
-    const id = PropertiesService.getScriptProperties().getProperty(CONFIG.PROP_SPREADSHEET_ID);
-    if (!id) throw err_.config('SPREADSHEET_ID is not set. Add it under Project Settings → Script properties.');
-    DB_.books.main = SpreadsheetApp.openById(String(id).trim());
+    const ref = parseSheetRef_(PropertiesService.getScriptProperties().getProperty(CONFIG.PROP_SPREADSHEET_ID));
+    if (!ref) throw err_.config('SPREADSHEET_ID is not set. Add it under Project Settings → Script properties.');
+    DB_.books.main = SpreadsheetApp.openById(ref.id);
   }
   return DB_.books.main;
 }
 
+function traineeSheetRef_() {
+  return parseSheetRef_(PropertiesService.getScriptProperties().getProperty(CONFIG.PROP_TRAINEE_SPREADSHEET_ID));
+}
+
 function traineeSpreadsheet_() {
   if (!DB_.books.trainees) {
-    const id = PropertiesService.getScriptProperties().getProperty(CONFIG.PROP_TRAINEE_SPREADSHEET_ID);
-    DB_.books.trainees = id ? SpreadsheetApp.openById(String(id).trim()) : spreadsheet_();
+    const ref = traineeSheetRef_();
+    DB_.books.trainees = ref ? SpreadsheetApp.openById(ref.id) : spreadsheet_();
   }
   return DB_.books.trainees;
+}
+
+/** The trainee tab's name: the #gid tab of TRAINEE_SPREADSHEET_ID, else Config.gs → TRAINEES.tab. */
+function traineeTabName_() {
+  if (DB_.books.traineeTab) return DB_.books.traineeTab;
+  const ref = traineeSheetRef_();
+  let name = CONFIG.TRAINEES.tab;
+  if (ref && ref.gid !== null) {
+    const sheet = traineeSpreadsheet_().getSheets().find((sh) => sh.getSheetId() === ref.gid);
+    if (!sheet) throw err_.config(`The trainee sheet link points to a tab (gid=${ref.gid}) that doesn't exist.`);
+    name = sheet.getName();
+  }
+  DB_.books.traineeTab = name;
+  return name;
+}
+
+/** Header text compared loosely: case, spacing and curly quotes don't matter. */
+function normHeader_(h) {
+  return String(h === null || h === undefined ? '' : h).replace(/[\u2018\u2019\u02BC]/g, "'").replace(/[\u201C\u201D]/g, '"')
+    .replace(/\s+/g, ' ').trim().toLowerCase();
+}
+
+/** A column may list several possible headers; the first one is used when the app creates it. */
+function headerOptions_(value) {
+  return Array.isArray(value) ? value : [value];
+}
+function primaryHeader_(value) {
+  return headerOptions_(value)[0];
 }
 
 /** Table for an app-owned tab: table_('users'), table_('bookings'), … */
@@ -44,7 +88,7 @@ function table_(key) {
 function traineeTable_() {
   const t = CONFIG.TRAINEES;
   const columns = Object.assign({}, t.columns, t.writeBack || {});
-  return new Table(traineeSpreadsheet_(), t.tab, columns, [], 'trainees');
+  return new Table(traineeSpreadsheet_(), traineeTabName_(), columns, [], 'trainees');
 }
 
 class Table {
@@ -63,11 +107,20 @@ class Table {
     const lastRow = sheet.getLastRow();
     const lastCol = sheet.getLastColumn();
     const values = lastRow && lastCol ? sheet.getRange(1, 1, lastRow, lastCol).getValues() : [[]];
-    const headers = (values[0] || []).map((h) => String(h).trim().toLowerCase());
+    const headerRow = values[0] || [];
+    const headers = headerRow.map(normHeader_);
     const colIndex = {};
+    const headerText = {};
     Object.keys(this.columns).forEach((key) => {
-      const i = headers.indexOf(String(this.columns[key]).trim().toLowerCase());
-      if (i >= 0) colIndex[key] = i;
+      const options = headerOptions_(this.columns[key]);
+      for (let j = 0; j < options.length; j++) {
+        const i = headers.indexOf(normHeader_(options[j]));
+        if (i >= 0) {
+          colIndex[key] = i;
+          headerText[key] = String(headerRow[i]).trim();
+          break;
+        }
+      }
     });
     const tz = this.ss.getSpreadsheetTimeZone() || CONFIG.TIMEZONE;
     const rows = [];
@@ -80,7 +133,7 @@ class Table {
       });
       rows.push(row);
     }
-    const state = { sheet, rows, colIndex, width: lastCol };
+    const state = { sheet, rows, colIndex, headerText, width: lastCol, values, headerRow, tz };
     DB_.cache[this.cacheKey] = state;
     return state;
   }
@@ -90,6 +143,21 @@ class Table {
   }
   hasColumn(key) {
     return key in this.load_().colIndex;
+  }
+  /** The sheet's own header text for a key (or the first option if the column is missing). */
+  header(key) {
+    return this.load_().headerText[key] || primaryHeader_(this.columns[key]);
+  }
+  /** Every column of the tab: [{ index, header, norm }], in sheet order. */
+  allHeaders() {
+    const st = this.load_();
+    return st.headerRow.map((h, index) => ({ index, header: String(h).trim(), norm: normHeader_(h) })).filter((h) => h.header);
+  }
+  /** One row's value in any column (by index), formatted like the mapped columns. */
+  rawValue(row, index) {
+    const st = this.load_();
+    const raw = st.values[row._row - 1];
+    return raw ? cellToValue_(raw[index], false, st.tz) : '';
   }
   find(pred) {
     return this.rows().find(pred) || null;
@@ -176,8 +244,9 @@ function ensureTab_(ss, tab, headers, opts) {
   const lastCol = sheet.getLastColumn();
   const existing = lastCol ? sheet.getRange(1, 1, 1, lastCol).getValues()[0].map((h) => String(h).trim()) : [];
   while (existing.length && existing[existing.length - 1] === '') existing.pop();
-  const lower = existing.map((h) => h.toLowerCase());
-  const missing = headers.filter((h) => lower.indexOf(String(h).toLowerCase()) === -1);
+  const lower = existing.map(normHeader_);
+  const missing = headers.map((h) => headerOptions_(h)).filter((opts) => !opts.some((o) => lower.indexOf(normHeader_(o)) >= 0))
+    .map((opts) => opts[0]);
   if (missing.length) {
     const needed = existing.length + missing.length;
     if (needed > sheet.getMaxColumns()) sheet.insertColumnsAfter(sheet.getMaxColumns(), needed - sheet.getMaxColumns());

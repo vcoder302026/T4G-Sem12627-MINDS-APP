@@ -1,19 +1,33 @@
-// App shell: WERONE-style header (environment bar, refresh, 🌗, logout),
-// segmented tabs per role, hash routing, on-phone caches and the offline scan queue.
+// App shell: one app for everyone. Volunteers see Home, QR pass, Sessions and
+// Me (regulars also see Trainees). Admins see the same, plus the Admin menu:
+// no switching modes. On a computer the menu is a sidebar; on a phone it is
+// the tab bar, and admin pages get a scrollable row of sub-pages.
 
 import { call, isNetworkError, onUnauthorized, session, storage } from './api.js';
 import { CONFIG } from './config.js';
-import { el, icon, mount, toast } from './ui.js';
+import { el, mount, toast } from './ui.js';
+import { icon } from '../admin/js/kit.js';
 import { renderLogin, renderRegister } from './views/auth.js';
+import * as Ad from './views/admin.js';
 import * as C from './views/content.js';
 import * as L from './views/leader.js';
+import * as Pa from './views/pairing.js';
 import * as P from './views/profile.js';
 import * as T from './views/trainees.js';
 import * as V from './views/volunteer.js';
+import * as DA from '../admin/js/views/attendance.js';
+import * as DF from '../admin/js/views/fundraising.js';
+import * as DO from '../admin/js/views/outings.js';
+import * as DOv from '../admin/js/views/overview.js';
+import * as DP from '../admin/js/views/people.js';
+import * as DT from '../admin/js/views/trips.js';
+import * as DV from '../admin/js/views/visits.js';
 
 const view = document.getElementById('view');
+const sidebar = document.getElementById('sidebar');
 const tabs = document.getElementById('tabs');
 const tabList = document.getElementById('tabs-list');
+const subnav = document.getElementById('subnav');
 const headerActions = document.getElementById('header-actions');
 const brandIcon = document.getElementById('brand-icon');
 const brandSub = document.getElementById('brand-sub');
@@ -38,18 +52,18 @@ async function online(promise) {
   }
 }
 
+const isAdmin = (u) => Boolean(u && u.role === 'admin');
+const isRegular = (u) => Boolean(u && u.volunteerType === 'regular');
+
 const app = {
   get user() {
     return storage.get('minds.user');
   },
-  get mode() {
-    const u = this.user;
-    if (!u || u.role !== 'admin') return 'volunteer';
-    return storage.get('minds.mode', 'volunteer');
+  get isAdmin() {
+    return isAdmin(this.user);
   },
-  setMode(mode) {
-    storage.set('minds.mode', mode);
-    go(mode === 'leader' ? '#/today' : '#/home', true);
+  get isRegular() {
+    return isRegular(this.user);
   },
   signedIn({ token, user }, message, next) {
     session.token = token;
@@ -57,8 +71,8 @@ const app = {
     storage.remove('minds.vhome');
     storage.remove('minds.ahome');
     storage.remove('minds.guide');
-    storage.set('minds.mode', user.role === 'admin' ? 'leader' : 'volunteer');
-    go(next || (user.role === 'admin' ? '#/today' : '#/home'), true);
+    storage.remove('minds.mode'); // left over from the old "choose mode" screen
+    go(next || '#/home', true);
     if (message) toast(message);
   },
   /** After editing your own details: refresh every saved copy of "me". */
@@ -86,15 +100,13 @@ const app = {
   saveHome(h) {
     storage.set('minds.vhome', h);
     const u = app.user;
-    if (h.user && (!u || u.role !== h.user.role || u.name !== h.user.name)) {
+    if (h.user && (!u || u.role !== h.user.role || u.name !== h.user.name || u.volunteerType !== h.user.volunteerType)) {
       storage.set('minds.user', h.user);
-      if (u && u.role !== 'admin' && h.user.role === 'admin') {
-        // Promoted while using the app: stay on the volunteer screens until they choose.
-        storage.set('minds.mode', 'volunteer');
-        toast("You're now a volunteer leader. Tap the home icon at the top to switch modes.");
-      }
+      if (u && !isAdmin(u) && isAdmin(h.user)) toast('You now have admin access: see the Admin menu.');
+      if (u && !isRegular(u) && isRegular(h.user)) toast("You're now a regular volunteer. Thank you!");
+      if (u && isAdmin(u) && !isAdmin(h.user)) demoted();
     }
-    renderChrome(currentRoute); // refreshes the feedback badge (and tabs, if the role changed)
+    renderChrome(currentRoute); // refreshes badges (and the menu, if the role changed)
   },
   async fetchHome() {
     const h = await online(call('volunteerHome'));
@@ -102,9 +114,9 @@ const app = {
     return h;
   },
 
-  // leader data
+  // admin data
   cachedAdminHome: () => storage.get('minds.ahome'),
-  saveAdminHome: (h) => storage.set('minds.ahome', h),
+  saveAdminHome: (h) => { storage.set('minds.ahome', h); renderChrome(currentRoute); },
   dropAdminHome: () => storage.remove('minds.ahome'),
   async fetchAdminHome() {
     try {
@@ -118,28 +130,17 @@ const app = {
   },
   cachedDetail: (id) => memory.details[id] || null,
   cacheDetail: (id, d) => { memory.details[id] = d; },
-  cachedPeople: () => memory.people,
-  cachePeople: (p) => { memory.people = p; },
-  cachedPersonDetail: (id) => memory.persons[id] || null,
-  cachePersonDetail: (id, d) => { memory.persons[id] = d; },
-  /** After a leader edits someone: update the People list and that person's page. */
-  updatePerson(person) {
-    if (memory.people) memory.people = memory.people.map((p) => (p.userId === person.userId ? { ...p, ...person } : p));
-    const d = memory.persons[person.userId];
-    if (d) memory.persons[person.userId] = { ...d, person: { ...d.person, ...person } };
-    memory.details = {}; // session pages show contact details
-  },
   cachedTrainees: () => memory.trainees,
   cacheTrainees: (t) => { memory.trainees = t; },
   dropTrainees: () => { memory.trainees = null; },
   /** After adding or archiving a venue: keep every venue dropdown up to date. */
   updateVenues(venues) {
     const h = app.cachedAdminHome();
-    if (h) app.saveAdminHome({ ...h, venues });
+    if (h) storage.set('minds.ahome', { ...h, venues });
     Object.values(memory.details).forEach((d) => { d.venues = venues; });
   },
 
-  // offline scan queue (leader phones)
+  // offline scan queue (admin phones)
   queuedScans: () => storage.get('minds.scanQueue', []),
   queueScan(item) {
     const id = (crypto.randomUUID && crypto.randomUUID()) || `${Date.now()}-${Math.random()}`;
@@ -149,7 +150,7 @@ const app = {
   async flushScans(manual = false) {
     if (flushing) return flushing;
     const queue = app.queuedScans();
-    if (!queue.length || app.mode !== 'leader') return undefined;
+    if (!queue.length || !app.isAdmin) return undefined;
     flushing = (async () => {
       try {
         const { results } = await online(call('scanBatch', { scans: queue }));
@@ -185,11 +186,85 @@ const app = {
 function demoted() {
   const u = app.user;
   if (u) storage.set('minds.user', { ...u, role: 'volunteer' });
-  toast('Your leader access has been removed.', 'warn');
+  toast('Your admin access has been removed.', 'warn');
   go('#/home', true);
 }
 
-/* ---------------- header and tabs ---------------- */
+/* ---------------- menu ---------------- */
+
+// `also` lists detail pages that belong to a menu item.
+const VOLUNTEER_ITEMS = [
+  { key: 'home', label: 'Home', icon: 'home', also: ['feedback', 'guide'] },
+  { key: 'pass', label: 'QR pass', icon: 'qr' },
+  { key: 'sessions', label: 'Sessions', icon: 'calendar' },
+  { key: 'directory', label: 'Trainees', icon: 'heart', also: ['info'], when: (u) => isRegular(u) && !isAdmin(u) },
+  { key: 'me', label: 'Me', icon: 'user', also: ['edit-me'] },
+];
+const ADMIN_GROUPS = [
+  { title: 'Admin', items: [
+    { key: 'overview', label: 'Dashboard', icon: 'dashboard', also: ['admin'] },
+    { key: 'today', label: 'Sessions', icon: 'calendar', also: ['session', 'new-session'] },
+    { key: 'pairings', label: 'Pairing', icon: 'sparkle', also: ['pair'] },
+    { key: 'scan', label: 'Scan passes', icon: 'scan' },
+    { key: 'clock', label: 'Clock in by hand', icon: 'clock' },
+    { key: 'volunteers', label: 'Volunteers', icon: 'users', also: ['volunteer'] },
+    { key: 'trainees', label: 'Trainees', icon: 'heart', also: ['trainee', 'visibility', 'info'] },
+    { key: 'attendance', label: 'Attendance', icon: 'list' },
+    { key: 'hours', label: 'Volunteer hours', icon: 'check' },
+    { key: 'review', label: 'Notes to review', icon: 'inbox' },
+    { key: 'log', label: 'Activity log', icon: 'shield' },
+    { key: 'guide-edit', label: 'Guide & projects', icon: 'book' },
+    { key: 'venues', label: 'Venues', icon: 'building' },
+  ] },
+  { title: 'Later (placeholders)', items: [
+    { key: 'fundraising', label: 'Fundraising', icon: 'coins', also: ['fundraiser'] },
+    { key: 'outings', label: 'Outings', icon: 'bus', also: ['outing'] },
+    { key: 'trips', label: 'Overseas trips', icon: 'plane', also: ['trip'] },
+    { key: 'visits', label: 'House visits', icon: 'home' },
+  ] },
+];
+const ADMIN_ITEMS = ADMIN_GROUPS.flatMap((g) => g.items);
+
+const ROUTES = {
+  // everyone
+  home: { fn: V.renderHome },
+  pass: { fn: V.renderPass },
+  sessions: { fn: V.renderSessions },
+  me: { fn: V.renderMe },
+  feedback: { fn: V.renderFeedback },
+  guide: { fn: C.renderGuide },
+  'edit-me': { fn: P.renderEditMe },
+  info: { fn: T.renderTraineeInfo }, // a trainee's page for volunteers and regulars
+  directory: { fn: T.renderDirectory }, // regulars: every trainee
+  // admins
+  admin: { fn: Ad.renderAdminHub, admin: true },
+  overview: { fn: DOv.renderOverview, admin: true },
+  today: { fn: L.renderToday, admin: true },
+  session: { fn: L.renderSession, admin: true },
+  'new-session': { fn: L.renderNewSession, admin: true },
+  pair: { fn: Pa.renderSessionPairing, admin: true },
+  pairings: { fn: Pa.renderStandingPairings, admin: true },
+  scan: { fn: L.renderScan, admin: true, narrow: true },
+  clock: { fn: L.renderClock, admin: true },
+  volunteers: { fn: DP.renderVolunteers, admin: true },
+  volunteer: { fn: DP.renderVolunteer, admin: true },
+  trainees: { fn: DP.renderTrainees, admin: true },
+  trainee: { fn: DP.renderTrainee, admin: true },
+  visibility: { fn: Ad.renderVisibility, admin: true },
+  attendance: { fn: DA.renderAttendance, admin: true },
+  hours: { fn: DA.renderHours, admin: true },
+  review: { fn: T.renderReview, admin: true, narrow: true },
+  log: { fn: Ad.renderActivityLog, admin: true },
+  'guide-edit': { fn: C.renderGuideEdit, admin: true, narrow: true },
+  venues: { fn: C.renderVenues, admin: true, narrow: true },
+  fundraising: { fn: DF.renderFundraisers, admin: true },
+  fundraiser: { fn: DF.renderFundraiser, admin: true },
+  outings: { fn: DO.renderOutings, admin: true },
+  outing: { fn: DO.renderOuting, admin: true },
+  trips: { fn: DT.renderTrips, admin: true },
+  trip: { fn: DT.renderTrip, admin: true },
+  visits: { fn: DV.renderVisits, admin: true },
+};
 
 function toggleTheme() {
   const dark = !document.documentElement.classList.contains('dark');
@@ -219,76 +294,94 @@ async function updateApp(btn) {
   location.reload();
 }
 
-const TABS = {
-  volunteer: [
-    { key: 'home', href: '#/home', label: 'Home', icon: 'home', also: ['feedback', 'guide'] },
-    { key: 'pass', href: '#/pass', label: 'QR pass', icon: 'qr' },
-    { key: 'sessions', href: '#/sessions', label: 'Sessions', icon: 'calendar' },
-    { key: 'me', href: '#/me', label: 'Me', icon: 'user', also: ['edit-me'] },
-    { key: 'dashboard', href: 'admin/', label: 'Dashboard', icon: 'dashboard' },
-  ],
-  leader: [
-    { key: 'today', href: '#/today', label: 'Sessions', icon: 'calendar', also: ['session', 'new-session', 'review'] },
-    { key: 'scan', href: '#/scan', label: 'Scan', icon: 'scan' },
-    { key: 'people', href: '#/people', label: 'People', icon: 'users', also: ['person', 'trainee'] },
-    { key: 'me', href: '#/me', label: 'Me', icon: 'user', also: ['edit-me', 'guide', 'guide-edit', 'venues'] },
-  ],
-};
-
 let currentRoute = '';
 
 function headerButton(label, iconName, onClick, extra = '') {
   return el('button', { type: 'button', class: `icon-btn ${extra}`, title: label, 'aria-label': label, onclick: onClick }, icon(iconName));
 }
 
-function renderChrome(name) {
-  const signedIn = Boolean(session.token && app.user);
-  const isAdmin = signedIn && app.user.role === 'admin';
-  const mode = app.mode;
+const isActive = (item, name) => item.key === name || (item.also || []).includes(name);
 
-  mount(brandIcon, icon(mode === 'leader' && signedIn ? 'dashboard' : 'qr', 'size-6'));
-  brandSub.textContent = !signedIn ? 'Volunteer portal' : mode === 'leader' ? 'Leader mode' : 'Volunteer';
+function counts() {
+  const home = app.cachedHome() || { pendingFeedback: [] };
+  const a = app.cachedAdminHome() || {};
+  return {
+    home: (home.pendingFeedback || []).length + (home.guideRead === false ? 1 : 0),
+    scan: app.queuedScans().length,
+    review: a.reviewCount || 0,
+    pairings: a.unpairedTotal || 0,
+  };
+}
+
+function renderChrome(name) {
+  const u = app.user;
+  const signedIn = Boolean(session.token && u);
+  const admin = signedIn && isAdmin(u);
+  const adminRoute = Boolean(ROUTES[name] && ROUTES[name].admin);
+  document.body.classList.toggle('has-sidebar', signedIn);
+  document.body.classList.toggle('wide', signedIn && adminRoute && !ROUTES[name].narrow);
+
+  mount(brandIcon, icon(admin ? 'dashboard' : 'qr', 'size-6'));
+  brandSub.textContent = !signedIn ? 'Volunteer portal'
+    : [admin ? 'Admin' : null, isRegular(u) ? 'Regular' : 'Volunteer'].filter(Boolean).join(' · ');
 
   mount(headerActions,
     headerButton('Update app', 'refresh', (e) => updateApp(e.currentTarget)),
     el('button', { type: 'button', class: 'icon-btn text-xl', title: 'Toggle dark mode', 'aria-label': 'Toggle dark mode', onclick: toggleTheme }, '🌗'),
-    isAdmin ? headerButton('Choose mode', 'home', () => go('#/mode')) : null,
     signedIn ? headerButton('Sign out', 'logout', () => app.signOut(), 'text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300') : null);
 
-  tabs.hidden = !signedIn || name === 'mode';
-  if (tabs.hidden) return;
-  const home = app.cachedHome() || { pendingFeedback: [] };
-  const badges = {
-    home: home.pendingFeedback.length + (home.guideRead === false ? 1 : 0),
-    scan: app.queuedScans().length,
-    today: (app.cachedAdminHome() || {}).reviewCount || 0,
-  };
-  mount(tabList, TABS[mode].map((t) => {
-    const active = t.key === name || (t.also || []).includes(name);
-    return el('a', { href: t.href, class: 'seg-item', 'aria-current': active ? 'page' : null },
+  tabs.hidden = !signedIn;
+  subnav.hidden = !(admin && adminRoute);
+  if (!signedIn) {
+    mount(sidebar);
+    return;
+  }
+  const n = counts();
+  const volunteerItems = VOLUNTEER_ITEMS.filter((t) => !t.when || t.when(u));
+  const count = (key) => n[key] || 0;
+
+  // Phones: one tab per volunteer page, plus "Admin" for admins.
+  const tabItems = admin ? [...volunteerItems, { key: 'admin', label: 'Admin', icon: 'shield', href: '#/admin' }] : volunteerItems;
+  mount(tabList, tabItems.map((t) => {
+    const active = t.key === 'admin' ? adminRoute : isActive(t, name);
+    const badge = t.key === 'admin' ? count('review') + count('pairings') + count('scan') : count(t.key);
+    return el('a', { href: t.href || `#/${t.key}`, class: 'seg-item', 'aria-current': active ? 'page' : null },
       icon(t.icon, 'size-5 sm:size-4'),
       t.label,
-      badges[t.key] ? el('span', { class: 'absolute right-1 top-0.5 min-w-4 rounded-full bg-amber-500 px-1 text-center text-[10px] font-bold leading-4 text-white', 'aria-label': `${badges[t.key]} waiting` }, String(badges[t.key])) : null);
+      badge ? el('span', { class: 'absolute right-1 top-0.5 min-w-4 rounded-full bg-amber-500 px-1 text-center text-[10px] font-bold leading-4 text-white', 'aria-label': `${badge} waiting` }, String(badge)) : null);
   }));
+  // Phones, on admin pages: every admin page as a scrollable row.
+  if (!subnav.hidden) {
+    mount(subnav, ADMIN_ITEMS.map((item) => el('a', { href: `#/${item.key}`, class: 'sub-link', 'aria-current': isActive(item, name) ? 'page' : null },
+      icon(item.icon, 'size-4'), item.label, count(item.key) ? ` (${count(item.key)})` : '')));
+    const activeLink = subnav.querySelector('[aria-current="page"]');
+    if (activeLink) activeLink.scrollIntoView({ block: 'nearest', inline: 'center' });
+  }
+
+  // Computers: the same items in a sidebar.
+  const sideLink = (item) => el('a', { href: `#/${item.key}`, class: 'side-link', 'aria-current': isActive(item, name) ? 'page' : null },
+    icon(item.icon, 'size-5'), item.label, count(item.key) ? el('span', { class: 'side-count' }, String(count(item.key))) : null);
+  mount(sidebar,
+    el('a', { href: '#/home', class: 'flex h-16 shrink-0 items-center gap-3 border-b border-slate-200 px-5 dark:border-neutral-900' },
+      el('span', { class: 'flex size-10 items-center justify-center rounded-xl bg-indigo-600 text-white' }, icon(admin ? 'dashboard' : 'qr', 'size-6')),
+      el('span', { class: 'min-w-0' },
+        el('span', { class: 'block truncate text-base font-extrabold leading-tight text-slate-900 dark:text-white' }, 'MINDS Volunteers'),
+        el('span', { class: 'block truncate text-xs font-medium uppercase tracking-wider muted' }, brandSub.textContent))),
+    el('nav', { class: 'side-scroll' },
+      el('p', { class: 'side-group' }, 'My volunteering'),
+      volunteerItems.map(sideLink),
+      admin ? ADMIN_GROUPS.map((g) => [el('p', { class: 'side-group' }, g.title), g.items.map(sideLink)]) : null),
+    el('div', { class: 'border-t border-slate-200 p-4 text-xs dark:border-neutral-900' },
+      el('p', { class: 'truncate font-bold text-slate-900 dark:text-white' }, u.name),
+      el('p', { class: 'truncate muted' }, u.email)));
 }
 
 /* ---------------- routing ---------------- */
 
-const ROUTES = {
-  volunteer: {
-    home: V.renderHome, pass: V.renderPass, sessions: V.renderSessions, me: V.renderMe, feedback: V.renderFeedback,
-    guide: C.renderGuide, 'edit-me': P.renderEditMe,
-  },
-  leader: {
-    today: L.renderToday, session: L.renderSession, 'new-session': L.renderNewSession, scan: L.renderScan, people: L.renderPeople,
-    person: P.renderPerson, trainee: T.renderTrainee, review: T.renderReview,
-    me: V.renderMe, 'edit-me': P.renderEditMe, guide: C.renderGuide, 'guide-edit': C.renderGuideEdit, venues: C.renderVenues,
-  },
-};
-
 let renderId = 0;
 let leaving = [];
 let events = {};
+let checkedUser = false;
 
 function emit(name) {
   if (events[name]) events[name]();
@@ -309,7 +402,8 @@ function route() {
     onLeave: (fn) => leaving.push(fn),
     onEvent: (name, fn) => { events[name] = fn; },
   };
-  const [name = '', param] = location.hash.replace(/^#\/?/, '').split('/');
+  const [name = '', ...rest] = location.hash.replace(/^#\/?/, '').split('/');
+  const param = rest.length ? decodeURIComponent(rest.join('/')) : undefined;
   window.scrollTo(0, 0);
 
   if (!session.token || !app.user) {
@@ -322,20 +416,26 @@ function route() {
     }
     return;
   }
-  if (name === 'mode' && app.user.role === 'admin') {
-    currentRoute = name;
-    renderChrome(name);
-    L.renderMode(view, app);
-    return;
-  }
-  const fn = ROUTES[app.mode][name];
-  if (!fn) {
-    go(app.mode === 'leader' ? '#/today' : '#/home');
+  const r = ROUTES[name];
+  if (!r || (r.admin && !app.isAdmin)) {
+    go('#/home');
     return;
   }
   currentRoute = name;
   renderChrome(name);
-  Promise.resolve(fn(view, app, ctx, param ? decodeURIComponent(param) : undefined)).catch((err) => console.error(err));
+  Promise.resolve(r.fn(view, app, ctx, param)).catch((err) => console.error(err));
+
+  if (!checkedUser) {
+    // Once per page load: pick up a role or type change made since this phone signed in.
+    checkedUser = true;
+    call('me').then((res) => {
+      const u = app.user;
+      storage.set('minds.user', res.user);
+      if (u && isAdmin(u) && !isAdmin(res.user)) demoted();
+      else renderChrome(currentRoute);
+    }).catch(() => {});
+    if (app.isAdmin) app.fetchAdminHome().catch(() => {}); // fills the admin badges
+  }
 }
 
 onUnauthorized(() => {

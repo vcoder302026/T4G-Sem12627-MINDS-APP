@@ -23,6 +23,7 @@ function publicUser_(u) {
     emergencyPhone: u.emergencyPhone,
     emergencyRelation: u.emergencyRelation,
     role: u.role === 'admin' ? 'admin' : 'volunteer',
+    volunteerType: volunteerType_(u),
     createdAt: u.createdAt,
     guideReadAt: u.guideReadAt || '',
   };
@@ -102,14 +103,16 @@ function register_(p) {
     user = users.update(existing, Object.assign({}, rec, {
       userId: existing.userId || newId_('U'),
       role: 'volunteer',
+      volunteerType: existing.volunteerType || 'volunteer',
       status: existing.status || 'active',
       createdAt: existing.createdAt || fmtDateTime_(now_()),
     }));
-    if (user.status === 'inactive') throw err_.unauthorized('This account has been deactivated. Please contact a volunteer leader.');
+    if (user.status === 'inactive') throw err_.unauthorized('This account has been deactivated. Please contact an admin.');
   } else {
     user = users.insert(Object.assign({}, rec, {
       userId: newId_('U'),
       role: 'volunteer',
+      volunteerType: 'volunteer',
       status: 'active',
       createdAt: fmtDateTime_(now_()),
     }));
@@ -126,7 +129,7 @@ function login_(p) {
   const failKey = `login-fail:${email}`;
   const fails = Number(cache.get(failKey) || 0);
   if (fails >= CONFIG.LOGIN_MAX_FAILURES) {
-    throw new AppError('TOO_MANY_ATTEMPTS', 'Too many attempts. Wait 15 minutes, or ask a volunteer leader to reset your password.');
+    throw new AppError('TOO_MANY_ATTEMPTS', 'Too many attempts. Wait 15 minutes, or ask an admin to reset your password.');
   }
   const user = table_('users').find((u) => String(u.email).toLowerCase() === email);
   const authRow = user && user.userId ? table_('auth').find((a) => a.userId === user.userId) : null;
@@ -135,7 +138,7 @@ function login_(p) {
     cache.put(failKey, String(fails + 1), 900);
     throw err_.unauthorized('Email or password is incorrect.');
   }
-  if (user.status === 'inactive') throw err_.unauthorized('This account has been deactivated. Please contact a volunteer leader.');
+  if (user.status === 'inactive') throw err_.unauthorized('This account has been deactivated. Please contact an admin.');
   cache.remove(failKey);
   return { token: issueToken_(user, authRow), user: publicUser_(user) };
 }
@@ -154,7 +157,29 @@ function changePassword_(p, user) {
   return { token: issueToken_(user, updated) };
 }
 
-/* ---------- leader actions on people ---------- */
+/* ---------- admin actions on people ---------- */
+
+/** Checks the signed-in admin's own password (needed before removing an admin). */
+function checkOwnPassword_(user, password) {
+  const authRow = table_('auth').find((a) => a.userId === user.userId);
+  if (typeof password !== 'string' || !password || !authRow
+    || !safeEqual_(hashPassword_(password, authRow.salt), authRow.passwordHash)) {
+    throw new AppError('PASSWORD_REQUIRED', 'Enter your own password to remove an admin.');
+  }
+}
+
+/** Sign-ups for past sessions with no attendance, per volunteer. */
+function noShowsByUser_() {
+  const today = todayStr_();
+  const attended = {};
+  table_('attendance').rows().forEach((a) => { attended[a.bookingId] = true; });
+  const out = {};
+  table_('bookings').rows().forEach((b) => {
+    if (b.status === 'cancelled' || String(b.sessionDate) >= today || attended[b.bookingId]) return;
+    out[b.userId] = (out[b.userId] || 0) + 1;
+  });
+  return out;
+}
 
 function listPeople_() {
   const hours = {};
@@ -165,6 +190,8 @@ function listPeople_() {
     h.sessions += 1;
   });
   const hasAccount = byKey_(table_('auth').rows(), 'userId');
+  const standing = byKey_(standingRows_(), 'userId');
+  const noShows = noShowsByUser_();
   const people = table_('users').rows()
     .filter((u) => u.userId)
     .map((u) => Object.assign(publicUser_(u), {
@@ -172,21 +199,24 @@ function listPeople_() {
       hasAccount: Boolean(hasAccount[u.userId]),
       hours: Math.round(((hours[u.userId] || {}).hours || 0) * 100) / 100,
       sessions: (hours[u.userId] || {}).sessions || 0,
+      noShows: noShows[u.userId] || 0,
+      regularTraineeName: standing[u.userId] ? standing[u.userId].traineeName : '',
     }));
-  return { people: sortBy_(people, (x) => String(x.name).toLowerCase()) };
+  return { people: sortBy_(people, (x) => String(x.name).toLowerCase()), regularAfter: CONFIG.REGULAR_AFTER_SESSIONS };
 }
 
 function setRole_(p, admin) {
-  onlyFields_(p, ['userId', 'role']);
+  onlyFields_(p, ['userId', 'role', 'adminPassword']);
   const userId = id_(p.userId, 'User');
   const role = oneOf_(p.role, 'Role', ['volunteer', 'admin']);
   const users = table_('users');
   const target = users.find((u) => u.userId === userId);
   if (!target) throw err_.notFound('Volunteer not found.');
-  if (role === 'volunteer') {
-    if (target.userId === admin.userId) throw err_.conflict('You cannot remove your own leader access. Ask another leader.');
+  if (role === 'volunteer' && target.role === 'admin') {
+    if (target.userId === admin.userId) throw err_.conflict('You cannot remove your own admin access. Ask another admin.');
     const admins = users.filter((u) => u.role === 'admin' && u.status !== 'inactive');
-    if (admins.length <= 1) throw err_.conflict('There must be at least one volunteer leader.');
+    if (admins.length <= 1) throw err_.conflict('There must be at least one admin.');
+    checkOwnPassword_(admin, p.adminPassword);
   }
   users.update(target, { role });
   return { person: publicUser_(target) };

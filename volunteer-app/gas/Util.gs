@@ -12,7 +12,7 @@ class AppError extends Error {
 const err_ = {
   validation: (m) => new AppError('VALIDATION_ERROR', m),
   unauthorized: (m) => new AppError('UNAUTHORIZED', m || 'Please sign in again.'),
-  forbidden: (m) => new AppError('FORBIDDEN', m || 'Only volunteer leaders can do that.'),
+  forbidden: (m) => new AppError('FORBIDDEN', m || 'Only admins can do that.'),
   notFound: (m) => new AppError('NOT_FOUND', m),
   conflict: (m) => new AppError('CONFLICT', m),
   config: (m) => new AppError('CONFIG_ERROR', m),
@@ -182,6 +182,11 @@ function byKey_(rows, key) {
   const map = {};
   rows.forEach((r) => { map[r[key]] = r; });
   return map;
+}
+
+/** Sort key where numbers sort by value: "Trainee 2" before "Trainee 10". */
+function natKey_(text) {
+  return String(text || '').toLowerCase().replace(/\d+/g, (n) => n.padStart(8, '0'));
 }
 
 function sortBy_(rows, fn) {

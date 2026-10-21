@@ -6,8 +6,12 @@
  * (Apps Script editor → Project Settings → Script properties), so they never
  * end up in GitHub:
  *
- *   SPREADSHEET_ID          required  the existing MINDS sheet the app reads/writes
+ *   SPREADSHEET_ID          required  the volunteer sheet the app reads/writes
  *   TRAINEE_SPREADSHEET_ID  optional  set only if trainees live in a different file
+ *                                     (e.g. the House Visit form's response sheet)
+ *
+ *   Either property may be the sheet's ID or its full URL. A URL that ends in
+ *   #gid=123 also picks the tab, so the trainee list can be any tab of any file.
  *   FIRST_ADMIN_EMAIL       optional  used once by makeFirstAdmin()
  *   APP_SECRET              automatic created by setup(); signs logins and QR codes
  *
@@ -25,23 +29,38 @@ const CONFIG = {
   PROP_TRAINEE_SPREADSHEET_ID: 'TRAINEE_SPREADSHEET_ID',
   PROP_SECRET: 'APP_SECRET',
   PROP_FIRST_ADMIN_EMAIL: 'FIRST_ADMIN_EMAIL',
+  PROP_GUIDE_FOLDER_ID: 'GUIDE_FOLDER_ID', // automatic: the Drive folder for guide infographics (created on first upload)
 
   TOKEN_TTL_DAYS: 30,            // how long a phone stays signed in
   PASSWORD_ITERATIONS: 400,      // HMAC rounds per password check (~0.3–0.8 s in Apps Script)
   LOGIN_MAX_FAILURES: 5,         // per email, per 15 minutes
   MIN_MINUTES_BEFORE_CLOCK_OUT: 2, // a second scan sooner than this is ignored (stops double-scans)
   OFFLINE_SCAN_MAX_AGE_HOURS: 24,  // queued offline scans older than this are rejected
-  ALLOW_SHARED_TRAINEE: false,   // true = two volunteers may be paired with one trainee in a session
+  ALLOW_SHARED_TRAINEE: true,    // a trainee may have several volunteers in one session (each volunteer has one trainee)
   QR_DAYS_AHEAD: 14,             // QR codes pre-issued to the phone for offline use
   FEEDBACK_WINDOW_DAYS: 14,      // how long after a session volunteers can still give feedback
 
-  // Trainee pairing and notes
-  AUTO_PAIR_ON_CONFIRM: true,    // confirming a booking pairs the volunteer with a free trainee automatically
+  // Volunteer types. Everyone starts as a "volunteer" (new / ad hoc) and becomes a
+  // "regular" after attending this many sessions, or when an admin promotes them.
+  REGULAR_AFTER_SESSIONS: 10,
+
+  // Trainee pairing and notes. A regular's fixed trainee (set by an admin under
+  // Pairing → Regular pairings) is applied every time they say they're coming.
+  // Volunteers (ad hoc) are paired by an admin on the session's pairing board.
+  APPLY_STANDING_PAIRINGS: true,
   NOTES_SHOWN_TO_VOLUNTEERS: 5,  // newest shared trainee notes a paired volunteer can read
   AUTO_SHARE_OBSERVATIONS: false, // false = a leader reviews volunteer observations before they become trainee notes
 
   // New volunteers
   REQUIRE_GUIDE_BEFORE_BOOKING: true, // volunteers must read the Volunteer Guide once before their first booking
+  // Infographics in the Volunteer Guide (images or PDFs). Uploads go to a Google
+  // Drive folder owned by the account the app runs as, shared "anyone with the
+  // link can view" so volunteers (who don't sign in to Google) can see them.
+  GUIDE_FILES: {
+    folderName: 'MINDS Volunteer App – Guide infographics',
+    maxMb: 8,
+    types: { 'image/jpeg': 'image', 'image/png': 'image', 'image/webp': 'image', 'image/gif': 'image', 'application/pdf': 'pdf' },
+  },
   DEFAULT_VENUES: ['MINDS Woodlands Gardens School'], // added to the Venues tab by setup() when it is empty
   ADD_MISSING_TRAINEE_COLUMNS: true,  // setup() adds empty columns for volunteer-visible fields the trainee tab lacks
 
@@ -60,7 +79,10 @@ const CONFIG = {
         emergencyName: 'Emergency Contact Name',
         emergencyPhone: 'Emergency Contact Phone',
         emergencyRelation: 'Emergency Contact Relationship',
-        role: 'Role',            // volunteer | admin
+        role: 'Role',            // volunteer | admin  (admin = can use the Admin menu)
+        volunteerType: 'Volunteer Type', // volunteer (new / ad hoc) | regular
+        typeSetBy: 'Type Set By',        // "Automatic (10 sessions)" or the admin who changed it
+        typeSetAt: 'Type Set At',
         status: 'Status',        // active | inactive
         createdAt: 'Registered At',
         guideReadAt: 'Guide Read At',
@@ -108,14 +130,14 @@ const CONFIG = {
         sessionTitle: 'Session Title',
         userId: 'User ID',
         volunteerName: 'Volunteer Name',
-        status: 'Status',        // pending | confirmed | cancelled
+        status: 'Status',        // confirmed ("coming") | cancelled  (older rows may say pending)
         traineeId: 'Trainee ID',
         traineeName: 'Trainee Name',
-        pairing: 'Pairing',      // auto | manual
+        pairing: 'Pairing',      // standing (a regular's fixed trainee) | manual (set by an admin)
         walkIn: 'Walk-in',
         bookedAt: 'Booked At',
-        decidedBy: 'Confirmed By',
-        decidedAt: 'Confirmed At',
+        decidedBy: 'Updated By',
+        decidedAt: 'Updated At',
       },
     },
     attendance: {
@@ -203,19 +225,68 @@ const CONFIG = {
       numeric: ['order'],
     },
     guide: {
-      tab: 'Volunteer Guide', // the welcome guide new volunteers read; leaders edit it in the app
+      tab: 'Volunteer Guide', // the welcome guide new volunteers read; admins edit it in the app
       columns: {
         sectionId: 'Section ID',
         order: 'Order',
+        kind: 'Type',            // text (default) | image | pdf
         title: 'Title',
-        body: 'Content',
+        body: 'Content',         // the text, or a caption under an infographic
+        fileId: 'Drive File ID', // image / pdf: the file in Google Drive
+        fileName: 'File Name',
         updatedBy: 'Updated By',
         updatedAt: 'Updated At',
       },
       numeric: ['order'],
     },
 
-    /* ----- staff dashboard (web/admin/) ----- */
+    pairings: {
+      tab: 'Regular Pairings', // a regular volunteer's fixed trainee, set by an admin
+      columns: {
+        pairingId: 'Pairing ID',
+        userId: 'User ID',
+        volunteerName: 'Volunteer Name',
+        traineeId: 'Trainee ID',
+        traineeName: 'Trainee Name',
+        status: 'Status',        // active | ended
+        createdBy: 'Set By',
+        createdAt: 'Set At',
+        endedBy: 'Ended By',
+        endedAt: 'Ended At',
+      },
+    },
+    adminLog: {
+      tab: 'Admin Activity Log', // every change an admin makes in the app, newest at the bottom
+      columns: {
+        logId: 'Log ID',
+        at: 'When',
+        adminId: 'Admin User ID',
+        adminName: 'Admin',
+        action: 'Action',
+        summary: 'What happened',
+      },
+    },
+    settings: {
+      tab: 'App Settings', // e.g. which trainee details volunteers and regulars can see
+      columns: {
+        key: 'Setting',
+        value: 'Value',
+        updatedBy: 'Updated By',
+        updatedAt: 'Updated At',
+      },
+    },
+    traineeVisibility: {
+      tab: 'Trainee Visibility', // per-trainee exceptions to the default visible details
+      columns: {
+        traineeId: 'Trainee ID',
+        audience: 'Audience',    // volunteer | regular
+        fields: 'Visible Details',
+        updatedBy: 'Updated By',
+        updatedAt: 'Updated At',
+      },
+    },
+
+    /* ----- admin sections that came from the staff dashboard ----- */
     fundraisers: {
       tab: 'Fundraisers',
       columns: {
@@ -392,29 +463,59 @@ const CONFIG = {
 
   /* Your EXISTING trainee list. Only `id` and `name` are required; any other
      header that is not found is simply skipped. If the ID column is missing,
-     setup() adds it and fills IDs (T-0001, T-0002, …) for rows with a name. */
+     setup() adds it and fills IDs (T-0001, T-0002, …) for rows with a name.
+     A list of headers means "whichever of these the sheet has", so the same
+     code reads the simple demo list and MINDS's House Visit form responses. */
   TRAINEES: {
-    tab: 'Trainees',
+    tab: 'Trainees', // ignored when TRAINEE_SPREADSHEET_ID is a URL with #gid=…
     columns: {
       id: 'Trainee ID',
-      name: 'Name',
-      preferredName: 'Preferred Name',
+      name: ['Name', 'Trainee’s Full Name', 'Full Name'],
+      preferredName: ['Preferred Name', 'Trainee\'s Short Name', 'Short Name'],
       gender: 'Gender',
       communication: 'Communication',        // e.g. Verbal / Non-verbal / A few words + signs
       behaviours: 'Behaviours',
       takeNote: 'Things to Take Note',
       interests: 'Interests',
       supportNeeds: 'Support Needs',
-      medicalNotes: 'Medical Notes',
-      dietaryNotes: 'Dietary Notes',
-      caregiverName: 'Caregiver Name',
-      caregiverPhone: 'Caregiver Phone',
+      medicalNotes: ['Medical Notes', 'Current Health Condition （近期的身体状况）'],
+      dietaryNotes: ['Dietary Notes', 'Dietary Restriction(s) (if any) （食物限制）'],
+      caregiverName: ['Caregiver Name', 'Name of Caregiver / Guardian (1)'],
+      caregiverPhone: ['Caregiver Phone', 'Contact Details (Home / Office / Mobile) (1)'],
       active: 'Active',                      // optional: "No" keeps a trainee out of auto-pairing
     },
-    // What a volunteer sees about their paired trainee. Keep this to what a
-    // volunteer genuinely needs for the session (PDPA: collect and show the minimum).
-    // Leaders always see every column above.
+    // Kept for setup(): these columns are added to a simple trainee list if missing.
     volunteerVisible: ['preferredName', 'gender', 'communication', 'behaviours', 'takeNote', 'interests', 'supportNeeds'],
+
+    // Every column of the trainee tab is shown, grouped into sections. If the
+    // trainee file has this tab (row 1 = headers, row 2 = section names, as in
+    // the House Visit form's "Map (Fixed)" tab) it decides the sections;
+    // otherwise SECTIONS below is used, and anything unlisted goes under "Other details".
+    sectionMapTab: 'Map (Fixed)',
+    sections: [
+      { title: 'About', headers: ['Name', 'Preferred Name', 'Gender', 'Programme', 'Active'] },
+      { title: 'For volunteers', headers: ['Communication', 'Behaviours', 'Things to Take Note', 'Interests', 'Support Needs'] },
+      { title: 'Medical & Health', headers: ['Medical Notes', 'Dietary Notes'] },
+      { title: 'Emergency Contacts', headers: ['Caregiver Name', 'Caregiver Phone'] },
+      { title: 'Volunteers\' Observations', headers: ['Latest Volunteer Observation', 'Observation Updated'] },
+    ],
+    // Never shown in the app (row bookkeeping from the form).
+    hiddenHeaders: ['Timestamp'],
+
+    // Default details each kind of volunteer sees (admins can change these in
+    // Admin → Settings → Trainee details, and per trainee). Matched against the
+    // sheet's headers and section names. MINDS to confirm the final lists.
+    //  - volunteer (new / ad hoc): only their paired trainee, only these details
+    //  - regular: any trainee, every detail unless an admin hides some
+    visibleTo: {
+      volunteer: {
+        headers: ['Preferred Name', 'Trainee\'s Short Name', 'Gender', 'Spoken Language / Dialect', 'Communication', 'Behaviours',
+          'Things to Take Note', 'Interests', 'Support Needs', 'Activities to avoid (e.g. running due to medical condition)',
+          'Drug Allergies (if any) （药物铭感）', 'Food Allergies (if any) （食物铭感）', 'Dietary Restriction(s) (if any) （食物限制）'],
+        sections: ['Behaviour', 'Abilities / Skills'],
+      },
+      regular: { all: true },
+    },
     // When a leader shares a volunteer observation, it becomes a row in the
     // Trainee Notes tab, and the newest one is also copied into these columns
     // on the trainee's own row. Set writeBack to null to never touch the trainee tab.

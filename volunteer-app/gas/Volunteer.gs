@@ -66,10 +66,11 @@ function volunteerHome_(p, user) {
     const a = attByBooking[b.bookingId];
     return {
       bookingId: b.bookingId,
-      status: b.status,
+      status: 'confirmed', // "coming" (older rows may still say pending)
       walkIn: b.walkIn === 'Yes',
       session: sessionOut_(sessionById[b.sessionId]),
-      trainee: b.status === 'confirmed' && b.traineeId ? traineeForVolunteer_(b.traineeId) : null,
+      trainee: b.traineeId ? traineeForVolunteer_(b.traineeId, user) : null,
+      pairing: b.traineeId ? (b.pairing === 'standing' ? 'standing' : 'manual') : '',
       attendance: a ? attendanceOut_(a) : null,
       canCancel: !a,
     };
@@ -81,7 +82,7 @@ function volunteerHome_(p, user) {
     return Object.assign(sessionOut_(s), {
       spotsLeft: cap ? Math.max(0, cap - (taken[s.sessionId] || 0)) : null,
       myBookingId: booking ? booking.bookingId : null,
-      myStatus: booking ? booking.status : null,
+      myStatus: booking ? 'confirmed' : null,
     });
   });
 
@@ -106,10 +107,16 @@ function volunteerHome_(p, user) {
     if (u.session.date <= qrUntil && qrDates.indexOf(u.session.date) === -1) qrDates.push(u.session.date);
   });
 
+  const type = volunteerType_(user);
+  const fixed = type === 'regular' ? activeStanding_(user.userId) : null;
+  const attended = sessionsAttended_(user.userId, attendance);
   return {
     user: publicUser_(user),
     today,
     guideRead: Boolean(user.guideReadAt),
+    volunteerType: type,
+    regularTrainee: fixed ? { id: String(fixed.traineeId), name: fixed.traineeName } : null,
+    progress: { attended, needed: CONFIG.REGULAR_AFTER_SESSIONS },
     upcoming,
     openSessions,
     pendingFeedback,
@@ -125,32 +132,13 @@ function ownBooking_(bookingId, user) {
   return booking;
 }
 
+/** "I'm coming" for one session (Pairing.gs has the rules and bookSessions_ for several). */
 function bookSession_(p, user) {
   onlyFields_(p, ['sessionId']);
   const sessionId = id_(p.sessionId, 'Session');
-  if (CONFIG.REQUIRE_GUIDE_BEFORE_BOOKING && !user.guideReadAt) {
-    throw new AppError('GUIDE_REQUIRED', 'Please read the Volunteer Guide before booking your first session.');
-  }
-  const s = table_('sessions').find((x) => x.sessionId === sessionId);
-  if (!s || s.status === 'cancelled') throw err_.notFound('Session not found.');
-  if (s.status !== 'open') throw err_.conflict('Bookings for this session are closed.');
-  if (s.date < todayStr_()) throw err_.conflict('This session has already happened.');
-  const bookings = table_('bookings');
-  const active = bookings.filter((b) => b.sessionId === sessionId && b.status !== 'cancelled');
-  if (active.some((b) => b.userId === user.userId)) throw err_.conflict('You have already booked this session.');
-  const cap = Number(s.capacity) || 0;
-  if (cap && active.length >= cap) throw err_.conflict('Sorry, this session is full.');
-  bookings.insert({
-    bookingId: newId_('B'),
-    sessionId,
-    sessionDate: s.date,
-    sessionTitle: s.title,
-    userId: user.userId,
-    volunteerName: user.name,
-    status: 'pending',
-    bookedAt: fmtDateTime_(now_()),
-  });
-  return { message: "Booked! Once a leader confirms it, you'll see your trainee here.", home: volunteerHome_({}, user) };
+  guideCheck_(user);
+  const r = comeToSession_(sessionId, user);
+  return { message: comingMessage_(r, user), trainee: r.trainee ? r.trainee.name : '', home: volunteerHome_({}, user) };
 }
 
 function cancelBooking_(p, user) {
@@ -161,9 +149,11 @@ function cancelBooking_(p, user) {
     throw err_.conflict('You have already clocked in for this session, so it cannot be cancelled.');
   }
   const s = table_('sessions').find((x) => x.sessionId === booking.sessionId);
-  if (s && s.date < todayStr_()) throw err_.conflict('Past bookings cannot be cancelled.');
-  table_('bookings').update(booking, { status: 'cancelled', decidedBy: `${user.name} (self)`, decidedAt: fmtDateTime_(now_()) });
-  return { message: 'Booking cancelled.', home: volunteerHome_({}, user) };
+  if (s && s.date < todayStr_()) throw err_.conflict('Past sessions cannot be changed.');
+  table_('bookings').update(booking, {
+    status: 'cancelled', traineeId: '', traineeName: '', pairing: '', decidedBy: `${user.name} (self)`, decidedAt: fmtDateTime_(now_()),
+  });
+  return { message: `OK, you're no longer coming to ${booking.sessionTitle}.`, home: volunteerHome_({}, user) };
 }
 
 function submitFeedback_(p, user) {

@@ -21,17 +21,22 @@ function routes_() {
     updateProfile: { auth: 'user', write: true, fn: updateProfile_ },
     volunteerHome: { auth: 'user', fn: volunteerHome_ },
     bookSession: { auth: 'user', write: true, fn: bookSession_ },
+    bookSessions: { auth: 'user', write: true, fn: bookSessions_ },
     cancelBooking: { auth: 'user', write: true, fn: cancelBooking_ },
     submitFeedback: { auth: 'user', write: true, fn: submitFeedback_ },
     guide: { auth: 'user', fn: guide_ },
     acknowledgeGuide: { auth: 'user', write: true, fn: acknowledgeGuide_ },
+    // Trainee details for volunteers (TraineeInfo.gs): regulars see any trainee, volunteers their paired one
+    traineeInfo: { auth: 'user', fn: traineeInfo_ },
+    traineeDirectory: { auth: 'user', fn: traineeDirectory_ },
+    submitTraineeUpdate: { auth: 'user', write: true, fn: submitTraineeUpdate_ },
 
     adminHome: { auth: 'admin', fn: adminHome_ },
     createSession: { auth: 'admin', write: true, fn: createSession_ },
     updateSession: { auth: 'admin', write: true, fn: updateSession_ },
     sessionDetail: { auth: 'admin', fn: sessionDetail_ },
     updateBooking: { auth: 'admin', write: true, fn: updateBooking_ },
-    confirmAll: { auth: 'admin', write: true, fn: confirmAll_ },
+    addWalkIn: { auth: 'admin', write: true, fn: addWalkIn_ },
     scan: { auth: 'admin', write: true, fn: scan_ },
     scanBatch: { auth: 'admin', write: true, fn: scanBatch_ },
     manualClock: { auth: 'admin', write: true, fn: manualClock_ },
@@ -40,6 +45,14 @@ function routes_() {
     personDetail: { auth: 'admin', fn: personDetail_ },
     updatePerson: { auth: 'admin', write: true, fn: updatePerson_ },
     resetPassword: { auth: 'admin', write: true, fn: resetPassword_ },
+    // Volunteer types and regular pairings (Pairing.gs)
+    setVolunteerType: { auth: 'admin', write: true, fn: setVolunteerType_ },
+    listStandingPairings: { auth: 'admin', fn: listStandingPairings_ },
+    setStandingPairing: { auth: 'admin', write: true, fn: setStandingPairing_ },
+    // What volunteers see about trainees (TraineeInfo.gs) and the activity log (AdminLog.gs)
+    visibilitySettings: { auth: 'admin', fn: visibilitySettings_ },
+    saveVisibility: { auth: 'admin', write: true, fn: saveVisibility_ },
+    listAdminLog: { auth: 'admin', fn: listAdminLog_ },
 
     listTrainees: { auth: 'admin', fn: listTrainees_ },
     traineeDetail: { auth: 'admin', fn: traineeDetail_ },
@@ -54,6 +67,7 @@ function routes_() {
     saveProject: { auth: 'admin', write: true, fn: saveProject_ },
     saveGuideSection: { auth: 'admin', write: true, fn: saveGuideSection_ },
     deleteGuideSection: { auth: 'admin', write: true, fn: deleteGuideSection_ },
+    addGuideFile: { auth: 'admin', write: true, fn: addGuideFile_ }, // infographic: upload, or a Google Drive link
     moveContent: { auth: 'admin', write: true, fn: moveContent_ },
 
     // Staff dashboard (web/admin/). Overview, attendance, hours, volunteers: Dashboard.gs
@@ -116,7 +130,8 @@ function handle_(e) {
   try {
     const raw = e && e.postData && e.postData.contents;
     if (!raw) throw err_.validation('Empty request.');
-    if (raw.length > 200000) throw err_.validation('Request is too large.');
+    // Uploads (a guide infographic, sent as base64) may be large; everything else is small.
+    if (raw.length > 15000000) throw err_.validation('Request is too large.');
     let body;
     try {
       body = JSON.parse(raw);
@@ -124,6 +139,7 @@ function handle_(e) {
       throw err_.validation('Request is not valid JSON.');
     }
     if (!body || typeof body !== 'object' || typeof body.action !== 'string') throw err_.validation('Missing action.');
+    if (body.action !== 'addGuideFile' && raw.length > 200000) throw err_.validation('Request is too large.');
     const routes = routes_();
     if (!Object.prototype.hasOwnProperty.call(routes, body.action)) throw err_.notFound(`Unknown action "${body.action}".`);
     const route = routes[body.action];
@@ -134,7 +150,12 @@ function handle_(e) {
       user = requireUser_(body.token);
       if (route.auth === 'admin' && user.role !== 'admin') throw err_.forbidden();
     }
-    const run = () => route.fn(payload, user);
+    const run = () => {
+      const out = route.fn(payload, user);
+      // Every change an admin makes goes in the Admin Activity Log (AdminLog.gs), in the same lock.
+      if (route.auth === 'admin' && route.write) logAdminAction_(user, body.action, payload, out);
+      return out;
+    };
     return { ok: true, data: route.write ? withLock_(run) : run() };
   } catch (error) {
     if (error instanceof AppError) return { ok: false, error: { code: error.code, message: error.message } };

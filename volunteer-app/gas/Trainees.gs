@@ -21,7 +21,7 @@ function traineeList_() {
   const list = traineeTable_().rows()
     .filter((r) => r.id && r.name && isActiveTrainee_(r))
     .map((r) => ({ id: String(r.id), name: r.name, preferredName: r.preferredName || '', gender: r.gender || '' }));
-  return sortBy_(list, (t) => t.name.toLowerCase());
+  return sortBy_(list, (t) => natKey_(t.name));
 }
 
 function traineeById_(id) {
@@ -41,30 +41,16 @@ function sharedNotes_(traineeId, limit) {
   }));
 }
 
-/** What a paired volunteer may see (Config.gs → volunteerVisible) plus shared notes. */
-function traineeForVolunteer_(id) {
-  const row = traineeById_(id);
-  if (!row) return null;
-  const labels = CONFIG.TRAINEES.columns;
-  return {
-    id: String(row.id),
-    name: row.name,
-    fields: CONFIG.TRAINEES.volunteerVisible
-      .filter((key) => row[key] !== '' && row[key] !== undefined)
-      .map((key) => ({ key, label: labels[key], value: String(row[key]) })),
-    notes: sharedNotes_(row.id, CONFIG.NOTES_SHOWN_TO_VOLUNTEERS),
-  };
-}
-
-/** Everything about a trainee, for leaders. */
+/** Everything about a trainee, for admins. */
 function traineeDetail_(p) {
   onlyFields_(p, ['traineeId']);
   const row = traineeById_(str_(p.traineeId, 'Trainee', { required: true, max: 40 }));
   if (!row) throw err_.notFound('Trainee not found.');
-  const labels = CONFIG.TRAINEES.columns;
-  const fields = Object.keys(labels)
+  const table = traineeTable_();
+  const visible = visibleFor_(row.id, 'volunteer').fields;
+  const fields = Object.keys(CONFIG.TRAINEES.columns)
     .filter((key) => key !== 'id' && key !== 'name' && row[key] !== '' && row[key] !== undefined)
-    .map((key) => ({ key, label: labels[key], value: String(row[key]), visibleToVolunteers: CONFIG.TRAINEES.volunteerVisible.indexOf(key) >= 0 }));
+    .map((key) => ({ key, label: table.header(key), value: String(row[key]), visibleToVolunteers: visible.indexOf(normHeader_(table.header(key))) >= 0 }));
   const allNotes = sortBy_(table_('traineeNotes').filter((n) => String(n.traineeId) === String(row.id)), (n) => `${n.date} ${n.addedAt}`).reverse()
     .map((n) => ({ noteId: n.noteId, date: n.date, note: n.note, author: n.author, source: n.source, status: n.status || 'shared', addedBy: n.addedBy }));
   const pairings = sortBy_(table_('bookings').filter((b) => String(b.traineeId) === String(row.id) && b.status === 'confirmed'), (b) => b.sessionDate).reverse()
@@ -86,7 +72,7 @@ function listTrainees_() {
     active: isActiveTrainee_(r),
     noteCount: counts[String(r.id)] || 0,
   }));
-  return { trainees: sortBy_(trainees, (t) => t.name.toLowerCase()) };
+  return { trainees: sortBy_(trainees, (t) => natKey_(t.name)) };
 }
 
 /* ---------- notes ---------- */
@@ -181,56 +167,6 @@ function parseIds_(value) {
   return String(value || '').split(/[,;\s]+/).map((s) => s.trim()).filter(Boolean);
 }
 
-/**
- * Picks a trainee for a volunteer's booking:
- *  1. only trainees attending the session (if the session lists them), active,
- *     and not already paired with someone else in that session;
- *  2. the trainee this volunteer was last paired with, if free (familiar faces help);
- *  3. otherwise the trainee with the fewest pairings so far, then the one paired
- *     longest ago, then by name, so volunteers are spread evenly.
- */
-function pickTrainee_(booking, session) {
-  const bookings = table_('bookings').rows();
-  let pool = traineeTable_().rows().filter((r) => r.id && r.name && isActiveTrainee_(r));
-  const attending = parseIds_(session.traineeIds);
-  if (attending.length) pool = pool.filter((t) => attending.indexOf(String(t.id)) >= 0);
-  if (!CONFIG.ALLOW_SHARED_TRAINEE) {
-    const taken = {};
-    bookings.forEach((b) => {
-      if (b.sessionId === session.sessionId && b.status !== 'cancelled' && b.traineeId && b.bookingId !== booking.bookingId) taken[String(b.traineeId)] = true;
-    });
-    pool = pool.filter((t) => !taken[String(t.id)]);
-  }
-  if (!pool.length) return null;
-
-  const confirmed = bookings.filter((b) => b.status === 'confirmed' && b.traineeId && b.bookingId !== booking.bookingId);
-  const mine = sortBy_(confirmed.filter((b) => b.userId === booking.userId && b.sessionDate <= session.date), (b) => b.sessionDate).reverse();
-  for (let i = 0; i < mine.length; i++) {
-    const familiar = pool.find((t) => String(t.id) === String(mine[i].traineeId));
-    if (familiar) return { trainee: familiar, reason: 'paired together before' };
-  }
-  const stats = {};
-  confirmed.forEach((b) => {
-    const s = stats[String(b.traineeId)] || (stats[String(b.traineeId)] = { count: 0, last: '' });
-    s.count += 1;
-    if (b.sessionDate > s.last) s.last = b.sessionDate;
-  });
-  const ranked = sortBy_(pool, (t) => {
-    const s = stats[String(t.id)] || { count: 0, last: '' };
-    return `${String(s.count).padStart(5, '0')}|${s.last || '0000'}|${String(t.name).toLowerCase()}`;
-  });
-  return { trainee: ranked[0], reason: 'fewest pairings so far' };
-}
-
-/** Pairs a confirmed booking if it has no trainee yet. Returns the pairing or null. */
-function autoPair_(booking, session) {
-  if (!CONFIG.AUTO_PAIR_ON_CONFIRM || booking.traineeId) return null;
-  const pick = pickTrainee_(booking, session);
-  if (!pick) return null;
-  table_('bookings').update(booking, { traineeId: String(pick.trainee.id), traineeName: pick.trainee.name, pairing: 'auto' });
-  return { traineeId: String(pick.trainee.id), traineeName: pick.trainee.name, reason: pick.reason };
-}
-
 /* ---------- staff dashboard: add and edit trainees ---------- */
 
 /** Fields staff can edit: every mapped trainee column except the ID. */
@@ -244,7 +180,7 @@ function traineeFields_(p, partial) {
   const out = {};
   traineeEditable_().forEach((key) => {
     if (partial && !has_(p, key)) return;
-    const label = CONFIG.TRAINEES.columns[key];
+    const label = primaryHeader_(CONFIG.TRAINEES.columns[key]);
     if (key === 'name') out.name = str_(p.name, label, { required: true });
     else if (key === 'caregiverPhone') out.caregiverPhone = phone_(p.caregiverPhone, label, { optional: true });
     else if (key === 'active') {
@@ -263,27 +199,38 @@ function traineeRecordOut_(row) {
 }
 
 function traineeColumnsOut_(table) {
+  const visible = defaultVisible_('volunteer');
   return traineeEditable_().map((key) => ({
     key,
-    label: CONFIG.TRAINEES.columns[key],
-    visibleToVolunteers: CONFIG.TRAINEES.volunteerVisible.indexOf(key) >= 0,
+    label: table.header(key),
+    visibleToVolunteers: visible.indexOf(normHeader_(table.header(key))) >= 0,
     inSheet: table.hasColumn(key),
   }));
 }
 
+/** Regular volunteers with a fixed pairing, by trainee ID: { 'T-0001': [names] }. */
+function regularsByTrainee_() {
+  const out = {};
+  standingRows_().forEach((x) => {
+    (out[String(x.traineeId)] = out[String(x.traineeId)] || []).push({ userId: x.userId, name: x.volunteerName });
+  });
+  return out;
+}
+
 function listTraineeRecords_() {
   const table = traineeTable_();
-  const trainees = table.rows().filter((r) => r.id && r.name).map(traineeRecordOut_);
-  return { trainees: sortBy_(trainees, (t) => t.name.toLowerCase()), columns: traineeColumnsOut_(table) };
+  const regulars = regularsByTrainee_();
+  const trainees = table.rows().filter((r) => r.id && r.name)
+    .map((r) => Object.assign(traineeRecordOut_(r), { regulars: regulars[String(r.id)] || [] }));
+  return { trainees: sortBy_(trainees, (t) => natKey_(t.name)), columns: traineeColumnsOut_(table) };
 }
 
 /** Adds any mapped column the trainee tab lacks for these keys, then re-reads it. */
 function ensureTraineeColumns_(keys) {
   let table = traineeTable_();
-  const labels = Object.assign({}, CONFIG.TRAINEES.columns);
-  const missing = keys.filter((k) => !table.hasColumn(k)).map((k) => labels[k]);
+  const missing = keys.filter((k) => !table.hasColumn(k)).map((k) => primaryHeader_(CONFIG.TRAINEES.columns[k]));
   if (missing.length) {
-    ensureTab_(traineeSpreadsheet_(), CONFIG.TRAINEES.tab, missing, {});
+    ensureTab_(traineeSpreadsheet_(), traineeTabName_(), missing, {});
     resetDbCache_();
     table = traineeTable_();
   }
@@ -347,6 +294,9 @@ function traineeProfile_(p) {
   return {
     trainee: traineeRecordOut_(row),
     columns: traineeColumnsOut_(traineeTable_()),
+    sections: traineeSectionsView_(row, null),
+    regulars: regularsByTrainee_()[traineeId] || [],
+    visibility: { volunteer: !visibleFor_(traineeId, 'volunteer').isDefault, regular: !visibleFor_(traineeId, 'regular').isDefault },
     notes: detail.notes,
     pairings: detail.pairings,
     visits: listVisits_({ traineeId }).visits,

@@ -131,8 +131,7 @@ export function badge(text, tone = 'slate', iconName) {
 }
 
 export function statusBadge(status) {
-  if (status === 'confirmed') return badge('Confirmed', 'emerald', 'tick');
-  if (status === 'pending') return badge('Pending', 'amber');
+  if (status === 'confirmed' || status === 'pending') return badge('Coming', 'emerald', 'tick');
   if (status === 'cancelled') return badge('Cancelled', 'red');
   return badge(status);
 }
@@ -422,7 +421,7 @@ export function multiPick({ name, options, values = [], placeholder = 'Search', 
   };
 }
 
-/** Renders leader-written text safely: "- " lines become bullets, "1. " lines numbered steps. */
+/** Renders admin-written text safely: "- " lines become bullets, "1. " lines numbered steps. */
 export function richText(body) {
   const blocks = [];
   let para = [];
@@ -498,3 +497,60 @@ export function labelled(label, control, { hint, optional } = {}) {
 
 /** Google Maps search link for an address (opens the Maps app on phones). */
 export const mapsLink = (place) => `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place)}`;
+
+/** The three profiles: Admin (on top of either), Regular, Volunteer (new / ad hoc). */
+export function typeBadges(p) {
+  return [
+    p.role === 'admin' ? badge('Admin', 'purple', 'shield') : null,
+    p.volunteerType === 'regular' || p.type === 'regular' ? badge('Regular', 'emerald') : badge('Volunteer', 'indigo'),
+  ];
+}
+
+/**
+ * Press and hold (about half a second) on a phone, or right-click on a
+ * computer, runs fn. Used for "show this person's contact details" shortcuts.
+ */
+export function onLongPress(node, fn) {
+  let timer = null;
+  let start = null;
+  let fired = false;
+  const cancel = () => { clearTimeout(timer); timer = null; };
+  node.addEventListener('pointerdown', (e) => {
+    fired = false;
+    start = { x: e.clientX, y: e.clientY };
+    cancel();
+    timer = setTimeout(() => { fired = true; timer = null; if (navigator.vibrate) navigator.vibrate(20); fn(e); }, 500);
+  });
+  node.addEventListener('pointermove', (e) => {
+    if (start && Math.hypot(e.clientX - start.x, e.clientY - start.y) > 10) cancel();
+  });
+  ['pointerup', 'pointerleave', 'pointercancel'].forEach((t) => node.addEventListener(t, cancel));
+  node.addEventListener('contextmenu', (e) => { e.preventDefault(); if (!fired) fn(e); fired = false; });
+  // Swallow the click that follows a long press, so it doesn't also open the normal action.
+  node.addEventListener('click', (e) => { if (fired) { e.preventDefault(); e.stopImmediatePropagation(); fired = false; } }, true);
+  return node;
+}
+
+/** Asks for the signed-in admin's own password. Resolves to the text, or null if cancelled. */
+export function passwordPrompt(title, text) {
+  return new Promise((resolve) => {
+    let done = false;
+    const input = el('input', { type: 'password', name: 'adminPassword', class: 'input', autocomplete: 'current-password', 'aria-label': 'Your password' });
+    const submit = el('button', { type: 'submit', class: 'btn btn-danger' }, 'Confirm');
+    const cancel = el('button', { type: 'button', class: 'btn btn-secondary' }, 'Cancel');
+    const form = el('form', { class: 'space-y-4' },
+      el('p', { class: 'text-sm' }, text),
+      el('label', { class: 'label', for: 'pw-confirm' }, 'Your password'), input,
+      el('div', { class: 'flex justify-end gap-2' }, cancel, submit));
+    input.id = 'pw-confirm';
+    const m = modal(title, form, () => { if (!done) resolve(null); });
+    cancel.addEventListener('click', () => m.close());
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      if (!input.value) { input.focus(); return; }
+      done = true;
+      resolve(input.value);
+      m.close();
+    });
+  });
+}

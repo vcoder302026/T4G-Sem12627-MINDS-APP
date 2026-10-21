@@ -58,9 +58,10 @@ export function onUnauthorized(handler) {
 
 export const isNetworkError = (err) => err instanceof ApiError && err.code === 'NETWORK_ERROR';
 
-export async function call(action, payload = {}) {
+/** options.timeoutMs: wait longer than usual (e.g. uploading a file). */
+export async function call(action, payload = {}, options = {}) {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), CONFIG.REQUEST_TIMEOUT_MS);
+  const timer = setTimeout(() => controller.abort(), options.timeoutMs || CONFIG.REQUEST_TIMEOUT_MS);
   let response;
   try {
     response = await fetch(CONFIG.API_URL, {
@@ -81,7 +82,7 @@ export async function call(action, payload = {}) {
   try {
     body = await response.json();
   } catch {
-    throw new ApiError('BAD_RESPONSE', 'The server sent an unexpected reply. If this keeps happening, tell a volunteer leader.');
+    throw new ApiError('BAD_RESPONSE', 'The server sent an unexpected reply. If this keeps happening, tell an admin.');
   }
   if (!body || body.ok !== true) {
     const error = new ApiError(body?.error?.code || 'UNKNOWN', body?.error?.message || 'Something went wrong.');

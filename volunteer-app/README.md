@@ -1,41 +1,45 @@
 # MINDS Volunteer App
 
 A phone app for **MINDS** volunteering, built for NTU Tech for Good (Semester 1, AY2026/27).
-It replaces paper attendance and manual hour logging. Volunteers book sessions and show a
-QR pass, leaders scan it to clock them in and out, and the hours are recorded in a Google
-Sheet straight away.
+It replaces paper attendance and manual hour logging. Volunteers say which sessions they're
+coming to and show a QR pass, admins pair them with trainees and scan the pass to clock them
+in and out, and the hours are recorded in a Google Sheet straight away.
 
-It comes with a **staff dashboard** for computers (`web/admin/`) for the record keeping:
-volunteer and trainee lists, attendance corrections and hours reports, fundraising,
-outings, overseas trips and house visits. The phone app and the dashboard share one
-backend and one Google Sheet.
+**One app for everyone.** Volunteers see Home, QR pass, Sessions and Me; regular volunteers
+also see Trainees. Admins see all of that plus the **Admin** menu: sessions, pairing,
+scanning, volunteers, trainees, attendance, hours, the activity log and settings. On a phone
+the menu is the tab bar; on a computer it becomes a sidebar with the same pages.
 
 <table>
   <tr>
-    <td><img src="docs/screenshots/guide.png" width="150" alt="Volunteer Guide shown to a new volunteer"></td>
-    <td><img src="docs/screenshots/volunteer-trainee.png" width="150" alt="A volunteer's session with their trainee's profile and notes"></td>
-    <td><img src="docs/screenshots/leader-auto-pair.png" width="150" alt="Leader's session page with automatically paired trainees"></td>
-    <td><img src="docs/screenshots/venue-dropdown.png" width="150" alt="Venue dropdown with fuzzy search"></td>
-    <td><img src="docs/screenshots/leader-sessions.png" width="150" alt="Leader's sessions list"></td>
+    <td><img src="docs/screenshots/sessions-im-coming.png" width="150" alt="Ticking sessions and tapping I'm coming"></td>
+    <td><img src="docs/screenshots/regular-home.png" width="150" alt="A regular volunteer's home with their fixed trainee"></td>
+    <td><img src="docs/screenshots/trainee-info.png" width="150" alt="A trainee's details grouped like the House Visit form"></td>
+    <td><img src="docs/screenshots/pairing-board.png" width="150" alt="Pairing board: volunteers beside trainees"></td>
+    <td><img src="docs/screenshots/admin-menu.png" width="150" alt="The Admin menu on a phone"></td>
   </tr>
   <tr>
-    <td align="center"><sub>Guide for new volunteers</sub></td>
-    <td align="center"><sub>Your trainee</sub></td>
-    <td align="center"><sub>Auto-pairing</sub></td>
-    <td align="center"><sub>Venue dropdown</sub></td>
-    <td align="center"><sub>Leader sessions</sub></td>
+    <td align="center"><sub>"I'm coming"</sub></td>
+    <td align="center"><sub>A regular's home</sub></td>
+    <td align="center"><sub>Trainee details</sub></td>
+    <td align="center"><sub>Pairing board</sub></td>
+    <td align="center"><sub>Admin menu</sub></td>
   </tr>
 </table>
 
-<sub>Screenshots use the local demo; every person in them is fictional.</sub>
+<img src="docs/screenshots/desktop-regular-pairings.png" width="760" alt="On a computer: the sidebar and the regular pairings board">
 
-**Status:** working prototype. It runs fully on a laptop with demo data. Connecting it to
-Google Apps Script and a real Google Sheet is the next stage (see
-[Part 3](#part-3-integrating-google-apps-script--google-sheets)).
+<sub>Screenshots use the local demo; every person in them is fictional (the trainees are
+MINDS's mock House Visit data).</sub>
+
+**Status:** working prototype (Version 2). It runs fully on a laptop with demo data, and
+connects to Google Apps Script and Google Sheets as described in
+[Part 3](#part-3-integrating-google-apps-script--google-sheets). What changed since
+Version 1, and why, is in [VERSION-2.md](../VERSION-2.md).
 
 | Part | What it covers |
 | --- | --- |
-| [Part 1: App features](#part-1-app-features) | What volunteers, leaders and staff (dashboard) can do today |
+| [Part 1: App features](#part-1-app-features) | What volunteers, regulars and admins can do |
 | [Part 2: Test environment](#part-2-setting-up-the-test-environment) | Run the tests and the local demo on your own computer |
 | [Part 3: Apps Script & Google Sheets](#part-3-integrating-google-apps-script--google-sheets) | How to connect the app to Google, from test sheet to production |
 | [Part 4: Reference](#part-4-reference) | Sheet tabs, repo layout, team workflow, troubleshooting, limits |
@@ -48,75 +52,76 @@ gives an overview of both apps.
 
 ## Part 1: App features
 
-### For volunteers
+### Three profiles
+
+| Profile | Who | Trainees they can see | How they're paired |
+| --- | --- | --- | --- |
+| **Volunteer** | Everyone starts here (new / ad hoc) | Only the trainee they're paired with, and only the details admins allow | An admin pairs them for each session |
+| **Regular** | After **10 attended sessions** (automatic), or promoted by an admin | Any trainee, with the details admins allow (everything by default) | An admin can give them a **fixed trainee**; it's applied every time they say they're coming, until an admin changes it |
+| **Admin** | A volunteer or regular with admin access | Everything | As above, plus they pair everyone else |
+
+A volunteer has **one trainee** per session. A trainee can have **several volunteers**,
+ideally at least one regular; the app flags trainees without one.
+
+### For every volunteer
 
 | Feature | What it does |
 | --- | --- |
-| **1. Register and profile** | Sign up with name, birthday, email, phone, Telegram and emergency contact. Edit details later under **Me**. |
-| **2. Volunteer Guide** | New volunteers read a short guide (projects, what to wear, expectations) and tap **I've read the guide** before their first booking. |
-| **3. Find and book sessions** | Browse upcoming sessions with forgiving search, so a typo like "carnval" still finds "Sports carnival helpers". |
-| **4. Meet your trainee** | After a booking is confirmed, see the paired trainee's preferred name, gender, communication style, behaviours, things to take note, interests, support needs, and recent notes from earlier volunteers. |
+| **1. Register and profile** | Sign up with name, birthday, email, phone, Telegram and emergency contact. Edit details later under **Me**. (The fields will follow MINDS's registration form once it's shared.) |
+| **2. Volunteer Guide** | New volunteers read a short guide (text, plus any infographics: pictures or PDFs) and tap **I've read the guide** before their first sign-up. |
+| **3. Upcoming sessions** | Every volunteer sees the upcoming sessions. Tick every one you can come to and tap **I'm coming**: no waiting for a confirmation. **Can't make it** takes you off a session. |
+| **4. Your trainee** | Once paired, see your trainee's allowed details and notes from earlier volunteers, and open their full page. Regulars see their fixed trainee on Home. |
 | **5. QR pass** | Show a QR code to clock in and out. Passes are stored on the phone, so they work without signal. |
-| **6. Feedback** | Rate the session and leave an observation for the next volunteer paired with that trainee. |
+| **6. Feedback and updates** | Rate a session and leave an observation, or send an update about your trainee any time. An admin reviews it before other volunteers see it. |
+| **7. Progress** | Hours, sessions and "x of 10 sessions to become a regular volunteer". |
+| **8. Trainees (regulars)** | Browse every trainee, read their details and send updates about any of them. |
 
-### For volunteer leaders
+### For admins (Admin menu)
 
 | Feature | What it does |
 | --- | --- |
-| **1. Post sessions** | Create sessions with a venue dropdown (starts with MINDS Woodlands Gardens School, and more can be added), an optional project, and the trainees attending. |
-| **2. Confirm bookings and auto-pairing** | Confirming a booking pairs the volunteer with a trainee automatically: the same trainee as last time if they're free, otherwise the one with the fewest pairings. Leaders can change any pairing by typing a name. |
-| **3. Scan to clock in/out** | Scan a volunteer's pass with the phone camera. Supports walk-ins, scans made offline (sent when signal returns) and clocking in by hand. |
-| **4. Review notes** | Volunteer observations stay private until a leader shares them as trainee notes. Leaders can also add or hide notes. |
-| **5. Manage content and people** | Edit the Volunteer Guide, projects and venues. Edit anyone's details, change roles, reset passwords and deactivate accounts. |
-
-### Staff dashboard (computer)
-
-Open `admin/` on the same site (locally: <http://localhost:5173/admin/>) and sign in with a
-**leader** account. Volunteers who try it see "Leaders only". The dashboard is built for a
-laptop or desktop screen; the phone app stays the tool for the day itself.
-
-| Section | What staff can do |
-| --- | --- |
-| **1. Overview & people** | **Overview:** counts, hours this month, unpaid orders, upcoming sessions, outings and trips. **Attendance:** every clock record for a date range; fix a missed scan-out, or add someone who was never scanned (hours are worked out again, and the row records who edited it). **Volunteer hours:** completed hours per volunteer for any date range, exported as CSV. **Volunteers:** add people (with a temporary password, or list-only), edit, change roles, reset passwords, deactivate. **Trainees:** add and edit trainees (including medical, dietary and caregiver details), notes for volunteers, and each trainee's sessions, outings, trips and visits on one page. |
-| **2. Fundraising** | Fundraisers, products with SGD prices, orders with several items, paid/unpaid and collected/to collect, total and paid sales. The server works out every total from the stored prices. |
-| **3. Outings** | Outings, each trainee assigned once to a volunteer with group and bus labels, and a boarded tick-list with a running count. |
-| **4. Overseas trips** | Trips with checked date ranges, participants (their medical and dietary notes are copied in at sign-up, so later profile edits don't change the trip copy), volunteer and status per participant, a logistics checklist and expenses with a running total. |
-| **5. House visits** | Visit records (family, daily living, social, health, follow-up). History is add-only and newest first, filterable by trainee. |
-
-Records are never deleted from the dashboard: people are deactivated, trainees marked
-inactive, products taken off sale, and outings or trips cancelled.
+| **Dashboard** | New and regular volunteers, trainees without a regular, hours, who's coming and who still needs pairing. |
+| **Sessions** | Who's coming to each session (with no-shows for past ones), create, edit, close or cancel sessions. |
+| **Pairing** | A pairing board per session, in the style of the WERONE outing app: volunteers beside trainees, a search box for each, an **Unpaired** count that filters, tap to pair, press and hold a volunteer for their Telegram. A **Pairing list** view gives a Volunteer → Trainee table to screenshot. **Regular pairings** sets each regular's fixed trainee. |
+| **Scan passes / Clock in by hand** | Scan QR passes (works offline; uploads later). Clocking in by hand is its own page, with walk-ins. |
+| **Volunteers** | Profiles, sessions, no-shows and hours. Promote to regular (or back), make or remove admins, reset passwords, **Deactivate** straight from the list. **Removing or deactivating an admin needs your own password.** |
+| **Trainees** | Every trainee with all their details grouped like the House Visit form, their regular volunteers, notes, visits and history. **What volunteers see** sets the details volunteers and regulars get: a default for everyone, own settings per trainee, and "Set as default". |
+| **Attendance, Volunteer hours** | Every clock-in and out; fix a missed scan; hours per volunteer, exported as CSV. |
+| **Notes to review** | Session feedback and trainee updates, shared or kept private. |
+| **Activity log** | Every change an admin makes, in plain English: who, what and when. Also kept in the sheet. |
+| **Guide & projects** | Everything new volunteers read: add and edit text sections, and **infographics** (a JPG/PNG picture or a PDF, up to 8 MB) uploaded from your device or picked from Google Drive by its share link; move items up and down; replace or remove a file. |
+| **Venues** | The venue list for sessions. |
+| **Later (placeholders)** | Fundraising, outings, overseas trips and house visits from Version 1 are kept but parked until MINDS decides how they fit. |
 
 ### Behind the scenes
 
-- **Every action is written to a Google Sheet.** Hours, bookings, feedback and notes are
-  rows that staff can read, filter and correct directly.
-- **Works with MINDS's existing trainee list.** The app reads the trainee tab by column
-  header names. Staff can add and edit trainees on the dashboard, which only writes the
-  columns it knows and never deletes or reorders rows.
-- **Privacy:** volunteers only see the trainee fields they need for a session. Medical and
-  caregiver details stay visible to leaders only.
+- **Every action is written to a Google Sheet.** Rows that staff can read, filter and correct.
+- **Trainees come from MINDS's own sheet.** The trainee list can be a separate file (e.g. the
+  House Visit form's responses), linked by pasting its URL. The app reads every column and
+  groups them using the form's "Map (Fixed)" tab. It only adds a Trainee ID column and two
+  observation columns, and never deletes or reorders rows.
+- **Regular pairings can come from a sheet.** The Regular Pairings tab accepts rows typed with
+  plain names (like the outing sheet's pairing list); the app matches them to accounts.
+- **Privacy:** volunteers see only what admins allow, and only for their own trainee.
 - **Installable** on a phone home screen as a web app (PWA). No app store needed.
 
-Step-by-step guides for each task are in
-[docs/USER-GUIDE.md](docs/USER-GUIDE.md), and the reasons
-behind the design are in [DESIGN-NOTES.md](DESIGN-NOTES.md).
+Step-by-step guides for each task are in [docs/USER-GUIDE.md](docs/USER-GUIDE.md), and the
+reasons behind the design are in [DESIGN-NOTES.md](DESIGN-NOTES.md).
 
 ### How it fits together
 
 ```mermaid
 flowchart LR
-  V[Volunteer phone<br/>web app on GitHub Pages] -- "requests" --> G[Google Apps Script<br/>backend API]
-  L[Leader phone<br/>camera scanner] -- "scans" --> G
-  D[Staff computer<br/>dashboard at /admin/] -- "requests" --> G
-  G -- "reads and writes rows" --> S[(Google Sheet<br/>Volunteers · Sessions · Bookings<br/>Attendance · Feedback · Notes<br/>Fundraising · Outings · Trips · Visits<br/>+ existing Trainees tab)]
+  V[Phones and computers<br/>one web app on GitHub Pages] -- "requests, scans" --> G[Google Apps Script<br/>backend API]
+  G -- "reads and writes rows" --> S[(Volunteer sheet<br/>Volunteers · Sessions · Bookings<br/>Attendance · Feedback · Notes<br/>Regular Pairings · Activity Log · Settings)]
+  G -- "reads; adds IDs" --> T[(Trainee sheet<br/>e.g. House Visit form responses)]
 ```
 
 | Layer | Technology | Where it lives |
 | --- | --- | --- |
-| Phone app | HTML, vanilla JavaScript, Tailwind CSS | `volunteer-app/web/`, published to GitHub Pages |
-| Staff dashboard | Same, reusing the phone app's helpers | `volunteer-app/web/admin/`, published with the phone app |
+| Web app (phones and computers) | HTML, vanilla JavaScript, Tailwind CSS | `volunteer-app/web/`, published to GitHub Pages. Admin pages that came from the Version 1 dashboard are in `web/admin/js/views/` |
 | Backend API | Google Apps Script | `volunteer-app/gas/`, pasted or pushed into an Apps Script project |
-| Database | Google Sheets | A sheet owned by MINDS |
+| Database | Google Sheets | A volunteer sheet, and MINDS's trainee sheet (can be the same file) |
 | Deployment | GitHub Actions + clasp | `.github/workflows/` |
 
 The web page is hosted on GitHub Pages rather than Apps Script because pages served by
@@ -160,12 +165,14 @@ There's nothing to `npm install`, because the volunteer app has no dependencies.
 npm test
 ```
 
-Expected result: `ℹ tests 56`, `ℹ pass 56`, `ℹ fail 0`. `tests/gas.test.js` covers the
-phone app's flow: register, read the guide, book, pair a trainee, scan in and out, give
-feedback, and write trainee notes. `tests/dashboard.test.js` covers the staff dashboard:
-leaders-only access, attendance fixes and hours reports, adding volunteers and trainees,
-order totals, outings, trips and house visits. They also run automatically on every pull
-request.
+Expected result: `ℹ tests 66`, `ℹ pass 66`, `ℹ fail 0`. `tests/gas.test.js` covers the
+main flow: register, read the guide, say you're coming, pairing (volunteers by an admin,
+regulars with their fixed trainee), becoming a regular after 10 sessions, scan in and out,
+feedback, trainee notes, and removing an admin with a password. `tests/dashboard.test.js`
+covers the admin pages that came from the Version 1 dashboard. `tests/v2.test.js` runs
+against MINDS's mock House Visit data: the trainee sheet linked by URL, the form's
+sections, what volunteers and regulars may see, trainee updates and the activity log.
+They also run automatically on every pull request.
 
 ### Step 4: Start the local demo
 
@@ -177,28 +184,28 @@ You should see:
 
 ```
 MINDS Volunteer app (local mock) → http://localhost:5173
-  Leader:    leader@example.com / LeaderDemo123
+  Admin:     admin@example.com / AdminDemo123
+  Regular:   regular@example.com / RegularDemo123
   Volunteer: volunteer@example.com / VolunteerDemo123
-  Staff dashboard: http://localhost:5173/admin/
   Sheet view: http://localhost:5173/__sheet
 ```
 
 Open **<http://localhost:5173>** and sign in with a demo account:
 
-| Role | Email | Password |
-| --- | --- | --- |
-| Volunteer leader | `leader@example.com` | `LeaderDemo123` |
-| Volunteer | `volunteer@example.com` | `VolunteerDemo123` |
-| Second volunteer | `sam@example.com` | `VolunteerDemo123` |
+| Profile | Email | Password | In the demo |
+| --- | --- | --- | --- |
+| Admin | `admin@example.com` | `AdminDemo123` | Ada: the Admin menu |
+| Regular | `regular@example.com` | `RegularDemo123` | Rex: fixed trainee Mock Trainee 1 |
+| Regular | `rina@example.com` | `RegularDemo123` | Rina: fixed trainee Mock Trainee 2 |
+| Volunteer | `volunteer@example.com` | `VolunteerDemo123` | Vera: paired by an admin |
+| Volunteer | `sam@example.com` | `VolunteerDemo123` | Sam: 9 sessions done; clocking him out today makes him a regular |
 
-Open **<http://localhost:5173/admin/>** for the staff dashboard (sign in as the leader). It
-already has a demo fundraiser, outing, overseas trip and house visits.
+The trainees are the **100 fictional trainees** from MINDS's mock House Visit form
+responses (`tests/fixtures/house-visit-mock.json`), loaded as a separate trainee file
+linked by URL, as it would be in production.
 
 Open **<http://localhost:5173/__sheet>** in another tab to see what the app would write to
-Google Sheets. Refresh it after each action.
-
-The phone app and the dashboard share a sign-in on the same browser, so signing out of one
-signs you out of the other.
+both Google Sheets. Refresh it after each action.
 
 - To **stop** the demo, press **Ctrl+C**. All demo data resets when it stops.
 - To use **another port**, run `PORT=5174 npm run dev`.
@@ -206,22 +213,22 @@ signs you out of the other.
 ### Step 5: Walk through the main flow
 
 Use a normal browser window for the volunteer and a private or incognito window for the
-leader, so you can be signed in as both at once.
+admin, so you can be signed in as both at once.
 
 | # | As | Do this | Check that |
 | --- | --- | --- | --- |
-| 1 | New user | Register with fictional details | You're asked to read the Volunteer Guide before booking |
-| 2 | Volunteer | Book an upcoming session | The booking shows as pending |
-| 3 | Leader | Open the session and confirm the booking | A trainee is paired automatically |
-| 4 | Volunteer | Open the session | The trainee's profile and notes appear |
-| 5 | Volunteer + Leader | Open the QR pass, then clock in by hand as the leader | A row appears in **Attendance** in `/__sheet` |
-| 6 | Volunteer | Submit feedback with a trainee observation | It waits for a leader to review it |
-| 7 | Leader | Share the observation | It appears in **Trainee Notes** |
-| 8 | Leader | Add a venue, edit the guide, edit a volunteer's details | The changes show up in the app and in `/__sheet` |
-| 9 | Dashboard | Add a volunteer, then sign in to the phone app with the temporary password | The new volunteer is asked to read the guide |
-| 10 | Dashboard | Attendance → **Fix** a record; Volunteer hours → **Export totals (CSV)** | Hours are worked out again; the CSV opens in Excel or Sheets |
-| 11 | Dashboard | Add a trainee, then open a session in the phone app as a leader | The new trainee can be paired |
-| 12 | Dashboard | Take an order, tick a trainee as boarded, record a trip expense and a house visit | Totals and counts update; rows appear in `/__sheet` |
+| 1 | New user | Register with fictional details | You're asked to read the Volunteer Guide before signing up |
+| 2 | Volunteer (Sam) | Sessions → tick two sessions → **I'm coming** | Both appear on Home straight away, "not paired yet" |
+| 3 | Regular (Rex) | Sign up for a session | You're paired with Mock Trainee 1 at once ("your regular trainee") |
+| 4 | Admin | Admin → Pairing → a session; tap Sam, pick a trainee; press and hold a name | The unpaired count drops; the contact pop-up shows Telegram |
+| 5 | Admin | Pairing → **Regular pairings**: give Rina a different trainee | Rina's upcoming sessions move to the new trainee |
+| 6 | Admin | Clock in by hand → today's Art & Craft → clock Sam in, then out | Sam becomes a **Regular** (10 sessions) |
+| 7 | Regular | Trainees → any trainee → **Send update** | It waits under Admin → Notes to review |
+| 8 | Volunteer (Vera) | Home → your trainee → **See all details** | Only the allowed details appear; another trainee's page is refused |
+| 9 | Admin | Trainees → a trainee → **What volunteers see**; untick a detail; save | Vera no longer sees it for that trainee |
+| 10 | Admin | Volunteers → make Vera an admin, then remove admin access | You're asked for your own password |
+| 11 | Admin | Activity log | Every change above is listed with who did it |
+| 12 | Any | Resize the browser from phone width to full width | The tabs become a sidebar; tables become cards on a phone |
 
 ### Step 6: Check the phone layout
 
@@ -260,25 +267,28 @@ Always set up **Exp first** and only move to Prod once Exp has been tested end t
 - Edit access to the Google Sheet.
 - Admin access to this GitHub repo, to set variables and secrets.
 
-### Stage 1: Prepare the Google Sheet
+### Stage 1: Prepare the Google Sheets
 
-1. For Exp, create a **new Google Sheet** or make a copy of the MINDS sheet and replace every
-   real person with fictional data.
-2. Add a tab named **`Trainees`**, or use the existing trainee tab. The app finds columns by
-   **header text in row 1**, so column order doesn't matter. The default headers are:
+You need a **volunteer sheet** (the app creates its tabs there) and a **trainee list**.
+They can be the same file, but MINDS prefers them separate.
 
-   | Header | Required? | Shown to volunteers? |
-   | --- | --- | --- |
-   | `Name` | **Yes** | Leaders only |
-   | `Preferred Name`, `Gender`, `Communication`, `Behaviours`, `Things to Take Note`, `Interests`, `Support Needs` | No | Yes, to the paired volunteer |
-   | `Medical Notes`, `Dietary Notes`, `Caregiver Name`, `Caregiver Phone` | No | Leaders only |
-   | `Active` | No | "No" keeps a trainee out of auto-pairing |
-   | `Trainee ID` | No | Filled in automatically by `setup()` |
+1. For Exp, create a **new Google Sheet** for volunteers. Leave it empty: `setup()` adds
+   every tab in Stage 4.
+2. For trainees, use a copy of the **House Visit form's response sheet** with fictional data
+   (e.g. MINDS's "Mock Data - [Exp] House Visit Template Form (Responses)"). The app:
+   - finds the trainee's name in **`Trainee’s Full Name`** (or `Name`), the short name in
+     **`Trainee's Short Name`**, and reads **every other column** too;
+   - groups the columns into sections using the file's **`Map (Fixed)`** tab (row 1 =
+     headers, row 2 = section names);
+   - adds three columns at the right: `Trainee ID`, `Latest Volunteer Observation` and
+     `Observation Updated`. The form's own columns are untouched.
+3. If a header is worded differently, add it to the list in `TRAINEES.columns` in
+   [`gas/Config.gs`](gas/Config.gs). For example, `name: ['Name', 'Trainee’s Full Name', 'Student Name']`.
+4. New form responses get a Trainee ID the next time `setup()` runs.
 
-3. If MINDS's headers are worded differently, change the **right-hand side** of
-   `TRAINEES.columns` in [`gas/Config.gs`](gas/Config.gs) to match.
-   For example, `communication: 'Comms Style'`.
-4. You don't need to create any other tabs. `setup()` does that in Stage 4.
+A simple trainee tab still works too: `Name`, `Preferred Name`, `Gender`, `Communication`,
+`Behaviours`, `Things to Take Note`, `Interests`, `Support Needs`, `Medical Notes`,
+`Dietary Notes`, `Caregiver Name`, `Caregiver Phone`, `Active` ("No" hides a trainee from pairing).
 
 ### Stage 2: Create the Apps Script project
 
@@ -286,13 +296,15 @@ Always set up **Exp first** and only move to Prod once Exp has been tested end t
 
 1. In the sheet, open **Extensions → Apps Script**.
 2. For each file in [`gas/`](gas), create a script file with the
-   same name (**+ → Script**) and paste in its contents: `Admin`, `Attendance`, `Auth`,
-   `Config`, `Content`, `Dashboard`, `Db`, `Fundraising`, `Main`, `Outings`, `Profile`,
-   `Setup`, `Trainees`, `Trips`, `Util`, `Visits`, `Volunteer`.
+   same name (**+ → Script**) and paste in its contents: `Admin`, `AdminLog`, `Attendance`,
+   `Auth`, `Config`, `Content`, `Dashboard`, `Db`, `Fundraising`, `Main`, `Outings`, `Pairing`,
+   `Profile`, `Setup`, `TraineeInfo`, `Trainees`, `Trips`, `Util`, `Visits`, `Volunteer`.
+   (Or paste them all into one file: `cat gas/*.gs | pbcopy` on a Mac.)
    Delete the default `Code.gs`.
 3. In **Project Settings** (the gear icon), tick **Show "appsscript.json" manifest file in
    editor**. Then replace that file's contents with
-   [`gas/appsscript.json`](gas/appsscript.json).
+   [`gas/appsscript.json`](gas/appsscript.json). It asks for two permissions: your
+   spreadsheets, and Google Drive (to store and share the guide's infographics).
 
 **Option B: clasp (recommended once you update code often)**
 
@@ -312,9 +324,10 @@ In Apps Script, go to **Project Settings → Script properties → Add script pr
 
 | Property | Value | Required? |
 | --- | --- | --- |
-| `SPREADSHEET_ID` | The long ID in the sheet's URL, between `/d/` and `/edit` | **Yes** |
-| `TRAINEE_SPREADSHEET_ID` | ID of a separate file, only if trainees live elsewhere | No |
+| `SPREADSHEET_ID` | The volunteer sheet: its ID (between `/d/` and `/edit`) or its full URL | **Yes** |
+| `TRAINEE_SPREADSHEET_ID` | The trainee sheet, if it's a separate file. Paste the **full URL of the tab**, e.g. `https://docs.google.com/spreadsheets/d/…/edit#gid=123`: the `#gid=` part picks the tab | No |
 | `FIRST_ADMIN_EMAIL` | Your email, added in Stage 7 | Later |
+| `GUIDE_FOLDER_ID` | Created automatically the first time an admin uploads an infographic: the Drive folder "MINDS Volunteer App – Guide infographics" | Automatic |
 
 Sheet IDs are kept here rather than in the code, so they never end up on GitHub.
 
@@ -322,14 +335,16 @@ Sheet IDs are kept here rather than in the code, so they never end up on GitHub.
 
 1. In the Apps Script editor, open `Setup.gs`, choose **`checkConfig`** in the function
    dropdown, and click **Run**. Approve the permission prompt. The app only asks for
-   access to spreadsheets.
+   access to spreadsheets and Google Drive.
 2. Read the **Execution log** at the bottom of the editor. It lists what `setup()` would add,
    without changing anything.
 3. Run **`setup()`**. It:
    - creates the app's tabs (Volunteers, Sessions, Bookings, Attendance, Feedback, Trainee
-     Notes, Venues, Projects, Volunteer Guide, and the hidden `_Auth`) and the staff
-     dashboard's tabs (Fundraisers, Products, Orders, Order Items, Outings, Outing
-     Assignments, Trips, Trip Participants, Trip Logistics, Trip Expenses, House Visits);
+     Notes, Venues, Projects, Volunteer Guide, Regular Pairings, Admin Activity Log, App
+     Settings, Trainee Visibility and the hidden `_Auth`) and the placeholder tabs from
+     Version 1 (Fundraisers, Products, Orders, Order Items, Outings, Outing Assignments,
+     Trips, Trip Participants, Trip Logistics, Trip Expenses, House Visits);
+   - gives every volunteer a Volunteer Type, and makes anyone with 10+ attended sessions a regular;
    - adds any missing columns to existing tabs;
    - gives every trainee a Trainee ID;
    - adds a starter venue, guide and project;
@@ -362,19 +377,19 @@ its own sign-in checks on every request.
 3. Go to **Actions → Volunteer app · deploy web → Run workflow**. After that, it runs by
    itself whenever `volunteer-app/web/` changes on `main`.
 4. Open the site. The link is under Settings → Pages and looks like
-   `https://vcoder302026.github.io/T4G-Sem12627-MINDS-APP/`. The staff dashboard is the same
-   link plus `admin/`.
+   `https://vcoder302026.github.io/T4G-Sem12627-MINDS-APP/`. (The old dashboard link,
+   `…/admin/`, now opens the same app.)
 
 The URL is added to `web/js/config.js` during deployment, so it's never committed to the repo.
 
-### Stage 7: Create the first leader
+### Stage 7: Create the first admin
 
 1. Register an account on the live site.
 2. Add the script property `FIRST_ADMIN_EMAIL` with that email.
 3. Run **`makeFirstAdmin()`** in `Setup.gs`.
-4. Sign out and back in. You're now a leader and can promote others from inside the app.
+4. Sign out and back in. The **Admin** menu appears; make other admins from Admin → Volunteers.
 
-**Now test on real phones:** one phone shows a volunteer's QR pass and the leader's phone
+**Now test on real phones:** one phone shows a volunteer's QR pass and the admin's phone
 scans it. Check that the row appears in the **Attendance** tab.
 
 ### Stage 8: Automatic backend deploys (optional)
@@ -480,23 +495,26 @@ Only start this after the Exp test rounds (Stage 9) are finished and MINDS has a
 - [ ] Back up the real sheet (File → Make a copy) before the first `setup()`.
 - [ ] Review `TRAINEES.volunteerVisible` in `Config.gs` with MINDS. Volunteers should see
       only what they need, in line with PDPA.
-- [ ] Review the switches in `Config.gs` (for example `AUTO_PAIR_ON_CONFIRM`,
+- [ ] Review the switches in `Config.gs` (for example `REGULAR_AFTER_SESSIONS`,
       `AUTO_SHARE_OBSERVATIONS`, `REQUIRE_GUIDE_BEFORE_BOOKING`).
 - [ ] Review the known limits: password hashing uses HMAC-SHA256 because Apps Script has no
       bcrypt, emails aren't verified, and Apps Script handles about 30 requests at once.
       See [Limits of this prototype](#limits-of-this-prototype).
-- [ ] Make the first leader with `makeFirstAdmin()`, then remove `FIRST_ADMIN_EMAIL`.
+- [ ] Make the first admin with `makeFirstAdmin()`, then remove `FIRST_ADMIN_EMAIL`.
 
 ### Key settings in `Config.gs`
 
 | Setting | Default | What it does |
 | --- | --- | --- |
-| `TRAINEES.columns` | MINDS-style headers | Your trainee tab's header names |
-| `TRAINEES.volunteerVisible` | preferred name, gender, communication, behaviours, things to take note, interests, support needs | What a paired volunteer sees |
-| `AUTO_PAIR_ON_CONFIRM` | `true` | Pair a trainee automatically when a booking is confirmed |
-| `AUTO_SHARE_OBSERVATIONS` | `false` | Share volunteer notes without a leader's review |
-| `REQUIRE_GUIDE_BEFORE_BOOKING` | `true` | New volunteers read the guide before their first booking |
-| `ALLOW_SHARED_TRAINEE` | `false` | Let two volunteers share a trainee in one session |
+| `REGULAR_AFTER_SESSIONS` | `10` | Attended sessions after which a volunteer becomes a regular automatically |
+| `APPLY_STANDING_PAIRINGS` | `true` | Pair a regular with their fixed trainee as soon as they say they're coming |
+| `ALLOW_SHARED_TRAINEE` | `true` | A trainee may have several volunteers in one session |
+| `TRAINEES.columns` | demo and House Visit form headers | Your trainee sheet's headers (a list = whichever the sheet has) |
+| `TRAINEES.sectionMapTab` | `Map (Fixed)` | Tab that groups trainee columns into sections |
+| `TRAINEES.visibleTo` | volunteers: short name, gender, language, allergies, behaviour, abilities…; regulars: everything | Starting point for what each group sees (admins change it in the app; MINDS to confirm) |
+| `AUTO_SHARE_OBSERVATIONS` | `false` | Share volunteer notes without an admin's review |
+| `REQUIRE_GUIDE_BEFORE_BOOKING` | `true` | New volunteers read the guide before their first sign-up |
+| `GUIDE_FILES` | 8 MB; JPG, PNG, WebP, GIF, PDF | Infographics allowed in the guide, and the Drive folder they're saved in |
 | `DEFAULT_VENUES` | MINDS Woodlands Gardens School | Venues `setup()` adds when the Venues tab is empty |
 
 ---
@@ -507,22 +525,26 @@ Only start this after the Exp test rounds (Stage 9) are finished and MINDS has a
 
 | Tab | One row per | Notes |
 | --- | --- | --- |
-| Volunteers | person | Profile, emergency contact, Role (`volunteer`/`admin`), Status (`inactive` blocks sign-in) |
+| Volunteers | person | Profile, emergency contact, Role (`admin` = Admin menu), Volunteer Type (`volunteer`/`regular`) and who set it, Status (`inactive` blocks sign-in) |
 | _Auth (hidden) | person | Salted password hashes. Never shown in the app |
 | Sessions | session | Venue, project, trainees attending; status `open` / `closed` / `cancelled` |
-| Bookings | booking | `pending` → `confirmed` or `cancelled`; paired trainee; walk-in flag |
+| Bookings | sign-up | `confirmed` ("coming") or `cancelled`; paired trainee and how (`standing` = regular's fixed trainee, `manual` = an admin); walk-in flag |
 | Attendance | clock record | Clock in, clock out, hours, who scanned, method (`QR`, `QR (offline)`, `Manual`, `Dashboard`), who edited it on the dashboard |
 | Feedback | submission | Rating 1–5, comments, trainee observation, review status |
 | Trainee Notes | note | What future volunteers see; `shared` or `hidden` |
-| Venues, Projects, Volunteer Guide | item | Editable by leaders in the app |
-| Trainees (existing) | trainee | The phone app only adds Trainee ID and two observation columns. The dashboard adds and edits trainees, writing only the mapped columns |
+| Venues, Projects | item | Editable by admins in the app |
+| Volunteer Guide | text section or infographic | Type (`text`, `image`, `pdf`), heading, content or caption, and the Google Drive file ID |
+| Regular Pairings | pairing | A regular's fixed trainee; `active` or `ended`. Rows may be typed with names only (User ID and Trainee ID blank) |
+| Admin Activity Log | change | When, which admin, what they did, in plain English |
+| App Settings, Trainee Visibility | setting | What volunteers and regulars see about trainees (default, and per trainee) |
+| Trainees (MINDS's sheet) | trainee | The app adds Trainee ID and two observation columns. Admins can add and edit trainees, writing only the mapped columns |
 | Fundraisers, Products | fundraiser / product | Prices in SGD; products are archived rather than deleted |
 | Orders, Order Items | order / line | Total worked out by the server; each line keeps the price it was sold at |
 | Outings, Outing Assignments | outing / trainee | One row per trainee per outing, with volunteer, group, bus and boarded |
 | Trips, Trip Participants, Trip Logistics, Trip Expenses | trip / trainee / item / expense | Participants keep their own copy of medical and dietary notes |
 | House Visits | visit | Add-only history |
 
-Staff can still edit the sheet directly, but the dashboard is safer: it checks every value
+Staff can still edit the sheet directly, but the app is safer: it checks every value
 and keeps hours, totals and names consistent. The app re-reads the sheet on every request.
 Only rename a header together with `Config.gs`.
 
@@ -536,8 +558,8 @@ real data.
 ```
 volunteer-app/
   gas/              Apps Script backend (goes into the Apps Script project)
-  web/              phone app (published to GitHub Pages)
-  web/admin/        staff dashboard (published with it, at admin/)
+  web/              the app (published to GitHub Pages)
+  web/admin/js/     admin pages that came from the Version 1 dashboard (now part of the app)
   dev/              local demo server and in-memory Google Sheets stand-in
   tests/            backend tests (npm test)
   docs/             user guide, screenshots and the demo spreadsheet
@@ -574,22 +596,26 @@ variables instead.
 | Code change isn't live | Publish a **New version** of the existing deployment, or set up Stage 8. |
 | Camera doesn't start | Use the HTTPS GitHub Pages site and allow camera access in the browser. |
 
-How each screen works for volunteers and leaders: [docs/USER-GUIDE.md](docs/USER-GUIDE.md).
+How each screen works: [docs/USER-GUIDE.md](docs/USER-GUIDE.md).
 
 ### Limits of this prototype
 
 - Passwords use iterated HMAC-SHA256 with a secret pepper (Apps Script has no
   bcrypt or scrypt). Review before a real launch.
 - Emails aren't verified. Someone registering with an email already on the
-  Volunteers list links to that row (always as a volunteer, never a leader).
+  Volunteers list links to that row (always as a volunteer, never an admin).
 - Apps Script requests take 1–2 s and handle about 30 at once: fine for
   session-sized groups, not for thousands of simultaneous users.
-- Pairing doesn't consider gender, skills or preferences yet; leaders adjust it.
-- The dashboard never deletes records (deactivate, archive or cancel instead), and an
-  order can't be changed after it's taken (only paid and collected).
-- The dashboard loads whole lists at once. That's fine for MINDS-sized data (hundreds of
-  rows) but would need paging for many thousands.
-- The phone app and the dashboard share one sign-in per browser.
-- The scanner library (`html5-qrcode` 2.3.8) is no longer actively maintained;
-  it loads from a CDN with a fallback and is cached for offline use.
-- Agree with MINDS which trainee fields volunteers may see (PDPA).
+- Pairing is by admins (plus regulars' fixed trainees); there is no automatic
+  pairing of ad hoc volunteers.
+- Records are never deleted (deactivate, archive or cancel instead).
+- Admin pages load whole lists at once: fine for MINDS-sized data (hundreds of rows).
+- The QR decoder (jsQR, or the phone's built-in reader) loads from a CDN once and is
+  cached for offline use.
+- Agree with MINDS which trainee details volunteers and regulars may see (PDPA); the
+  defaults in `Config.gs` are a starting point.
+- New House Visit form responses get a Trainee ID when `setup()` next runs.
+- Guide infographics are stored in Google Drive and shared "anyone with the link can view",
+  because volunteers don't sign in to Google. They need signal to load (text sections work
+  offline). A Google Workspace account that blocks link sharing would stop volunteers seeing
+  them; the app warns the admin when that happens.

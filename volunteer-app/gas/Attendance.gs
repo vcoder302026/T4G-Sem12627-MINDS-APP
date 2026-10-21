@@ -135,7 +135,10 @@ function clock_(user, o) {
       clockOutBy: o.admin.name,
       method: openAny.method && openAny.method !== o.method ? `${openAny.method} / ${o.method}` : o.method,
     });
-    return clockResult_('out', user, sessionById[openAny.sessionId], openAny, booking, `${openAny.hours} h recorded (in at ${openAny.clockIn.slice(11, 16)}, out at ${openAny.clockOut.slice(11, 16)}).`);
+    const promoted = maybePromote_(user.userId);
+    return clockResult_('out', user, sessionById[openAny.sessionId], openAny, booking,
+      `${openAny.hours} h recorded (in at ${openAny.clockIn.slice(11, 16)}, out at ${openAny.clockOut.slice(11, 16)}).` +
+      (promoted ? ` ${user.name} has now attended ${CONFIG.REGULAR_AFTER_SESSIONS} sessions and is a regular volunteer!` : ''));
   }
 
   // 2) Otherwise → clock IN against today's booking.
@@ -188,10 +191,10 @@ function clock_(user, o) {
   let note = '';
   if (booking.status === 'pending') {
     bookings.update(booking, { status: 'confirmed', decidedBy: o.admin.name, decidedAt: fmtDateTime_(now_()) });
-    note = ' Booking was pending, so it has been confirmed.';
   }
-  const paired = autoPair_(booking, session);
-  if (paired) note += ` Paired with ${paired.traineeName}.`;
+  const paired = applyStanding_(booking, user);
+  if (paired) note += ` Paired with ${paired.name} (their regular trainee).`;
+  else if (!booking.traineeId) note += ' Not paired with a trainee yet: pair them on the pairing board.';
   const record = attendance.insert({
     attendanceId: newId_('A'),
     sessionId: session.sessionId,

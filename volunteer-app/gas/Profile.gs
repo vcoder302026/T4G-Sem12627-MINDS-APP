@@ -136,15 +136,19 @@ function personDetail_(p) {
     hours: Number(a.hours) || 0,
   }));
   const upcoming = table_('bookings').filter((b) => b.userId === target.userId && b.status !== 'cancelled' && String(b.sessionDate) >= todayStr_());
+  const fixed = activeStanding_(target.userId);
   return {
     person: personOut_(target, hasAccount),
-    stats: { hours, sessions: done.length, upcoming: upcoming.length },
+    stats: { hours, sessions: done.length, upcoming: upcoming.length, noShows: noShowsByUser_()[target.userId] || 0, attended: sessionsAttended_(target.userId) },
+    regularAfter: CONFIG.REGULAR_AFTER_SESSIONS,
+    regularTrainee: fixed ? { id: String(fixed.traineeId), name: fixed.traineeName } : null,
+    typeSetBy: target.typeSetBy || '',
     recent,
   };
 }
 
 function updatePerson_(p, admin) {
-  onlyFields_(p, ['userId'].concat(PROFILE_FIELDS, ['role', 'status']));
+  onlyFields_(p, ['userId'].concat(PROFILE_FIELDS, ['role', 'status', 'adminPassword']));
   const users = table_('users');
   const target = users.find((u) => u.userId === id_(p.userId, 'User'));
   if (!target) throw err_.notFound('Person not found.');
@@ -160,13 +164,14 @@ function updatePerson_(p, admin) {
   const changes = changedOnly_(current, patch);
 
   const self = target.userId === admin.userId;
-  if (self && changes.role === 'volunteer') throw err_.conflict('You cannot remove your own leader access. Ask another leader.');
-  if (self && changes.status === 'inactive') throw err_.conflict('You cannot deactivate your own account. Ask another leader.');
-  const losesLeader = current.role === 'admin' && current.status === 'active'
+  if (self && changes.role === 'volunteer') throw err_.conflict('You cannot remove your own admin access. Ask another admin.');
+  if (self && changes.status === 'inactive') throw err_.conflict('You cannot deactivate your own account. Ask another admin.');
+  const losesAdmin = current.role === 'admin' && current.status === 'active'
     && (changes.role === 'volunteer' || changes.status === 'inactive');
-  if (losesLeader) {
+  if (losesAdmin) {
     const others = users.filter((u) => u.userId !== target.userId && u.role === 'admin' && u.status !== 'inactive');
-    if (!others.length) throw err_.conflict('There must be at least one active volunteer leader.');
+    if (!others.length) throw err_.conflict('There must be at least one active admin.');
+    checkOwnPassword_(admin, p.adminPassword); // removing an admin needs your own password
   }
   if (changes.email) assertEmailFree_(users, changes.email, target.userId);
 
@@ -176,7 +181,7 @@ function updatePerson_(p, admin) {
   Object.keys(changes).filter((k) => PROFILE_FIELDS.indexOf(k) >= 0).forEach((k) => { profileChanges[k] = changes[k]; });
   const parts = [];
   if (Object.keys(profileChanges).length) parts.push(changedMessage_(profileChanges, `Updated ${oldName}'s`));
-  if (changes.role) parts.push(`${target.name} is now ${changes.role === 'admin' ? 'a volunteer leader' : 'a volunteer'}.`);
+  if (changes.role) parts.push(changes.role === 'admin' ? `${target.name} is now an admin.` : `${target.name} is no longer an admin.`);
   if (changes.status) parts.push(changes.status === 'inactive' ? `${target.name} is deactivated and can no longer sign in.` : `${target.name} is active again.`);
   if (changes.email) parts.push(`They now sign in with ${changes.email}.`);
   const message = parts.join(' ') || 'No changes to save.';

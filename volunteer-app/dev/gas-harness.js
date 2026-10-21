@@ -77,10 +77,14 @@ class FakeRange {
   }
 }
 
+let nextSheetId = 0;
+
 class FakeSheet {
   constructor(parent, name) {
     this.parent = parent;
     this.name = name;
+    this.sheetId = nextSheetId === 0 ? 0 : 1000 + nextSheetId; // the first tab is gid=0, as in Google Sheets
+    nextSheetId += 1;
     this.cells = new Map();
     this.formats = new Map();
     this.maxRows = 1000;
@@ -99,6 +103,9 @@ class FakeSheet {
   }
   getName() {
     return this.name;
+  }
+  getSheetId() {
+    return this.sheetId;
   }
   getParent() {
     return this.parent;
@@ -223,7 +230,46 @@ function formatDate(date, tz, pattern) {
 
 /* ---------------- runtime ---------------- */
 
+/** In-memory Google Drive: folders and files, enough for the guide's infographics. */
+function createFakeDrive() {
+  const files = new Map();
+  const folders = new Map();
+  let n = 0;
+  const newId = (prefix) => `${prefix}${String(++n).padStart(4, '0')}fakeDriveId0000000000`;
+  const makeFile = (blob, parent) => {
+    const id = newId('F');
+    const f = {
+      id, name: blob.getName(), mime: blob.getContentType(), bytes: blob.getBytes(), parent, sharing: 'PRIVATE', blockSharing: false,
+      getId: () => id, getName: () => f.name, getMimeType: () => f.mime, getSize: () => f.bytes.length,
+      setSharing: (access) => { if (f.blockSharing) throw new Error('Sharing blocked by policy'); f.sharing = access; return f; },
+    };
+    files.set(id, f);
+    return f;
+  };
+  const service = {
+    Access: { ANYONE_WITH_LINK: 'ANYONE_WITH_LINK', PRIVATE: 'PRIVATE' },
+    Permission: { VIEW: 'VIEW', EDIT: 'EDIT' },
+    createFolder(name) {
+      const id = newId('D');
+      const folder = { id, name, getId: () => id, getName: () => name, createFile: (blob) => makeFile(blob, id) };
+      folders.set(id, folder);
+      return folder;
+    },
+    getFolderById(id) {
+      if (!folders.has(id)) throw new Error('No item with the given ID could be found.');
+      return folders.get(id);
+    },
+    getFileById(id) {
+      if (!files.has(id)) throw new Error('No item with the given ID could be found, or you do not have permission to access it.');
+      return files.get(id);
+    },
+  };
+  const addFile = (name, mime, bytes = [1, 2, 3]) => makeFile({ getName: () => name, getContentType: () => mime, getBytes: () => bytes }, null);
+  return { service, files, folders, addFile };
+}
+
 export function createGasRuntime() {
+  const drive = createFakeDrive();
   const books = new Map();
   const props = new Map();
   const cache = new Map();
@@ -246,8 +292,16 @@ export function createGasRuntime() {
       },
       formatDate,
       getUuid: () => crypto.randomUUID(),
-      newBlob: (s) => ({ getBytes: () => toSigned(Buffer.from(String(s), 'utf8')) }),
+      newBlob: (data, contentType = 'text/plain', name = '') => {
+        const bytes = typeof data === 'string' ? toSigned(Buffer.from(data, 'utf8')) : data;
+        return { getBytes: () => bytes, getContentType: () => contentType, getName: () => name };
+      },
+      base64Decode: (text) => {
+        if (!/^[A-Za-z0-9+/=\s]*$/.test(text)) throw new Error('Could not decode string.');
+        return toSigned(Buffer.from(text, 'base64'));
+      },
     },
+    DriveApp: drive.service,
     PropertiesService: {
       getScriptProperties: () => ({
         getProperty: (k) => (props.has(k) ? props.get(k) : null),
@@ -286,6 +340,7 @@ export function createGasRuntime() {
   const runtime = {
     context,
     props,
+    drive, // tests: rt.drive.addFile(name, mime) puts a file in the admin's Google Drive
     createSpreadsheet(id, name = id) {
       const book = new FakeSpreadsheet(id, name);
       books.set(id, book);
@@ -298,6 +353,9 @@ export function createGasRuntime() {
     fillTab(id, tab, rows) {
       const book = books.get(id);
       const sheet = book.getSheetByName(tab) || book.insertSheet(tab);
+      const width = Math.max(0, ...rows.map((line) => line.length));
+      sheet.maxCols = Math.max(sheet.maxCols, width); // like a real tab, grow to fit what was pasted
+      sheet.maxRows = Math.max(sheet.maxRows, rows.length + 50);
       rows.forEach((line, r) => line.forEach((v, c) => sheet.set(r + 1, c + 1, v)));
       return sheet;
     },

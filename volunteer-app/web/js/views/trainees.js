@@ -1,153 +1,141 @@
-// Trainees: the card a paired volunteer sees, and the leader screens
-// (trainee list in People, one trainee's page, and the notes review queue).
+// Trainees for volunteers: the card on an upcoming session, a trainee's page
+// (#/info/<id>: regulars can open any trainee, volunteers only their paired
+// one, each seeing what admins allow), the regulars' trainee list
+// (#/directory), and the admins' review queue for volunteer notes.
 
 import { call } from '../api.js';
 import {
-  backLink, badge, busy, el, errorBlock, fmtDay, fuzzyFilter, icon, loading, mount, searchBox, toast,
+  backLink, badge, busy, el, errorBlock, field, fmtDay, fmtTimes, fuzzyFilter, icon, loading, mount, searchBox, toast,
 } from '../ui.js';
 
 function list(...rows) {
   return el('div', { class: 'card divide-y divide-slate-100 overflow-hidden dark:divide-neutral-900' }, ...rows);
 }
 
-const sourceLabel = (source) => (source === 'Leader' ? 'Leader' : 'Volunteer');
+const sourceLabel = (source) => (source === 'Leader' ? 'Admin' : 'Volunteer');
 
-/* ---------------- volunteers: "Your trainee" ---------------- */
+function notesList(notes) {
+  return el('ul', { class: 'space-y-3' }, notes.map((n) => el('li', { class: 'border-l-2 border-indigo-200 pl-3 text-sm dark:border-indigo-800' },
+    el('p', { class: 'whitespace-pre-line text-slate-700 dark:text-neutral-300' }, n.note),
+    el('p', { class: 'mt-0.5 text-xs muted' }, `${n.author || sourceLabel(n.source)}, ${fmtDay(n.date)}`))));
+}
 
-/** What a paired volunteer sees about their trainee (only the fields leaders allow). */
-export function traineeCard(trainee) {
+/* ---------------- "Your trainee" on a session ---------------- */
+
+/** What a paired volunteer sees about their trainee on Home (only the details admins allow). */
+export function traineeCard(trainee, pairing) {
   if (!trainee) return null;
-  const by = Object.fromEntries(trainee.fields.map((f) => [f.key, f]));
-  const shownAbove = ['preferredName', 'gender', 'communication', 'takeNote'];
-  const others = trainee.fields.filter((f) => !shownAbove.includes(f.key));
   const notes = trainee.notes || [];
   return el('div', { class: 'well mt-4 overflow-hidden' },
     el('div', { class: 'p-4' },
-      el('p', { class: 'text-xs font-bold uppercase tracking-wider muted' }, 'Your trainee'),
-      el('p', { class: 'mt-0.5 text-lg font-bold text-slate-900 dark:text-white' }, trainee.name,
-        by.preferredName ? el('span', { class: 'text-sm font-medium muted' }, ` (goes by ${by.preferredName.value})`) : null),
-      by.gender || by.communication ? el('div', { class: 'mt-2 flex flex-wrap gap-1.5' },
-        by.gender ? badge(by.gender.value, 'slate', 'user') : null,
-        by.communication ? badge(by.communication.value, 'indigo', 'message') : null) : null,
-      by.takeNote ? el('div', { class: 'alert alert-warn mt-3 flex gap-2' }, icon('alert', 'mt-0.5 size-4'),
-        el('div', {}, el('p', { class: 'font-bold' }, by.takeNote.label), el('p', {}, by.takeNote.value))) : null,
-      others.length ? el('dl', { class: 'mt-3 space-y-2 text-sm' }, others.map((f) => el('div', {},
+      el('div', { class: 'flex items-start justify-between gap-2' },
+        el('div', { class: 'min-w-0' },
+          el('p', { class: 'text-xs font-bold uppercase tracking-wider muted' }, pairing === 'standing' ? 'Your regular trainee' : 'Your trainee'),
+          el('p', { class: 'mt-0.5 text-lg font-bold text-slate-900 dark:text-white' }, trainee.name,
+            trainee.preferredName && trainee.preferredName !== trainee.name ? el('span', { class: 'text-sm font-medium muted' }, ` (goes by ${trainee.preferredName})`) : null)),
+        trainee.gender ? badge(trainee.gender, 'slate', 'user') : null),
+      trainee.fields.length ? el('dl', { class: 'mt-3 space-y-2 text-sm' }, trainee.fields.map((f) => el('div', {},
         el('dt', { class: 'font-bold text-slate-700 dark:text-neutral-200' }, f.label),
-        el('dd', { class: 'text-slate-600 dark:text-neutral-400' }, f.value)))) : null),
+        el('dd', { class: 'whitespace-pre-line text-slate-600 dark:text-neutral-400' }, f.value)))) : null,
+      el('a', { href: `#/info/${encodeURIComponent(trainee.id)}`, class: 'btn btn-secondary btn-sm mt-3' }, icon('eye', 'size-4'),
+        trainee.moreDetails ? 'See all details and notes' : 'Open profile')),
     notes.length ? el('details', { class: 'group border-t border-slate-200 dark:border-neutral-800' },
       el('summary', { class: 'flex cursor-pointer list-none items-center justify-between gap-2 px-4 py-3 text-sm font-bold text-indigo-700 dark:text-indigo-300' },
         el('span', { class: 'flex items-center gap-2' }, icon('book', 'size-4'), `Notes from previous volunteers (${notes.length})`),
         icon('down', 'size-4 transition-transform group-open:rotate-180')),
-      el('ul', { class: 'space-y-3 px-4 pb-4' }, notes.map((n) => el('li', { class: 'border-l-2 border-indigo-200 pl-3 text-sm dark:border-indigo-800' },
-        el('p', { class: 'whitespace-pre-line text-slate-700 dark:text-neutral-300' }, n.note),
-        el('p', { class: 'mt-0.5 text-xs muted' }, `${n.author || sourceLabel(n.source)}, ${fmtDay(n.date)}`))))) : null);
+      el('div', { class: 'px-4 pb-4' }, notesList(notes))) : null);
 }
 
-/* ---------------- leaders: trainee list (People → Trainees) ---------------- */
+/* ---------------- a trainee's page (volunteers and regulars) ---------------- */
 
-export function traineeList(host, app, ctx) {
-  let trainees = app.cachedTrainees();
-  let query = '';
-  const listHost = el('div', { class: 'mt-4' });
-  const drawList = () => {
-    if (!trainees) return;
-    const shown = fuzzyFilter(trainees, query, (t) => [t.name, t.preferredName, t.id, t.gender, t.communication]);
-    const active = trainees.filter((t) => t.active).length;
-    mount(listHost,
-      el('p', { class: 'mb-2 text-xs font-bold uppercase tracking-wider muted' }, `${trainees.length} trainees, ${active} active`),
-      shown.length ? list(shown.map((t) => el('a', { href: `#/trainee/${encodeURIComponent(t.id)}`, class: `flex items-center gap-3 p-4 hover:bg-slate-50 dark:hover:bg-neutral-900 ${t.active ? '' : 'opacity-60'}` },
-        el('span', { class: 'flex size-10 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' }, icon('heart', 'size-5')),
-        el('div', { class: 'min-w-0 flex-1' },
-          el('p', { class: 'truncate font-bold text-slate-900 dark:text-white' }, t.name, t.preferredName ? el('span', { class: 'font-medium muted' }, ` (${t.preferredName})`) : null),
-          el('div', { class: 'mt-1 flex flex-wrap gap-1' },
-            badge(t.id, 'slate'),
-            t.gender ? badge(t.gender, 'slate') : null,
-            t.communication ? badge(t.communication, 'indigo') : null,
-            t.noteCount ? badge(`${t.noteCount} note${t.noteCount === 1 ? '' : 's'}`, 'emerald') : null,
-            t.active ? null : badge('Not active', 'red'))),
-        icon('chevron', 'size-5 text-slate-300 dark:text-neutral-700'))))
-        : el('p', { class: 'text-sm muted' }, 'No trainee matches that search.'));
-  };
-  mount(host,
-    searchBox('Search trainees by name, ID or communication', (q) => { query = q; drawList(); }),
-    listHost,
-    el('p', { class: 'hint mt-3' }, 'Trainee details come from the trainee Google Sheet. Edit them there; they show here straight away.'));
-  if (trainees) drawList();
-  else mount(listHost, loading());
-  return call('listTrainees').then((res) => {
-    trainees = res.trainees;
-    app.cacheTrainees(trainees);
-    if (ctx.alive()) drawList();
-  }).catch((err) => { if (ctx.alive() && !trainees) mount(listHost, errorBlock(err, () => app.rerender())); });
+function updateForm(trainee, onSent) {
+  const form = el('form', { class: 'space-y-3', novalidate: true },
+    field('note', `Something the next volunteer should know about ${trainee.preferredName || trainee.name}`, {
+      type: 'textarea', rows: 3, maxlength: 5000,
+      placeholder: 'e.g. Calmer with a 5-minute warning before changing activity.',
+      hint: 'An admin reads it first, then adds it to the notes other volunteers see.',
+    }),
+    el('button', { type: 'submit', class: 'btn btn-primary w-full' }, icon('send', 'size-4'), 'Send update'));
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const note = form.note.value.trim();
+    if (!note) { toast('Write your update first.', 'warn'); return; }
+    busy(form.querySelector('button[type=submit]'), 'Sending…', async () => {
+      const res = await call('submitTraineeUpdate', { traineeId: trainee.id, note });
+      form.reset();
+      toast(res.message);
+      if (onSent) onSent();
+    });
+  });
+  return form;
 }
 
-/* ---------------- leaders: one trainee ---------------- */
-
-export function renderTrainee(root, app, ctx, traineeId) {
+export function renderTraineeInfo(root, app, ctx, traineeId) {
+  const back = app.isRegular && !app.isAdmin ? backLink('#/directory', 'Trainees') : backLink('#/home', 'Home');
   const draw = (d) => {
     const t = d.trainee;
-    const apply = (next) => { app.dropTrainees(); if (ctx.alive()) draw(next); };
-
-    const noteRow = (n) => {
-      const hidden = n.status === 'hidden';
-      const toggle = el('button', { type: 'button', class: 'text-xs font-bold text-indigo-600 hover:underline dark:text-indigo-400' }, hidden ? 'Show to volunteers' : 'Hide from volunteers');
-      toggle.addEventListener('click', () => busy(toggle, '', async () => {
-        apply(await call('setNoteStatus', { noteId: n.noteId, status: hidden ? 'shared' : 'hidden' }));
-        toast(hidden ? 'Note shown to volunteers again.' : 'Note hidden from volunteers.');
-      }));
-      return el('div', { class: `p-4 ${hidden ? 'opacity-60' : ''}` },
-        el('p', { class: 'whitespace-pre-line text-sm text-slate-800 dark:text-neutral-200' }, n.note),
-        el('div', { class: 'mt-2 flex flex-wrap items-center gap-2 text-xs muted' },
-          el('span', {}, `${n.author}, ${fmtDay(n.date)}`),
-          badge(sourceLabel(n.source), n.source === 'Leader' ? 'purple' : 'indigo'),
-          hidden ? badge('Hidden', 'slate', 'eyeOff') : null,
-          el('span', { class: 'ml-auto' }, toggle)));
-    };
-
-    const noteBox = el('textarea', { class: 'input min-h-[90px]', rows: 3, maxlength: 5000, placeholder: `e.g. ${t.name} enjoys helping set up; give a 5-minute warning before tidying up.`, 'aria-label': 'New note' });
-    const addBtn = el('button', { type: 'button', class: 'btn btn-primary btn-sm mt-2' }, icon('plus', 'size-4'), 'Add note');
-    addBtn.addEventListener('click', () => {
-      const note = noteBox.value.trim();
-      if (!note) {
-        toast('Write the note first.', 'warn');
-        noteBox.focus();
-        return;
-      }
-      busy(addBtn, 'Saving…', async () => {
-        apply(await call('addTraineeNote', { traineeId: t.id, note }));
-        toast('Note added. Future volunteers paired with this trainee will see it.');
-      });
-    });
-
-    mount(root,
-      backLink('#/people/trainees', 'Trainees'),
-      el('div', { class: 'card p-5' },
-        el('h1', { class: 'text-xl font-extrabold text-slate-900 dark:text-white' }, t.name),
-        el('div', { class: 'mt-1.5 flex flex-wrap gap-1' }, badge(t.id, 'slate'), t.active ? badge('Active', 'emerald') : badge('Not active: not paired automatically', 'red'))),
-      el('h2', { class: 'group-label' }, 'Details'),
-      t.fields.length ? list(t.fields.map((f) => el('div', { class: 'p-3' },
-        el('div', { class: 'flex items-center justify-between gap-2' },
-          el('p', { class: 'text-xs font-bold uppercase tracking-wider muted' }, f.label),
-          f.visibleToVolunteers ? badge('Volunteer sees', 'indigo', 'eye') : badge('Leaders only', 'slate', 'eyeOff')),
-        el('p', { class: 'mt-0.5 whitespace-pre-line text-sm text-slate-800 dark:text-neutral-200' }, f.value))))
-        : el('p', { class: 'text-sm muted' }, 'No details in the trainee sheet yet.'),
-      el('p', { class: 'hint mt-2' }, 'Change these in the trainee Google Sheet. "Volunteer sees" fields are set in Config.gs.'),
-      el('h2', { class: 'group-label' }, `Notes for volunteers (${d.notes.length})`),
-      el('div', { class: 'card p-4' }, noteBox, addBtn),
-      d.notes.length ? el('div', { class: 'mt-3' }, list(d.notes.map(noteRow))) : null,
-      d.pairings.length ? [
-        el('h2', { class: 'group-label' }, 'Recent pairings'),
-        list(d.pairings.map((p) => el('div', { class: 'flex items-center justify-between gap-3 p-3 text-sm' },
-          el('span', { class: 'min-w-0 truncate' }, el('span', { class: 'font-bold' }, p.volunteerName), el('span', { class: 'muted' }, `, ${p.sessionTitle}`)),
-          el('span', { class: 'shrink-0 muted' }, fmtDay(p.date))))),
-      ] : null);
+    mount(root, back,
+      el('div', { class: 'flex items-start justify-between gap-3' },
+        el('div', { class: 'min-w-0' },
+          el('h1', { class: 'page-title leading-tight' }, t.name),
+          t.preferredName && t.preferredName !== t.name ? el('p', { class: 'mt-1 muted' }, `Goes by ${t.preferredName}`) : null),
+        d.isMyRegular ? badge('Your regular trainee', 'emerald', 'heart') : null),
+      d.regulars.length ? el('p', { class: 'mt-2 text-sm muted' }, `Regular volunteers: ${d.regulars.join(', ')}`) : null,
+      d.together.length ? el('div', { class: 'alert alert-info mt-4' },
+        el('p', { class: 'font-bold' }, "You're paired for:"),
+        el('ul', { class: 'mt-1 list-disc pl-5' }, d.together.map((s) => el('li', {}, `${s.title}, ${fmtDay(s.date)}${s.startTime ? `, ${fmtTimes(s)}` : ''}`)))) : null,
+      d.access === 'admin' ? el('p', { class: 'alert alert-info mt-4' }, 'You see every detail as an admin. ',
+        el('a', { href: `#/trainee/${encodeURIComponent(t.id)}`, class: 'link' }, 'Open the admin profile')) : null,
+      d.sections.length ? d.sections.map((s) => el('details', { class: 'card group mt-3 overflow-hidden', open: true },
+        el('summary', { class: 'section-head section-blue cursor-pointer list-none select-none' }, s.title,
+          icon('down', 'size-5 transition-transform duration-200 group-open:rotate-180')),
+        el('dl', { class: 'divide-y divide-slate-100 px-4 text-sm dark:divide-neutral-800' }, s.fields.map((f) => el('div', { class: 'py-2.5' },
+          el('dt', { class: 'font-bold text-slate-700 dark:text-neutral-200' }, f.label),
+          el('dd', { class: 'mt-0.5 whitespace-pre-line text-slate-600 dark:text-neutral-400' }, f.value))))))
+        : el('p', { class: 'alert alert-warn mt-4' }, 'No details are shared for this trainee yet.'),
+      el('h2', { class: 'group-label' }, 'Notes from volunteers and admins'),
+      d.notes.length ? el('div', { class: 'card p-4' }, notesList(d.notes)) : el('p', { class: 'text-sm muted' }, 'No notes yet.'),
+      el('h2', { class: 'group-label' }, 'Send an update'),
+      el('div', { class: 'card p-4' }, updateForm(t)));
   };
   mount(root, loading());
-  return call('traineeDetail', { traineeId }).then((d) => { if (ctx.alive()) draw(d); })
-    .catch((err) => { if (ctx.alive()) mount(root, backLink('#/people/trainees', 'Trainees'), errorBlock(err, () => app.rerender())); });
+  return call('traineeInfo', { traineeId }).then((d) => { if (ctx.alive()) draw(d); })
+    .catch((err) => { if (ctx.alive()) mount(root, back, errorBlock(err, () => app.rerender())); });
 }
 
-/* ---------------- leaders: review volunteers' observations ---------------- */
+/* ---------------- regulars: every trainee ---------------- */
+
+export function renderDirectory(root, app, ctx) {
+  let data = null;
+  let query = '';
+  const host = el('div', { class: 'mt-4' });
+  const row = (t, mine) => el('a', { href: `#/info/${encodeURIComponent(t.id)}`, class: `flex items-center gap-3 p-4 hover:bg-slate-50 dark:hover:bg-neutral-900 ${mine ? 'select-ring' : ''}` },
+    el('span', { class: 'flex size-10 shrink-0 items-center justify-center rounded-xl bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' }, icon('heart', 'size-5')),
+    el('span', { class: 'min-w-0 flex-1' },
+      el('span', { class: 'block truncate font-bold text-slate-900 dark:text-white' }, t.name),
+      el('span', { class: 'block truncate text-sm muted' }, [t.preferredName && t.preferredName !== t.name ? `Goes by ${t.preferredName}` : '', t.gender,
+        t.regulars.length ? `Regular: ${t.regulars.join(', ')}` : 'No regular volunteer yet'].filter(Boolean).join(' · '))),
+    mine ? badge('Yours', 'emerald') : icon('chevron', 'size-5 text-slate-300 dark:text-neutral-700'));
+  const draw = () => {
+    if (!data) return;
+    const shown = fuzzyFilter(data.trainees, query, (t) => [t.name, t.preferredName, t.id, t.regulars.join(' ')]);
+    const mine = data.trainees.find((t) => t.id === data.myTraineeId);
+    mount(host,
+      mine && !query ? [el('h2', { class: 'group-label mt-0' }, 'Your regular trainee'), list(row(mine, true))] : null,
+      el('h2', { class: 'group-label' }, `${shown.length} trainee${shown.length === 1 ? '' : 's'}`),
+      shown.length ? list(shown.map((t) => row(t, false))) : el('p', { class: 'text-sm muted' }, 'No trainee matches that search.'));
+  };
+  mount(root,
+    el('h1', { class: 'page-title' }, 'Trainees'),
+    el('p', { class: 'mb-4 mt-1 text-sm muted' }, 'As a regular volunteer you can read about any trainee and send updates about them.'),
+    searchBox('Search by name', (q) => { query = q; draw(); }, 'Search trainees'),
+    host);
+  mount(host, loading());
+  return call('traineeDirectory').then((d) => { data = d; if (ctx.alive()) draw(); })
+    .catch((err) => { if (ctx.alive()) mount(host, errorBlock(err, () => app.rerender())); });
+}
+
+/* ---------------- admins: review volunteers' notes ---------------- */
 
 export function renderReview(root, app, ctx) {
   const draw = (q) => {
@@ -172,21 +160,20 @@ export function renderReview(root, app, ctx) {
           `Added to ${it.traineeName}'s notes.`));
       });
       keep.addEventListener('click', () => busy(keep, 'Saving…', async () => after(await call('reviewObservation', { feedbackId: it.feedbackId, decision: 'private' }),
-        'Kept private. Leaders can still read it in the Feedback tab.')));
+        'Kept private. Admins can still read it in the Feedback tab.')));
       return el('article', { class: 'card p-4' },
         el('div', { class: 'flex items-start justify-between gap-3' },
           el('div', { class: 'min-w-0' },
             el('a', { href: `#/trainee/${encodeURIComponent(it.traineeId)}`, class: 'font-bold text-slate-900 hover:underline dark:text-white' }, it.traineeName),
-            el('p', { class: 'text-sm muted' }, `From ${it.volunteerName}, ${fmtDay(it.date)}`)),
+            el('p', { class: 'text-sm muted' }, `From ${it.volunteerName}, ${fmtDay(it.date)}${it.rating ? '' : ''}`)),
           it.rating ? badge(`Session ${it.rating}/5`, 'slate') : null),
         el('div', { class: 'mt-3' }, text),
         el('p', { class: 'hint' }, 'Edit before sharing if needed, e.g. remove anything private or not helpful to other volunteers.'),
         el('div', { class: 'mt-3 flex gap-2' }, keep, share));
     };
     mount(root,
-      backLink('#/today', 'Sessions'),
       el('h1', { class: 'page-title' }, 'Notes to review'),
-      el('p', { class: 'mb-4 mt-1 text-sm muted' }, 'What volunteers noticed about their trainee. Shared notes appear for the next volunteers paired with that trainee.'),
+      el('p', { class: 'mb-4 mt-1 text-sm muted' }, 'Session feedback and updates volunteers sent about trainees. Shared notes appear for the next volunteers paired with that trainee.'),
       q.items.length ? el('div', { class: 'space-y-3' }, q.items.map(item))
         : el('div', { class: 'flex flex-col items-center rounded-2xl border border-dashed border-slate-200 px-6 py-10 text-center muted dark:border-neutral-800' },
           icon('inbox', 'mb-3 size-12 text-slate-300 dark:text-neutral-700'),

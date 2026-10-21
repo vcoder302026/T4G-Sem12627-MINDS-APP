@@ -49,7 +49,7 @@ export function renderLogin(root, app) {
         icon('shield', 'size-5 text-indigo-600 dark:text-indigo-400'),
         el('h2', { class: 'text-xl font-black tracking-tight text-slate-900 dark:text-white' }, 'Secure Login')),
       form,
-      el('p', { class: 'mt-4 text-center text-xs muted' }, 'Forgot your password? Ask a volunteer leader to reset it.'))));
+      el('p', { class: 'mt-4 text-center text-xs muted' }, 'Forgot your password? Ask an admin to reset it.'))));
 }
 
 export function renderRegister(root, app) {
@@ -122,6 +122,6 @@ export function renderRegister(root, app) {
   mount(root,
     backLink('#/login', 'Back to sign in'),
     el('h1', { class: 'page-title' }, 'Volunteer Registration'),
-    el('p', { class: 'mb-6 mt-1 muted' }, 'It takes about two minutes. A leader will confirm your first booking.'),
+    el('p', { class: 'mb-6 mt-1 muted' }, 'It takes about two minutes. Then read the short guide and say which sessions you\'re coming to.'),
     form);
 }

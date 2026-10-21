@@ -9,7 +9,7 @@
 const DEFAULT_GUIDE = [
   {
     title: 'Welcome to MINDS volunteering',
-    body: 'Thank you for volunteering with MINDS. Our trainees are persons with intellectual disabilities, and your time helps them learn, play and build confidence.\n\nThis guide takes about 3 minutes. Read it once before your first session. You can open it again any time from the Me tab.',
+    body: 'Thank you for volunteering with MINDS. Our trainees are persons with intellectual disabilities, and your time helps them learn, play and build confidence.\n\nThis guide takes about 3 minutes. Read it once before you sign up for your first session. You can open it again any time from the Me tab.',
   },
   {
     title: 'What to wear',
@@ -17,15 +17,15 @@ const DEFAULT_GUIDE = [
   },
   {
     title: 'What we expect from you',
-    body: '- Arrive 10 to 15 minutes early\n- Stay with your paired trainee unless a leader asks you to switch\n- Be patient and kind, and speak to trainees with the respect you would give anyone their age\n- Keep your phone away during activities\n- No photos or videos of trainees unless a leader says it is allowed\n- Tell a leader straight away about any injury, distress or safety worry\n- Can\'t make it? Cancel your booking in the app as early as possible',
+    body: '- Arrive 10 to 15 minutes early\n- Stay with your paired trainee unless an admin asks you to switch\n- Be patient and kind, and speak to trainees with the respect you would give anyone their age\n- Keep your phone away during activities\n- No photos or videos of trainees unless an admin says it is allowed\n- Tell an admin straight away about any injury, distress or safety worry\n- Can\'t make it? Tap "Can\'t make it" in the app as early as possible',
   },
   {
     title: 'On the day',
-    body: '1. Open the app and read your trainee\'s profile and notes.\n2. Show your QR pass to the volunteer leader to clock in.\n3. Stay with your trainee and follow the leader\'s plan for the session.\n4. At the end, show your QR pass again to clock out.\n5. Fill in the short feedback form. Your notes help the next volunteer.',
+    body: '1. Open the app and read your trainee\'s profile and notes.\n2. Show your QR pass to an admin to clock in.\n3. Stay with your trainee and follow the plan for the session.\n4. At the end, show your QR pass again to clock out.\n5. Fill in the short feedback form. Your notes help the next volunteer.',
   },
   {
     title: 'Working with your trainee',
-    body: '- Use short, simple sentences and give time to answer\n- Show as well as tell: demonstrate, point, use pictures\n- Follow the "Things to take note" in your trainee\'s profile\n- Praise effort, not just results\n- If your trainee becomes upset, stay calm, give them space and call a leader',
+    body: '- Use short, simple sentences and give time to answer\n- Show as well as tell: demonstrate, point, use pictures\n- Follow the "Things to take note" in your trainee\'s profile\n- Praise effort, not just results\n- If your trainee becomes upset, stay calm, give them space and call an admin',
   },
 ];
 
@@ -170,31 +170,141 @@ function saveProject_(p, admin) {
 
 /* ---------------- volunteer guide ---------------- */
 
+/** Links for a guide infographic stored in Google Drive (shared "anyone with the link"). */
+function guideFileLinks_(fileId) {
+  const id = encodeURIComponent(fileId);
+  return {
+    imageUrl: `https://drive.google.com/thumbnail?id=${id}&sz=w2000`,
+    previewUrl: `https://drive.google.com/file/d/${id}/preview`,
+    openUrl: `https://drive.google.com/file/d/${id}/view`,
+  };
+}
+
+function guideKind_(g) {
+  return g.kind === 'image' || g.kind === 'pdf' ? g.kind : 'text';
+}
+
 function guideSections_() {
-  return sortBy_(table_('guide').rows().filter((g) => g.title || g.body), (g) => String(Number(g.order) || 0).padStart(5, '0'))
-    .map((g) => ({ sectionId: g.sectionId, title: g.title, body: g.body, order: Number(g.order) || 0 }));
+  const rows = table_('guide').rows().filter((g) => g.title || g.body || g.fileId);
+  return sortBy_(rows, (g) => Number(g.order) || 0).map((g) => {
+    const kind = guideKind_(g);
+    const out = { sectionId: g.sectionId, kind, title: g.title, body: g.body, order: Number(g.order) || 0 };
+    if (kind !== 'text') Object.assign(out, { fileId: g.fileId, fileName: g.fileName }, g.fileId ? guideFileLinks_(g.fileId) : {});
+    return out;
+  });
 }
 
 function saveGuideSection_(p, admin) {
   onlyFields_(p, ['sectionId', 'title', 'body']);
   const guide = table_('guide');
+  const existing = p.sectionId ? guide.find((x) => x.sectionId === id_(p.sectionId, 'Section')) : null;
+  if (p.sectionId && !existing) throw err_.notFound('Guide section not found.');
+  const isFile = existing && guideKind_(existing) !== 'text';
   const fields = {
-    title: str_(p.title, 'Title', { required: true }),
-    body: str_(p.body, 'Content', { required: true, max: LIMITS.NOTES }),
+    // An infographic's heading and caption are optional; a text section needs both.
+    title: str_(p.title, 'Title', { required: !isFile }),
+    body: str_(p.body, isFile ? 'Caption' : 'Content', { required: !isFile, max: LIMITS.NOTES }),
     updatedBy: admin.name,
     updatedAt: fmtDateTime_(now_()),
   };
-  if (p.sectionId) {
-    const g = guide.find((x) => x.sectionId === id_(p.sectionId, 'Section'));
-    if (!g) throw err_.notFound('Guide section not found.');
-    guide.update(g, fields);
-  } else {
+  if (existing) guide.update(existing, fields);
+  else {
     const order = guide.rows().reduce((m, x) => Math.max(m, Number(x.order) || 0), 0) + 1;
-    guide.insert(Object.assign({ sectionId: newId_('G'), order }, fields));
+    guide.insert(Object.assign({ sectionId: newId_('G'), order, kind: 'text' }, fields));
   }
   return contentForLeaders_();
 }
 
+/** The Drive folder for guide infographics, created the first time it's needed. */
+function guideFolder_() {
+  const props = PropertiesService.getScriptProperties();
+  const id = props.getProperty(CONFIG.PROP_GUIDE_FOLDER_ID);
+  if (id) {
+    try {
+      return DriveApp.getFolderById(id);
+    } catch (e) {
+      // the folder was deleted: make a new one
+    }
+  }
+  const folder = DriveApp.createFolder(CONFIG.GUIDE_FILES.folderName);
+  props.setProperty(CONFIG.PROP_GUIDE_FOLDER_ID, folder.getId());
+  return folder;
+}
+
+/** The file ID in a Google Drive link (…/file/d/<id>/…, …?id=<id>, or the bare ID). */
+function driveFileId_(link) {
+  const s = str_(link, 'Google Drive link', { required: true, max: 500 });
+  const m = /\/d\/([A-Za-z0-9_-]{10,})/.exec(s) || /[?&]id=([A-Za-z0-9_-]{10,})/.exec(s) || /^([A-Za-z0-9_-]{20,})$/.exec(s);
+  if (!m) throw err_.validation('That doesn\'t look like a Google Drive file link. In Drive, use Share → Copy link.');
+  return m[1];
+}
+
+/** Lets anyone with the link view the file, so volunteers' phones can show it. */
+function shareForViewing_(file) {
+  try {
+    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    return true;
+  } catch (e) {
+    return false; // e.g. a Google Workspace policy blocks link sharing
+  }
+}
+
+/**
+ * Adds an infographic (image or PDF) to the guide, or replaces the file of an
+ * existing one (sectionId). The file is either uploaded from the admin's device
+ * (base64 `data`, `fileName`, `mimeType`) or picked from Google Drive (`driveUrl`).
+ * `position`: top (default, above everything else) or bottom.
+ */
+function addGuideFile_(p, admin) {
+  onlyFields_(p, ['sectionId', 'title', 'body', 'position', 'driveUrl', 'data', 'fileName', 'mimeType']);
+  const guide = table_('guide');
+  const existing = p.sectionId ? guide.find((x) => x.sectionId === id_(p.sectionId, 'Section')) : null;
+  if (p.sectionId && !existing) throw err_.notFound('Guide section not found.');
+  const types = CONFIG.GUIDE_FILES.types;
+  let file;
+  let warning = '';
+  if (p.driveUrl) {
+    const fileId = driveFileId_(p.driveUrl);
+    try {
+      file = DriveApp.getFileById(fileId);
+    } catch (e) {
+      throw err_.validation('The app\'s Google account can\'t open that file. Share it with the account the app runs as, or upload it from your device instead.');
+    }
+    if (!types[file.getMimeType()]) throw err_.validation('Choose an image (JPG or PNG) or a PDF.');
+    if (!shareForViewing_(file)) warning = ' Volunteers may not be able to see it: set the file to "Anyone with the link can view" in Google Drive.';
+  } else {
+    const mimeType = str_(p.mimeType, 'File type', { required: true, max: 100 });
+    if (!types[mimeType]) throw err_.validation('Choose an image (JPG or PNG) or a PDF.');
+    const fileName = str_(p.fileName, 'File name', { required: true, max: 200 }).replace(/[\\/:*?"<>|]+/g, '_');
+    if (typeof p.data !== 'string' || !p.data) throw err_.validation('No file was received. Choose the file again.');
+    let bytes;
+    try {
+      bytes = Utilities.base64Decode(p.data.replace(/^data:[^,]*,/, ''));
+    } catch (e) {
+      throw err_.validation('The file could not be read. Choose it again.');
+    }
+    if (bytes.length > CONFIG.GUIDE_FILES.maxMb * 1024 * 1024) throw err_.validation(`The file is too big. Use one under ${CONFIG.GUIDE_FILES.maxMb} MB.`);
+    file = guideFolder_().createFile(Utilities.newBlob(bytes, mimeType, fileName));
+    if (!shareForViewing_(file)) warning = ' Volunteers may not be able to see it: set the file to "Anyone with the link can view" in Google Drive.';
+  }
+  const kind = types[file.getMimeType()];
+  const stamp = { kind, fileId: file.getId(), fileName: file.getName(), updatedBy: admin.name, updatedAt: fmtDateTime_(now_()) };
+  if (p.title !== undefined) stamp.title = str_(p.title, 'Heading', { max: LIMITS.NAME });
+  if (p.body !== undefined) stamp.body = str_(p.body, 'Caption', { max: LIMITS.NOTES });
+  if (existing) {
+    guide.update(existing, stamp);
+  } else {
+    const orders = guide.rows().map((x) => Number(x.order) || 0);
+    const position = p.position === 'bottom' ? 'bottom' : 'top';
+    const order = position === 'top' ? Math.min(1, ...orders) - 1 : Math.max(0, ...orders) + 1;
+    guide.insert(Object.assign({ sectionId: newId_('G'), order, title: '', body: '' }, stamp));
+  }
+  return Object.assign(contentForLeaders_(), {
+    message: `${kind === 'pdf' ? 'PDF' : 'Image'} ${existing ? 'replaced' : 'added to the guide'}. Volunteers see it straight away.${warning}`,
+  });
+}
+
+/** Removes a section or infographic from the guide. An infographic's file stays in Google Drive. */
 function deleteGuideSection_(p) {
   onlyFields_(p, ['sectionId']);
   const guide = table_('guide');
@@ -211,7 +321,7 @@ function moveContent_(p) {
   const direction = oneOf_(p.direction, 'Direction', ['up', 'down']);
   const table = table_(kind);
   const idKey = kind === 'guide' ? 'sectionId' : 'projectId';
-  const rows = sortBy_(table.rows().filter((r) => r[idKey] && (kind === 'guide' || r.status !== 'archived')), (r) => String(Number(r.order) || 0).padStart(5, '0'));
+  const rows = sortBy_(table.rows().filter((r) => r[idKey] && (kind === 'guide' || r.status !== 'archived')), (r) => Number(r.order) || 0);
   // Normalise the order to 1..n first, so gaps or duplicates typed in the sheet don't matter.
   rows.forEach((r, i) => { if (Number(r.order) !== i + 1) table.update(r, { order: i + 1 }); });
   const i = rows.findIndex((r) => r[idKey] === p.id);
@@ -238,7 +348,7 @@ function acknowledgeGuide_(p, user) {
   return { message: 'Thanks for reading the guide! You can now book sessions.', home: volunteerHome_({}, user) };
 }
 
-/** Everything leaders edit on the Leader tools screens. */
+/** Everything admins edit on the Guide & projects and Venues pages. */
 function contentForLeaders_() {
   return {
     sections: guideSections_(),
@@ -259,9 +369,9 @@ function seedContent_() {
   }
   if (!table_('guide').rows().length) {
     DEFAULT_GUIDE.forEach((g, i) => table_('guide').insert({
-      sectionId: newId_('G'), order: i + 1, title: g.title, body: g.body, updatedBy: 'setup', updatedAt: fmtDateTime_(now_()),
+      sectionId: newId_('G'), order: i + 1, kind: 'text', title: g.title, body: g.body, updatedBy: 'setup', updatedAt: fmtDateTime_(now_()),
     }));
-    added.push(`Added ${DEFAULT_GUIDE.length} starter Volunteer Guide sections (edit them in the app: Me → Leader tools)`);
+    added.push(`Added ${DEFAULT_GUIDE.length} starter Volunteer Guide sections (edit them in the app: Admin → Guide & projects)`);
   }
   if (!projectRows_().length) {
     DEFAULT_PROJECTS.forEach((pr, i) => table_('projects').insert({
