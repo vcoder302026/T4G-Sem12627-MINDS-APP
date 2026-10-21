@@ -6,6 +6,7 @@ import {
   backLink, badge, busy, el, errorBlock, fmtDay, icon as baseIcon, loading, mount, searchBox, toast,
 } from '../ui.js';
 import { icon } from '../../admin/js/kit.js';
+import { personName } from '../quickview.js';
 
 /* ---------------- hub ---------------- */
 
@@ -20,38 +21,21 @@ export function renderAdminHub(root, app, ctx) {
     const todays = (h ? h.sessions : []).filter((s) => s.date === (h && h.today));
     mount(root,
       el('h1', { class: 'page-title' }, 'Admin'),
-      el('p', { class: 'mb-4 mt-1 text-sm muted' }, 'Everything an admin can do. On a computer these are also in the sidebar.'),
+      el('p', { class: 'mb-4 mt-1 text-sm muted' }, 'On a computer these are also in the sidebar.'),
       todays.length ? el('div', { class: 'alert alert-info mb-4' },
         el('p', { class: 'font-bold' }, `Today: ${todays.map((s) => s.title).join(', ')}`),
         el('div', { class: 'mt-2 flex flex-wrap gap-2' },
           el('a', { href: '#/scan', class: 'btn btn-success btn-sm' }, baseIcon('scan', 'size-4'), 'Scan passes'),
           el('a', { href: '#/clock', class: 'btn btn-secondary btn-sm' }, baseIcon('clock', 'size-4'), 'Clock in by hand'))) : null,
-      el('h2', { class: 'group-label mt-0' }, 'Running sessions'),
       el('div', { class: 'tile-grid' },
-        tile('#/today', 'calendar', 'Sessions', 'Who\'s coming, create and edit sessions'),
-        tile('#/pairings', 'sparkle', 'Pairing', 'Pair volunteers for a session, and regulars\' fixed trainees', h && h.unpairedTotal),
-        tile('#/scan', 'scan', 'Scan passes', 'Clock volunteers in and out with their QR pass'),
-        tile('#/clock', 'clock', 'Clock in by hand', 'For a flat phone or a walk-in')),
-      el('h2', { class: 'group-label' }, 'People and records'),
-      el('div', { class: 'tile-grid' },
-        tile('#/overview', 'dashboard', 'Dashboard', 'New and regular volunteers, hours, what needs attention'),
-        tile('#/volunteers', 'users', 'Volunteers', 'Profiles, promote to regular, admin access, deactivate'),
-        tile('#/trainees', 'heart', 'Trainees', 'Every trainee\'s details, notes and regulars'),
-        tile('#/attendance', 'list', 'Attendance', 'Every clock-in and out; fix missed scans'),
-        tile('#/hours', 'check', 'Volunteer hours', 'Hours per volunteer; export for certificates'),
-        tile('#/review', 'inbox', 'Notes to review', 'What volunteers wrote about trainees', h && h.reviewCount),
-        tile('#/log', 'shield', 'Activity log', 'Which admin changed what, and when')),
-      el('h2', { class: 'group-label' }, 'Settings'),
-      el('div', { class: 'tile-grid' },
-        tile('#/visibility', 'eye', 'What volunteers see', 'Trainee details shown to volunteers and regulars'),
-        tile('#/guide-edit', 'book', 'Guide & projects', 'What new volunteers read first'),
-        tile('#/venues', 'building', 'Venues', 'The venue list for sessions')),
-      el('h2', { class: 'group-label' }, 'Later (placeholders, to be discussed with MINDS)'),
-      el('div', { class: 'tile-grid' },
-        tile('#/fundraising', 'coins', 'Fundraising', 'Fundraisers, products, orders', 0, 'slate'),
-        tile('#/outings', 'bus', 'Outings', 'Separate from session attendance for now', 0, 'slate'),
-        tile('#/trips', 'plane', 'Overseas trips', 'Trip attendance is kept separate', 0, 'slate'),
-        tile('#/visits', 'home', 'House visits', 'Visit records', 0, 'slate')));
+        tile('#/today', 'calendar', 'Sessions', "Who's coming; pair, scan and clock in for each session"),
+        tile('#/pairings', 'sparkle', 'Pairing', "Sessions to pair, and regulars' fixed trainees", h && h.unpairedTotal),
+        tile('#/volunteers', 'users', 'Volunteers', 'People, attendance and hours'),
+        tile('#/trainees', 'heart', 'Trainees', 'Details, photos, notes to review, what volunteers see', h && h.reviewCount),
+        tile('#/overview', 'dashboard', 'Dashboard', 'Numbers, what needs attention, activity log'),
+        tile('#/guide-edit', 'pencil', 'Settings', 'Volunteer guide, projects and venues'),
+        tile('#/fundraising', 'list', 'More', 'Fundraising, outings, trips, house visits (placeholders)', 0, 'slate')),
+      el('p', { class: 'mt-4 text-xs muted' }, 'Tip: press and hold any name in the app for their details.'));
   };
   const cached = app.cachedAdminHome();
   draw(cached);
@@ -87,7 +71,7 @@ export function renderActivityLog(root, app, ctx) {
             el('span', { class: 'min-w-0 flex-1' },
               el('span', { class: 'block font-bold text-slate-900 dark:text-white' }, e.action),
               el('span', { class: 'block break-words text-slate-600 dark:text-neutral-400' }, e.summary)),
-            el('span', { class: 'shrink-0 text-right text-xs font-bold text-indigo-700 dark:text-indigo-300' }, e.adminName)))),
+            personName(e.adminName, e.adminId, 'shrink-0 text-right text-xs font-bold text-indigo-700 dark:text-indigo-300')))),
         ]) : el('p', { class: 'text-sm muted' }, 'Nothing matches these filters.'));
     }).catch((err) => { if (ctx.alive()) mount(host, errorBlock(err, load)); });
   };

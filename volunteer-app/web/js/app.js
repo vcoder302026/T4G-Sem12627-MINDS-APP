@@ -7,6 +7,7 @@ import { call, isNetworkError, onUnauthorized, session, storage } from './api.js
 import { CONFIG } from './config.js';
 import { el, mount, toast } from './ui.js';
 import { icon } from '../admin/js/kit.js';
+import { installQuickView } from './quickview.js';
 import { renderLogin, renderRegister } from './views/auth.js';
 import * as Ad from './views/admin.js';
 import * as C from './views/content.js';
@@ -28,6 +29,7 @@ const sidebar = document.getElementById('sidebar');
 const tabs = document.getElementById('tabs');
 const tabList = document.getElementById('tabs-list');
 const subnav = document.getElementById('subnav');
+const pagetabs = document.getElementById('pagetabs');
 const headerActions = document.getElementById('header-actions');
 const brandIcon = document.getElementById('brand-icon');
 const brandSub = document.getElementById('brand-sub');
@@ -81,7 +83,7 @@ const app = {
     storage.set('minds.user', merged);
     const h = app.cachedHome();
     if (h) storage.set('minds.vhome', { ...h, user: { ...h.user, ...user } });
-    renderChrome(currentRoute);
+    renderChrome(currentRoute, currentFull);
   },
   setToken(token) {
     session.token = token;
@@ -106,7 +108,7 @@ const app = {
       if (u && !isRegular(u) && isRegular(h.user)) toast("You're now a regular volunteer. Thank you!");
       if (u && isAdmin(u) && !isAdmin(h.user)) demoted();
     }
-    renderChrome(currentRoute); // refreshes badges (and the menu, if the role changed)
+    renderChrome(currentRoute, currentFull); // refreshes badges (and the menu, if the role changed)
   },
   async fetchHome() {
     const h = await online(call('volunteerHome'));
@@ -116,7 +118,7 @@ const app = {
 
   // admin data
   cachedAdminHome: () => storage.get('minds.ahome'),
-  saveAdminHome: (h) => { storage.set('minds.ahome', h); renderChrome(currentRoute); },
+  saveAdminHome: (h) => { storage.set('minds.ahome', h); renderChrome(currentRoute, currentFull); },
   dropAdminHome: () => storage.remove('minds.ahome'),
   async fetchAdminHome() {
     try {
@@ -145,7 +147,7 @@ const app = {
   queueScan(item) {
     const id = (crypto.randomUUID && crypto.randomUUID()) || `${Date.now()}-${Math.random()}`;
     storage.set('minds.scanQueue', [...app.queuedScans(), { ...item, clientId: id }]);
-    renderChrome(currentRoute);
+    renderChrome(currentRoute, currentFull);
   },
   async flushScans(manual = false) {
     if (flushing) return flushing;
@@ -157,7 +159,7 @@ const app = {
         const done = new Set(results.map((r) => r.clientId));
         storage.set('minds.scanQueue', app.queuedScans().filter((q) => !done.has(q.clientId)));
         results.forEach((r) => {
-          if (r.ok) app.addRecentScan({ name: r.data.volunteer.name, outcome: r.data.outcome, time: 'uploaded' });
+          if (r.ok) app.addRecentScan({ name: r.data.volunteer.name, userId: r.data.volunteer.userId, outcome: r.data.outcome, time: 'uploaded' });
         });
         const failed = results.filter((r) => !r.ok);
         toast(failed.length
@@ -168,7 +170,7 @@ const app = {
         if (manual) toast(err.message, 'error');
       } finally {
         flushing = null;
-        renderChrome(currentRoute);
+        renderChrome(currentRoute, currentFull);
         emit('scans-changed');
       }
     })();
@@ -200,30 +202,20 @@ const VOLUNTEER_ITEMS = [
   { key: 'directory', label: 'Trainees', icon: 'heart', also: ['info'], when: (u) => isRegular(u) && !isAdmin(u) },
   { key: 'me', label: 'Me', icon: 'user', also: ['edit-me'] },
 ];
-const ADMIN_GROUPS = [
-  { title: 'Admin', items: [
-    { key: 'overview', label: 'Dashboard', icon: 'dashboard', also: ['admin'] },
-    { key: 'today', label: 'Sessions', icon: 'calendar', also: ['session', 'new-session'] },
-    { key: 'pairings', label: 'Pairing', icon: 'sparkle', also: ['pair'] },
-    { key: 'scan', label: 'Scan passes', icon: 'scan' },
-    { key: 'clock', label: 'Clock in by hand', icon: 'clock' },
-    { key: 'volunteers', label: 'Volunteers', icon: 'users', also: ['volunteer'] },
-    { key: 'trainees', label: 'Trainees', icon: 'heart', also: ['trainee', 'visibility', 'info'] },
-    { key: 'attendance', label: 'Attendance', icon: 'list' },
-    { key: 'hours', label: 'Volunteer hours', icon: 'check' },
-    { key: 'review', label: 'Notes to review', icon: 'inbox' },
-    { key: 'log', label: 'Activity log', icon: 'shield' },
-    { key: 'guide-edit', label: 'Guide & projects', icon: 'book' },
-    { key: 'venues', label: 'Venues', icon: 'building' },
-  ] },
-  { title: 'Later (placeholders)', items: [
-    { key: 'fundraising', label: 'Fundraising', icon: 'coins', also: ['fundraiser'] },
-    { key: 'outings', label: 'Outings', icon: 'bus', also: ['outing'] },
-    { key: 'trips', label: 'Overseas trips', icon: 'plane', also: ['trip'] },
-    { key: 'visits', label: 'House visits', icon: 'home' },
-  ] },
+// The Admin menu: a few sections; a section with several pages shows them as
+// tabs at the top (`pages`: [route, label]). `also` lists detail pages.
+const ADMIN_SECTIONS = [
+  { key: 'overview', label: 'Dashboard', icon: 'dashboard', pages: [['overview', 'Overview'], ['log', 'Activity log']] },
+  { key: 'today', label: 'Sessions', icon: 'calendar', also: ['session', 'new-session', 'scan', 'clock'] },
+  { key: 'pairings', label: 'Pairing', icon: 'sparkle', pages: [['pairings', 'Sessions to pair'], ['pairings/regular', 'Regular pairings']], also: ['pair'] },
+  { key: 'volunteers', label: 'Volunteers', icon: 'users', pages: [['volunteers', 'People'], ['attendance', 'Attendance'], ['hours', 'Hours']], also: ['volunteer'] },
+  { key: 'trainees', label: 'Trainees', icon: 'heart', pages: [['trainees', 'Trainees'], ['review', 'Notes to review'], ['visibility', 'What volunteers see']], also: ['trainee'] },
+  { key: 'guide-edit', label: 'Settings', icon: 'pencil', pages: [['guide-edit', 'Guide & projects'], ['venues', 'Venues']] },
+  { key: 'fundraising', label: 'More', icon: 'list', note: 'Placeholders', pages: [['fundraising', 'Fundraising'], ['outings', 'Outings'], ['trips', 'Overseas trips'], ['visits', 'House visits']], also: ['fundraiser', 'outing', 'trip'] },
 ];
-const ADMIN_ITEMS = ADMIN_GROUPS.flatMap((g) => g.items);
+const sectionRoutes = (sec) => [sec.key, ...(sec.pages || []).map(([r]) => r.split('/')[0]), ...(sec.also || [])];
+const sectionOf = (name) => ADMIN_SECTIONS.find((sec) => sectionRoutes(sec).includes(name)) || null;
+
 
 const ROUTES = {
   // everyone
@@ -295,6 +287,7 @@ async function updateApp(btn) {
 }
 
 let currentRoute = '';
+let currentFull = '';
 
 function headerButton(label, iconName, onClick, extra = '') {
   return el('button', { type: 'button', class: `icon-btn ${extra}`, title: label, 'aria-label': label, onclick: onClick }, icon(iconName));
@@ -307,13 +300,14 @@ function counts() {
   const a = app.cachedAdminHome() || {};
   return {
     home: (home.pendingFeedback || []).length + (home.guideRead === false ? 1 : 0),
-    scan: app.queuedScans().length,
+    today: app.queuedScans().length, // offline scans waiting to upload
     review: a.reviewCount || 0,
+    trainees: a.reviewCount || 0,
     pairings: a.unpairedTotal || 0,
   };
 }
 
-function renderChrome(name) {
+function renderChrome(name, full = name) {
   const u = app.user;
   const signedIn = Boolean(session.token && u);
   const admin = signedIn && isAdmin(u);
@@ -332,6 +326,9 @@ function renderChrome(name) {
 
   tabs.hidden = !signedIn;
   subnav.hidden = !(admin && adminRoute);
+  const section = admin && adminRoute ? sectionOf(name) : null;
+  const onTabbedPage = Boolean(section && section.pages && section.pages.some(([r]) => r === full));
+  pagetabs.hidden = !onTabbedPage;
   if (!signedIn) {
     mount(sidebar);
     return;
@@ -344,22 +341,28 @@ function renderChrome(name) {
   const tabItems = admin ? [...volunteerItems, { key: 'admin', label: 'Admin', icon: 'shield', href: '#/admin' }] : volunteerItems;
   mount(tabList, tabItems.map((t) => {
     const active = t.key === 'admin' ? adminRoute : isActive(t, name);
-    const badge = t.key === 'admin' ? count('review') + count('pairings') + count('scan') : count(t.key);
+    const badge = t.key === 'admin' ? count('review') + count('pairings') + count('today') : count(t.key);
     return el('a', { href: t.href || `#/${t.key}`, class: 'seg-item', 'aria-current': active ? 'page' : null },
       icon(t.icon, 'size-5 sm:size-4'),
       t.label,
       badge ? el('span', { class: 'absolute right-1 top-0.5 min-w-4 rounded-full bg-amber-500 px-1 text-center text-[10px] font-bold leading-4 text-white', 'aria-label': `${badge} waiting` }, String(badge)) : null);
   }));
-  // Phones, on admin pages: every admin page as a scrollable row.
+  // Phones, on admin pages: the admin sections as a scrollable row.
   if (!subnav.hidden) {
-    mount(subnav, ADMIN_ITEMS.map((item) => el('a', { href: `#/${item.key}`, class: 'sub-link', 'aria-current': isActive(item, name) ? 'page' : null },
-      icon(item.icon, 'size-4'), item.label, count(item.key) ? ` (${count(item.key)})` : '')));
+    mount(subnav, ADMIN_SECTIONS.map((sec) => el('a', { href: `#/${sec.key}`, class: 'sub-link', 'aria-current': sec === section ? 'page' : null },
+      icon(sec.icon, 'size-4'), sec.label, count(sec.key) ? ` (${count(sec.key)})` : '')));
     const activeLink = subnav.querySelector('[aria-current="page"]');
     if (activeLink) activeLink.scrollIntoView({ block: 'nearest', inline: 'center' });
   }
+  // A section with several pages: its pages as tabs at the top (phones and computers).
+  if (onTabbedPage) {
+    mount(pagetabs, el('div', { class: 'seg', role: 'tablist' }, section.pages.map(([r, label]) => el('a', {
+      href: `#/${r}`, class: 'seg-item', role: 'tab', 'aria-current': r === full ? 'page' : null,
+    }, label, count(r) ? el('span', { class: 'ml-1 rounded-full bg-amber-500 px-1.5 text-[10px] font-bold leading-4 text-white' }, String(count(r))) : null))));
+  }
 
   // Computers: the same items in a sidebar.
-  const sideLink = (item) => el('a', { href: `#/${item.key}`, class: 'side-link', 'aria-current': isActive(item, name) ? 'page' : null },
+  const sideLink = (item) => el('a', { href: item.href || `#/${item.key}`, class: 'side-link', 'aria-current': (item.active !== undefined ? item.active : isActive(item, name)) ? 'page' : null },
     icon(item.icon, 'size-5'), item.label, count(item.key) ? el('span', { class: 'side-count' }, String(count(item.key))) : null);
   mount(sidebar,
     el('a', { href: '#/home', class: 'flex h-16 shrink-0 items-center gap-3 border-b border-slate-200 px-5 dark:border-neutral-900' },
@@ -370,7 +373,8 @@ function renderChrome(name) {
     el('nav', { class: 'side-scroll' },
       el('p', { class: 'side-group' }, 'My volunteering'),
       volunteerItems.map(sideLink),
-      admin ? ADMIN_GROUPS.map((g) => [el('p', { class: 'side-group' }, g.title), g.items.map(sideLink)]) : null),
+      admin ? [el('p', { class: 'side-group' }, 'Admin'),
+        ADMIN_SECTIONS.map((sec) => sideLink({ ...sec, active: sec === section }))] : null),
     el('div', { class: 'border-t border-slate-200 p-4 text-xs dark:border-neutral-900' },
       el('p', { class: 'truncate font-bold text-slate-900 dark:text-white' }, u.name),
       el('p', { class: 'truncate muted' }, u.email)));
@@ -422,7 +426,8 @@ function route() {
     return;
   }
   currentRoute = name;
-  renderChrome(name);
+  currentFull = [name, ...rest].join('/');
+  renderChrome(name, currentFull);
   Promise.resolve(r.fn(view, app, ctx, param)).catch((err) => console.error(err));
 
   if (!checkedUser) {
@@ -432,7 +437,7 @@ function route() {
       const u = app.user;
       storage.set('minds.user', res.user);
       if (u && isAdmin(u) && !isAdmin(res.user)) demoted();
-      else renderChrome(currentRoute);
+      else renderChrome(currentRoute, currentFull);
     }).catch(() => {});
     if (app.isAdmin) app.fetchAdminHome().catch(() => {}); // fills the admin badges
   }
@@ -464,5 +469,6 @@ if ('serviceWorker' in navigator && location.protocol === 'https:') {
 }
 
 setOffline(navigator.onLine === false);
+installQuickView(app);
 route();
 app.flushScans();

@@ -52,6 +52,7 @@ function routes_() {
     // What volunteers see about trainees (TraineeInfo.gs) and the activity log (AdminLog.gs)
     visibilitySettings: { auth: 'admin', fn: visibilitySettings_ },
     saveVisibility: { auth: 'admin', write: true, fn: saveVisibility_ },
+    setTraineePhoto: { auth: 'admin', write: true, fn: setTraineePhoto_ },
     listAdminLog: { auth: 'admin', fn: listAdminLog_ },
 
     listTrainees: { auth: 'admin', fn: listTrainees_ },

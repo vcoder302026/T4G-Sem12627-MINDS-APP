@@ -20,7 +20,7 @@ function isActiveTrainee_(row) {
 function traineeList_() {
   const list = traineeTable_().rows()
     .filter((r) => r.id && r.name && isActiveTrainee_(r))
-    .map((r) => ({ id: String(r.id), name: r.name, preferredName: r.preferredName || '', gender: r.gender || '' }));
+    .map((r) => ({ id: String(r.id), name: r.name, preferredName: r.preferredName || '', gender: r.gender || '', photoUrl: traineePhotoUrl_(r.id) }));
   return sortBy_(list, (t) => natKey_(t.name));
 }
 
@@ -54,7 +54,7 @@ function traineeDetail_(p) {
   const allNotes = sortBy_(table_('traineeNotes').filter((n) => String(n.traineeId) === String(row.id)), (n) => `${n.date} ${n.addedAt}`).reverse()
     .map((n) => ({ noteId: n.noteId, date: n.date, note: n.note, author: n.author, source: n.source, status: n.status || 'shared', addedBy: n.addedBy }));
   const pairings = sortBy_(table_('bookings').filter((b) => String(b.traineeId) === String(row.id) && b.status === 'confirmed'), (b) => b.sessionDate).reverse()
-    .slice(0, 10).map((b) => ({ date: b.sessionDate, sessionTitle: b.sessionTitle, volunteerName: b.volunteerName }));
+    .slice(0, 10).map((b) => ({ date: b.sessionDate, sessionTitle: b.sessionTitle, userId: b.userId, volunteerName: b.volunteerName }));
   return { trainee: { id: String(row.id), name: row.name, active: isActiveTrainee_(row), fields }, notes: allNotes, pairings };
 }
 
@@ -71,6 +71,7 @@ function listTrainees_() {
     communication: r.communication || '',
     active: isActiveTrainee_(r),
     noteCount: counts[String(r.id)] || 0,
+    photoUrl: traineePhotoUrl_(r.id),
   }));
   return { trainees: sortBy_(trainees, (t) => natKey_(t.name)) };
 }
@@ -136,6 +137,7 @@ function reviewQueue_() {
       feedbackId: f.feedbackId,
       traineeId: String(f.traineeId),
       traineeName: f.traineeName,
+      userId: f.userId,
       volunteerName: f.volunteerName,
       date: f.date,
       observation: f.traineeObservation,
@@ -195,7 +197,7 @@ function traineeFields_(p, partial) {
 function traineeRecordOut_(row) {
   const fields = {};
   traineeEditable_().forEach((key) => { fields[key] = row[key] === undefined ? '' : String(row[key]); });
-  return { id: String(row.id), name: row.name, active: isActiveTrainee_(row), fields };
+  return { id: String(row.id), name: row.name, active: isActiveTrainee_(row), fields, photoUrl: traineePhotoUrl_(row.id) };
 }
 
 function traineeColumnsOut_(table) {
@@ -302,11 +304,11 @@ function traineeProfile_(p) {
     visits: listVisits_({ traineeId }).visits,
     trips: table_('tripParticipants').filter((x) => String(x.traineeId) === traineeId).map((x) => {
       const t = trips[x.tripId] || {};
-      return { tripId: x.tripId, title: t.title || x.tripTitle, startDate: t.startDate || '', endDate: t.endDate || '', status: x.status, volunteerName: names.users[x.userId] || x.volunteerName || '' };
+      return { tripId: x.tripId, title: t.title || x.tripTitle, startDate: t.startDate || '', endDate: t.endDate || '', status: x.status, userId: x.userId || '', volunteerName: names.users[x.userId] || x.volunteerName || '' };
     }),
     outings: table_('outingAssignments').filter((a) => String(a.traineeId) === traineeId).map((a) => {
       const o = outings[a.outingId] || {};
-      return { outingId: a.outingId, title: o.title || a.outingTitle, date: o.date || '', volunteerName: names.users[a.userId] || a.volunteerName || '', boarded: a.boarded === 'Yes' };
+      return { outingId: a.outingId, title: o.title || a.outingTitle, date: o.date || '', userId: a.userId || '', volunteerName: names.users[a.userId] || a.volunteerName || '', boarded: a.boarded === 'Yes' };
     }),
   };
 }

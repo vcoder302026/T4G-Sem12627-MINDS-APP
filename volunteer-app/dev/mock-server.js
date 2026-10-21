@@ -40,6 +40,7 @@ export function createDemoRuntime() {
   // Guide infographics live in Google Drive in production. Locally, the in-memory
   // "Drive" serves them at /__drive/<id> (see the server below).
   rt.evaluate("guideFileLinks_ = function (fileId) { const u = '/__drive/' + encodeURIComponent(fileId); return { imageUrl: u, previewUrl: u, openUrl: u }; };");
+  rt.evaluate("driveImageUrl_ = function (fileId) { return '/__drive/' + encodeURIComponent(fileId); };");
 
   const reg = (name, email, password, extra = {}) => rt.call('register', {
     name, email, password, birthday: '2000-01-15', phone: '+65 9000 0000', telegram: '',
@@ -55,6 +56,10 @@ export function createDemoRuntime() {
     if (!res.ok) throw new Error(`${action}: ${res.error.message}`);
     return res.data;
   };
+  // Illustrated stand-in photos for two trainees (the others show the placeholder).
+  [['T-0001', 'demo-trainee-1.png'], ['T-0003', 'demo-trainee-3.png']].forEach(([traineeId, file]) => call('setTraineePhoto', {
+    traineeId, fileName: file, mimeType: 'image/png', data: fs.readFileSync(path.join(here, file)).toString('base64'),
+  }));
   // A sample infographic at the top of the Volunteer Guide (admins add their own under Admin → Guide & projects).
   call('addGuideFile', {
     fileName: 'Your first session.png', mimeType: 'image/png', position: 'top',

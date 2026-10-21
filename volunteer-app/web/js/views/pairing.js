@@ -12,10 +12,10 @@
 
 import { call } from '../api.js';
 import {
-  backLink, badge, el, errorBlock, fmtDay, fmtTimes, fuzzyFilter, loading, modal, mount, onLongPress, searchBox, toast, typeBadges,
+  backLink, badge, el, errorBlock, fmtDay, fmtTimes, fuzzyFilter, loading, modal, mount, searchBox, toast, traineeAvatar, typeBadges,
 } from '../ui.js';
 import { icon } from '../../admin/js/kit.js';
-import { showVolunteerContact } from './leader.js';
+import { asPerson, asTrainee, personName, traineeName } from '../quickview.js';
 
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 
@@ -44,11 +44,11 @@ function pairBoard(o) {
         v.traineeId ? el('button', { type: 'button', class: 'pick-row font-bold text-red-600 dark:text-red-400', onclick: () => save(null) }, icon('x', 'size-5'), `Unpair from ${v.traineeName}`) : null,
         shown.slice(0, 60).map((t) => {
           const others = (byTrainee[t.id] || []).filter((x) => x.key !== v.key);
-          return el('button', { type: 'button', class: `pick-row ${t.id === v.traineeId ? 'select-ring' : ''}`, onclick: () => save(t) },
+          return asTrainee(el('button', { type: 'button', class: `pick-row ${t.id === v.traineeId ? 'select-ring' : ''}`, onclick: () => save(t) },
             el('span', { class: 'min-w-0 flex-1' },
               el('span', { class: 'pb-name' }, t.name),
               el('span', { class: 'pb-sub' }, [t.note, others.length ? `With ${others.map((x) => x.name).join(', ')}` : 'No one yet'].filter(Boolean).join(' · '))),
-            t.id === v.traineeId ? icon('tick', 'size-5 text-indigo-600') : null);
+            t.id === v.traineeId ? icon('tick', 'size-5 text-indigo-600') : null), t.id);
         }),
         shown.length > 60 ? el('p', { class: 'px-3 text-xs muted' }, `Showing 60 of ${shown.length}. Search to narrow it down.`) : null,
         !shown.length ? el('p', { class: 'p-3 text-sm muted' }, 'No trainee matches.') : null);
@@ -69,11 +69,11 @@ function pairBoard(o) {
       const sorted = [...pool.filter((v) => !v.traineeId), ...pool.filter((v) => v.traineeId && v.traineeId !== t.id), ...pool.filter((v) => v.traineeId === t.id)];
       mount(listHost, sorted.map((v) => {
         const here = v.traineeId === t.id;
-        return el('button', { type: 'button', class: `pick-row ${here ? 'select-ring' : ''}`, onclick: () => save(v, here) },
+        return asPerson(el('button', { type: 'button', class: `pick-row ${here ? 'select-ring' : ''}`, onclick: () => save(v, here) },
           el('span', { class: 'min-w-0 flex-1' },
             el('span', { class: 'pb-name' }, v.name),
             el('span', { class: 'pb-sub' }, here ? 'Paired here: tap to unpair' : v.traineeId ? `Now with ${v.traineeName}: tap to move here` : 'Unpaired')),
-          el('span', { class: 'flex shrink-0 flex-wrap gap-1' }, typeBadges(v)));
+          el('span', { class: 'flex shrink-0 flex-wrap gap-1' }, typeBadges(v))), v.userId);
       }), !sorted.length ? el('p', { class: 'p-3 text-sm muted' }, o.emptyVolunteers || 'No volunteers.') : null);
     };
     const m = modal(`Who is with ${t.name}?`, [searchBox(`Search ${o.volunteerLabel.toLowerCase()}`, (x) => { q = x; draw(); }, 'Search'), listHost]);
@@ -99,19 +99,18 @@ function pairBoard(o) {
         el('span', { class: 'pb-sub' }, v.traineeId ? `→ ${v.traineeName}${v.tag === 'standing' ? ' (regular)' : ''}` : 'Unpaired'),
         v.note ? el('span', { class: 'pb-sub' }, v.note) : null);
       card.addEventListener('click', () => pickTrainee(v));
-      return onLongPress(card, () => showVolunteerContact(v));
+      return asPerson(card, v.userId); // press and hold: Telegram and phone
     };
     const traineeCard = (t) => {
       const withVols = byTrainee[t.id] || [];
       const warn = t.warn(withVols);
       const card = el('button', { type: 'button', class: `pb-card ${warn ? 'pb-warn' : ''}` },
-        el('span', { class: 'pb-name' }, t.name),
+        el('span', { class: 'flex items-center gap-2' }, traineeAvatar(t, 'sm'), el('span', { class: 'pb-name min-w-0' }, t.name)),
         t.note ? el('span', { class: 'pb-sub' }, t.note) : null,
         withVols.length ? el('span', { class: 'pb-chips' }, withVols.map((v) => el('span', { class: `pb-chip ${v.type === 'regular' ? 'pb-reg' : ''}` }, v.name)))
           : el('span', { class: 'pb-sub' }, 'No one yet'));
       card.addEventListener('click', () => pickVolunteer(t));
-      if (o.traineeHref) onLongPress(card, () => { location.hash = o.traineeHref(t); });
-      return card;
+      return asTrainee(card, t.id); // press and hold: photo and key details
     };
     const unpairedBtn = el('button', { type: 'button', class: `pb-unpaired ${unpaired.length ? 'pb-pulse' : ''}`, 'aria-pressed': String(state.unpairedOnly) },
       `${unpaired.length} unpaired`);
@@ -123,7 +122,7 @@ function pairBoard(o) {
 
     mount(host,
       el('div', { class: 'mb-3 flex flex-wrap items-center gap-2' }, unpairedBtn,
-        el('span', { class: 'text-xs muted' }, 'Tap a card to pair. Press and hold a volunteer for their Telegram.')),
+        el('span', { class: 'text-xs muted' }, 'Tap a card to pair. Press and hold for their details.')),
       el('div', { class: 'pb' },
         el('section', { class: 'pb-col pb-vol', 'aria-label': o.volunteerLabel },
           el('div', { class: 'pb-head' }, `${o.volunteerLabel} (${o.volunteers.length})`, volToggle),
@@ -153,8 +152,8 @@ function pairingList(rows, title) {
           el('tr', {}, el('th', { class: 'px-4 py-2.5' }, 'Volunteer'), el('th', { class: 'px-4 py-2.5' }, 'Trainee'))),
         el('tbody', { class: 'divide-y divide-slate-100 dark:divide-neutral-800' },
           rows.map((r) => el('tr', {},
-            el('td', { class: 'px-4 py-2.5 font-bold' }, r.volunteer, r.type === 'regular' ? el('span', { class: 'ml-1 text-xs font-medium text-purple-700 dark:text-purple-300' }, '(Regular)') : null),
-            el('td', { class: 'px-4 py-2.5' }, r.trainee || el('span', { class: 'font-bold text-red-600' }, 'Unpaired'))))))));
+            el('td', { class: 'px-4 py-2.5 font-bold' }, personName(r.volunteer, r.userId), r.type === 'regular' ? el('span', { class: 'ml-1 text-xs font-medium text-purple-700 dark:text-purple-300' }, '(Regular)') : null),
+            el('td', { class: 'px-4 py-2.5' }, r.trainee ? traineeName(r.trainee, r.traineeId) : el('span', { class: 'font-bold text-red-600' }, 'Unpaired'))))))));
 }
 
 /* ---------------- one session ---------------- */
@@ -192,7 +191,6 @@ export function renderSessionPairing(root, app, ctx, sessionId) {
       volunteerLabel: 'Volunteers',
       warnLabel: 'Needs someone',
       emptyVolunteers: 'No one has said they\'re coming yet.',
-      traineeHref: (t) => `#/trainee/${encodeURIComponent(t.id)}`,
       onPair: (v, t) => save({ bookingId: v.bookingId, traineeId: t.id }),
       onUnpair: (v) => save({ bookingId: v.bookingId, traineeId: '' }),
     };
@@ -224,7 +222,7 @@ export function renderSessionPairing(root, app, ctx, sessionId) {
           el('p', { class: 'mt-1 text-sm muted' }, `${fmtDay(s.date, d.today)}, ${fmtTimes(s)} · ${plural(o.volunteers.length, 'volunteer')}, ${unpaired} unpaired`)),
         el('div', { class: 'flex flex-wrap gap-2' }, allBtn, listBtn)),
       showList
-        ? pairingList(o.volunteers.map((v) => ({ volunteer: v.name, type: v.type, trainee: v.traineeName })), `${s.title}, ${fmtDay(s.date, d.today)}`)
+        ? pairingList(o.volunteers.map((v) => ({ volunteer: v.name, userId: v.userId, type: v.type, trainee: v.traineeName, traineeId: v.traineeId })), `${s.title}, ${fmtDay(s.date, d.today)}`)
         : board.el);
   };
 
@@ -241,16 +239,13 @@ export function renderSessionPairing(root, app, ctx, sessionId) {
 
 export function renderStandingPairings(root, app, ctx, tab) {
   const regular = tab === 'regular';
-  const seg = el('div', { class: 'seg mb-4', role: 'tablist' },
-    el('a', { href: '#/pairings', class: 'seg-item', role: 'tab', 'aria-current': regular ? null : 'page' }, icon('calendar', 'size-4'), 'Sessions'),
-    el('a', { href: '#/pairings/regular', class: 'seg-item', role: 'tab', 'aria-current': regular ? 'page' : null }, icon('heart', 'size-4'), 'Regular pairings'));
   const host = el('div', {});
   mount(root,
     el('h1', { class: 'page-title mb-1' }, 'Pairing'),
     el('p', { class: 'mb-4 text-sm muted' }, regular
       ? 'Give each regular volunteer a fixed trainee. They are paired with that trainee every time they say they\'re coming, until you change it here.'
       : 'Volunteers (new / ad hoc) are paired by an admin for each session. Regulars with a fixed trainee are paired automatically.'),
-    seg, host);
+    host);
 
   if (!regular) {
     const draw = (h) => {
@@ -281,7 +276,6 @@ export function renderStandingPairings(root, app, ctx, tab) {
     volunteerLabel: 'Regulars',
     warnLabel: 'No regular',
     emptyVolunteers: 'No regular volunteers yet. Volunteers become regulars after 10 sessions, or promote them under Volunteers.',
-    traineeHref: (t) => `#/trainee/${encodeURIComponent(t.id)}`,
     onPair: (v, t) => save({ userId: v.userId, traineeId: t.id }),
     onUnpair: (v) => save({ userId: v.userId, traineeId: '' }),
   });

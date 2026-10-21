@@ -1,8 +1,9 @@
 // Admin → Volunteers and Trainees.
 
+import { personName, traineeName } from '../../../js/quickview.js';
 import { call } from '../../../js/api.js';
 import {
-  badge, busy, el, fuzzyFilter, labelled, modal, mount, passwordPrompt, searchBox, toast, typeBadges,
+  badge, busy, el, fuzzyFilter, labelled, modal, mount, passwordPrompt, searchBox, toast, traineeAvatar, typeBadges,
 } from '../../../js/ui.js';
 import {
   backTo, dateRangeText, day, field, formModal, hours, icon, load, pageHead, panel, plural, row, selectField, stat, statGrid, table,
@@ -92,9 +93,9 @@ export function renderVolunteers(root, app, ctx) {
       return b;
     };
     mount(listHost, table([
-      { label: 'Name', cell: (p) => el('span', { class: 'font-bold' }, p.name) },
+      { label: 'Name', cell: (p) => personName(p.name, p.userId, 'font-bold') },
       { label: 'Profile', cell: (p) => el('span', { class: 'flex flex-wrap gap-1' }, typeBadges(p), p.status === 'inactive' ? badge('Deactivated', 'red') : null, p.hasAccount ? null : badge('No login yet', 'amber')) },
-      { label: 'Regular trainee', cell: (p) => p.regularTraineeName },
+      { label: 'Regular trainee', cell: (p) => (p.regularTraineeName ? traineeName(p.regularTraineeName, p.regularTraineeId) : '') },
       { label: 'Phone', cell: (p) => p.phone, class: 'whitespace-nowrap' },
       { label: 'Sessions', cell: (p) => String(p.sessions), class: 'text-right' },
       { label: 'No-shows', cell: (p) => (p.noShows ? el('span', { class: 'font-bold text-red-600 dark:text-red-400' }, String(p.noShows)) : '0'), class: 'text-right' },
@@ -190,7 +191,7 @@ export function renderVolunteer(root, app, ctx, userId) {
         panel('Details', el('button', { class: 'btn btn-secondary btn-sm', onclick: () => edit(p) }, icon('pencil', 'size-4'), 'Edit'),
           el('dl', { class: 'divide-y divide-slate-100 px-4 py-2 text-sm dark:divide-neutral-800' },
             dl('Phone', p.phone), dl('Telegram', p.telegram ? `@${p.telegram}` : ''), dl('Birthday', p.birthday),
-            dl('Regular trainee', d.regularTrainee ? d.regularTrainee.name : (regular ? 'Not set: see Pairing → Regular pairings' : '')),
+            dl('Regular trainee', d.regularTrainee ? traineeName(d.regularTrainee.name, d.regularTrainee.id) : (regular ? 'Not set: see Pairing → Regular pairings' : '')),
             d.typeSetBy ? dl('Profile set by', d.typeSetBy) : null,
             dl('Emergency contact', `${p.emergencyName || ''}${p.emergencyRelation ? ` (${p.emergencyRelation})` : ''}`),
             dl('Emergency phone', p.emergencyPhone), dl('Registered', p.createdAt),
@@ -239,6 +240,68 @@ function traineeForm(columns, t) {
     g.keys.length === 4 && !LONG.includes(g.keys[0]) ? [row(input(g.keys[0]), input(g.keys[1])), row(input(g.keys[2]), input(g.keys[3]))] : g.keys.map(input)));
 }
 
+/* ---------------- trainee photos ---------------- */
+
+const PHOTO_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic'];
+const PHOTO_MAX_MB = 5;
+
+function readAsBase64(file) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(String(r.result).replace(/^data:[^,]*,/, ''));
+    r.onerror = () => reject(new Error('The photo could not be read. Choose it again.'));
+    r.readAsDataURL(file);
+  });
+}
+
+/** Add or change a trainee's photo: from this device (or the phone's camera), or a Google Drive link. */
+function photoForm(t, onSaved) {
+  let source = 'upload';
+  const fileInput = el('input', { type: 'file', accept: PHOTO_TYPES.join(','), class: 'input py-2', 'aria-label': 'Choose a photo' });
+  const uploadBox = el('div', { class: 'space-y-1' }, fileInput,
+    el('p', { class: 'hint' }, `A JPG or PNG up to ${PHOTO_MAX_MB} MB. On a phone you can take one with the camera. It's saved in a "Trainee photos" folder in the app's Google Drive.`));
+  const driveBox = el('div', { hidden: true }, field('driveUrl', 'Google Drive link', {
+    placeholder: 'https://drive.google.com/file/d/…/view',
+    hint: 'In Google Drive: right-click the photo → Share → Copy link.',
+  }));
+  const choice = (value, label) => {
+    const input = el('input', { type: 'radio', name: 'source', value, checked: value === source });
+    input.addEventListener('change', () => { source = value; uploadBox.hidden = value !== 'upload'; driveBox.hidden = value !== 'drive'; });
+    return el('label', { class: 'check-row' }, input, el('span', {}, label));
+  };
+  const submit = el('button', { type: 'submit', class: 'btn btn-primary w-full' }, 'Save photo');
+  const form = el('form', { novalidate: true, class: 'space-y-4' },
+    el('div', { class: 'flex justify-center' }, traineeAvatar(t, 'lg')),
+    el('fieldset', { class: 'space-y-1' }, el('legend', { class: 'label' }, 'Where is the photo?'),
+      choice('upload', 'From this device'), choice('drive', 'Already in Google Drive')),
+    uploadBox, driveBox,
+    el('p', { class: 'hint' }, 'Volunteers paired with this trainee, and regular volunteers, will see the photo. Check the caregiver has agreed.'),
+    submit);
+  const dlg = modal(t.photoUrl ? `Change ${t.name}'s photo` : `Add a photo of ${t.name}`, form);
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const payload = { traineeId: t.id };
+    let file = null;
+    if (source === 'drive') {
+      payload.driveUrl = form.driveUrl.value.trim();
+      if (!payload.driveUrl) { toast('Paste the Google Drive link first.', 'warn'); return; }
+    } else {
+      file = fileInput.files && fileInput.files[0];
+      if (!file) { toast('Choose a photo first.', 'warn'); return; }
+      if (!PHOTO_TYPES.includes(file.type)) { toast('Choose a JPG or PNG photo.', 'warn'); return; }
+      if (file.size > PHOTO_MAX_MB * 1024 * 1024) { toast(`That photo is over ${PHOTO_MAX_MB} MB.`, 'warn'); return; }
+      Object.assign(payload, { fileName: file.name, mimeType: file.type });
+    }
+    busy(submit, file ? 'Uploading…' : 'Saving…', async () => {
+      if (file) payload.data = await readAsBase64(file);
+      const res = await call('setTraineePhoto', payload, { timeoutMs: 120000 });
+      dlg.close();
+      toast(res.message, /may not be able/.test(res.message) ? 'warn' : 'ok');
+      onSaved();
+    });
+  });
+}
+
 /** Only fields that changed (all fields when adding). */
 function traineePayload(d, t) {
   const out = {};
@@ -268,10 +331,11 @@ export function renderTrainees(root, app, ctx) {
     if (show === 'noRegular') rows = data.trainees.filter((t) => t.active && !t.regulars.length);
     rows = fuzzyFilter(rows, query, (t) => [t.name, t.fields.preferredName, t.id, t.fields.caregiverName, t.regulars.map((r) => r.name).join(' ')]);
     mount(listHost, table([
-      { label: 'Name', cell: (t) => el('span', {}, el('span', { class: 'block font-bold' }, t.name), t.fields.preferredName && t.fields.preferredName !== t.name ? el('span', { class: 'block text-xs muted' }, `Goes by ${t.fields.preferredName}`) : null) },
+      { label: 'Name', cell: (t) => el('span', { class: 'flex items-center gap-3' }, traineeAvatar(t, 'sm'),
+        el('span', {}, traineeName(t.name, t.id, 'block font-bold'), t.fields.preferredName && t.fields.preferredName !== t.name ? el('span', { class: 'block text-xs muted' }, `Goes by ${t.fields.preferredName}`) : null)) },
       { label: 'ID', cell: (t) => el('span', { class: 'font-mono text-xs' }, t.id) },
       { label: 'Gender', cell: (t) => t.fields.gender },
-      { label: 'Regular volunteers', cell: (t) => (t.regulars.length ? t.regulars.map((r) => r.name).join(', ') : badge('None yet', 'amber')) },
+      { label: 'Regular volunteers', cell: (t) => (t.regulars.length ? t.regulars.map((r, i) => [i ? ', ' : '', personName(r.name, r.userId)]) : badge('None yet', 'amber')) },
       { label: 'Caregiver', cell: (t) => [t.fields.caregiverName, t.fields.caregiverPhone].filter(Boolean).join(' · ') },
       { label: '', cell: (t) => (t.active ? '' : badge('Inactive', 'slate')) },
     ], rows, { empty: 'No trainee matches.', href: (t) => `#/trainee/${encodeURIComponent(t.id)}` }));
@@ -290,7 +354,8 @@ export function renderTrainees(root, app, ctx) {
       el('div', { class: 'mt-4 flex flex-wrap gap-2' },
         el('a', { href: '#/visibility', class: 'btn btn-secondary btn-sm' }, icon('eye', 'size-4'), 'What volunteers see'),
         el('a', { href: '#/pairings/regular', class: 'btn btn-secondary btn-sm' }, icon('sparkle', 'size-4'), 'Regular pairings')),
-      missing.length > 6 ? null : missing.length ? el('p', { class: 'alert alert-info mt-4' },
+      // Only for a simple trainee list; a House Visit form sheet has its own columns.
+      missing.length > 3 ? null : missing.length ? el('p', { class: 'alert alert-info mt-4' },
         `The trainee sheet has no ${missing.map((c) => `"${c.label}"`).join(', ')} column yet. It is added automatically the first time you fill it in.`) : null,
       el('div', { class: 'mt-6' }, panel('Trainee list',
         el('button', { class: 'btn btn-primary btn-sm', onclick: addTrainee }, icon('plus', 'size-4'), 'Add trainee'),
@@ -340,15 +405,26 @@ export function renderTrainee(root, app, ctx, traineeId) {
       return b;
     };
 
+    const photoBtn = el('button', { class: 'btn btn-secondary btn-sm', onclick: () => photoForm(t, refresh) }, icon('pencil', 'size-4'), t.photoUrl ? 'Change photo' : 'Add photo');
+    const removePhoto = t.photoUrl ? el('button', { class: 'btn btn-danger btn-sm' }, 'Remove') : null;
+    if (removePhoto) {
+      removePhoto.addEventListener('click', () => {
+        if (!window.confirm(`Remove ${t.name}'s photo? The file stays in Google Drive.`)) return;
+        busy(removePhoto, '', async () => { const res = await call('setTraineePhoto', { traineeId: t.id, remove: true }); toast(res.message); refresh(); });
+      });
+    }
     mount(host,
       backTo('#/trainees', 'Trainees'),
+      el('div', { class: 'mb-4 flex flex-wrap items-center gap-4' },
+        traineeAvatar(t, 'lg'),
+        el('div', { class: 'flex flex-wrap gap-2' }, photoBtn, removePhoto)),
       pageHead(t.name, `${t.id}${t.fields.preferredName && t.fields.preferredName !== t.name ? ` · goes by ${t.fields.preferredName}` : ''}`,
         t.active ? badge('Active', 'emerald') : badge('Inactive', 'slate'),
         el('a', { href: `#/visibility/${encodeURIComponent(t.id)}`, class: 'btn btn-secondary btn-sm' }, icon('eye', 'size-4'),
           d.visibility.volunteer || d.visibility.regular ? 'What volunteers see (own settings)' : 'What volunteers see'),
         el('button', { class: 'btn btn-secondary btn-sm', onclick: edit }, icon('pencil', 'size-4'), 'Edit')),
       el('div', { class: `alert ${d.regulars.length ? 'alert-success' : 'alert-warn'} mb-6 flex flex-wrap items-center justify-between gap-2` },
-        el('span', {}, d.regulars.length ? `Regular volunteers: ${d.regulars.map((r) => r.name).join(', ')}` : 'No regular volunteer yet. Ideally every trainee has at least one.'),
+        el('span', {}, d.regulars.length ? ['Regular volunteers: ', d.regulars.map((r, i) => [i ? ', ' : '', personName(r.name, r.userId, 'font-bold')])] : 'No regular volunteer yet. Ideally every trainee has at least one.'),
         el('a', { href: '#/pairings/regular', class: 'link' }, 'Regular pairings')),
       el('div', { class: 'grid gap-6 lg:grid-cols-2' },
         (d.sections.length ? d.sections : [{ title: 'Details', fields: [] }]).map((s) => panel(s.title, null,
@@ -368,19 +444,19 @@ export function renderTrainee(root, app, ctx, traineeId) {
         panel(`House visits (${d.visits.length})`, el('a', { href: '#/visits', class: 'link text-sm' }, 'All visits'),
           table([
             { label: 'Date', cell: (v) => day(v.date), class: 'whitespace-nowrap' },
-            { label: 'Visited by', cell: (v) => v.volunteerName },
+            { label: 'Visited by', cell: (v) => personName(v.volunteerName, v.userId) },
             { label: 'Follow-up', cell: (v) => v.followUp, class: 'whitespace-pre-line' },
           ], d.visits, { empty: 'No house visits recorded.' }))),
       el('div', { class: 'mt-6 grid gap-6 lg:grid-cols-2' },
         panel('Recent sessions', null, table([
           { label: 'Date', cell: (b) => day(b.date), class: 'whitespace-nowrap' },
           { label: 'Session', cell: (b) => b.sessionTitle },
-          { label: 'Volunteer', cell: (b) => b.volunteerName },
+          { label: 'Volunteer', cell: (b) => personName(b.volunteerName, b.userId) },
         ], d.pairings, { empty: 'Not paired with a volunteer yet.' })),
         panel('Outings', null, table([
           { label: 'Outing', cell: (o) => o.title },
           { label: 'Date', cell: (o) => day(o.date), class: 'whitespace-nowrap' },
-          { label: 'With', cell: (o) => o.volunteerName },
+          { label: 'With', cell: (o) => personName(o.volunteerName, o.userId) },
         ], d.outings, { empty: 'No outings.', href: (o) => `#/outing/${o.outingId}` })),
         panel('Overseas trips', null, table([
           { label: 'Trip', cell: (x) => x.title },

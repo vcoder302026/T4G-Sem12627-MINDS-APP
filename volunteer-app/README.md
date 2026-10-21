@@ -70,28 +70,28 @@ ideally at least one regular; the app flags trainees without one.
 | **1. Register and profile** | Sign up with name, birthday, email, phone, Telegram and emergency contact. Edit details later under **Me**. (The fields will follow MINDS's registration form once it's shared.) |
 | **2. Volunteer Guide** | New volunteers read a short guide (text, plus any infographics: pictures or PDFs) and tap **I've read the guide** before their first sign-up. |
 | **3. Upcoming sessions** | Every volunteer sees the upcoming sessions. Tick every one you can come to and tap **I'm coming**: no waiting for a confirmation. **Can't make it** takes you off a session. |
-| **4. Your trainee** | Once paired, see your trainee's allowed details and notes from earlier volunteers, and open their full page. Regulars see their fixed trainee on Home. |
+| **4. Your trainee** | Once paired, see your trainee's photo, allowed details and notes from earlier volunteers, and open their full page. Regulars see their fixed trainee's details once, at the top of Home; each session then just says who they're with. |
 | **5. QR pass** | Show a QR code to clock in and out. Passes are stored on the phone, so they work without signal. |
 | **6. Feedback and updates** | Rate a session and leave an observation, or send an update about your trainee any time. An admin reviews it before other volunteers see it. |
-| **7. Progress** | Hours, sessions and "x of 10 sessions to become a regular volunteer". |
+| **7. Hours** | Hours and sessions volunteered. (Becoming a regular after 10 sessions happens automatically and isn't shown to volunteers.) |
 | **8. Trainees (regulars)** | Browse every trainee, read their details and send updates about any of them. |
 
 ### For admins (Admin menu)
 
-| Feature | What it does |
-| --- | --- |
-| **Dashboard** | New and regular volunteers, trainees without a regular, hours, who's coming and who still needs pairing. |
-| **Sessions** | Who's coming to each session (with no-shows for past ones), create, edit, close or cancel sessions. |
-| **Pairing** | A pairing board per session, in the style of the WERONE outing app: volunteers beside trainees, a search box for each, an **Unpaired** count that filters, tap to pair, press and hold a volunteer for their Telegram. A **Pairing list** view gives a Volunteer → Trainee table to screenshot. **Regular pairings** sets each regular's fixed trainee. |
-| **Scan passes / Clock in by hand** | Scan QR passes (works offline; uploads later). Clocking in by hand is its own page, with walk-ins. |
-| **Volunteers** | Profiles, sessions, no-shows and hours. Promote to regular (or back), make or remove admins, reset passwords, **Deactivate** straight from the list. **Removing or deactivating an admin needs your own password.** |
-| **Trainees** | Every trainee with all their details grouped like the House Visit form, their regular volunteers, notes, visits and history. **What volunteers see** sets the details volunteers and regulars get: a default for everyone, own settings per trainee, and "Set as default". |
-| **Attendance, Volunteer hours** | Every clock-in and out; fix a missed scan; hours per volunteer, exported as CSV. |
-| **Notes to review** | Session feedback and trainee updates, shared or kept private. |
-| **Activity log** | Every change an admin makes, in plain English: who, what and when. Also kept in the sheet. |
-| **Guide & projects** | Everything new volunteers read: add and edit text sections, and **infographics** (a JPG/PNG picture or a PDF, up to 8 MB) uploaded from your device or picked from Google Drive by its share link; move items up and down; replace or remove a file. |
-| **Venues** | The venue list for sessions. |
-| **Later (placeholders)** | Fundraising, outings, overseas trips and house visits from Version 1 are kept but parked until MINDS decides how they fit. |
+Six sections, plus **More**. A section with several pages shows them as tabs at the top.
+**Press and hold any name** (right-click on a computer) for a quick card: a volunteer's
+Telegram, phone and regular trainee, or a trainee's photo and key details. Names you can
+press have a dotted underline.
+
+| Section | Tabs | What admins do there |
+| --- | --- | --- |
+| **Dashboard** | Overview · Activity log | New and regular volunteers, trainees without a regular, who's coming and who still needs pairing. The **activity log** lists every change an admin makes (also kept in the sheet). |
+| **Sessions** | | Who's coming to each session (no-shows after the day). Each session has **Pair**, **Scan** and **Clock in** (by hand, with walk-ins) on its row. Create, edit, close or cancel sessions. |
+| **Pairing** | Sessions to pair · Regular pairings | The WERONE-style board for each session (volunteers beside trainees, search, **Unpaired** filter, tap to pair, **Pairing list** to screenshot), and each regular's fixed trainee. |
+| **Volunteers** | People · Attendance · Hours | Profiles, sessions, no-shows and hours; promote to regular, make or remove admins (**your password** to remove one), reset passwords, **Deactivate** from the list. Every clock-in and out, fixing missed scans, and hours exported as CSV. |
+| **Trainees** | Trainees · Notes to review · What volunteers see | Every trainee's details grouped like the House Visit form, their **photo** (add, change, remove), regular volunteers and notes. Volunteer notes waiting to be shared. Which details volunteers and regulars see (a default, per trainee, "Set as default"). The form's list of attached volunteers is hidden. |
+| **Settings** | Guide & projects · Venues | The Volunteer Guide: text sections and **infographics** (a picture or PDF, uploaded or from Google Drive), projects and venues. |
+| **More** | Fundraising · Outings · Overseas trips · House visits | Version 1 placeholders, parked until MINDS decides how they fit. |
 
 ### Behind the scenes
 
@@ -220,14 +220,14 @@ admin, so you can be signed in as both at once.
 | 1 | New user | Register with fictional details | You're asked to read the Volunteer Guide before signing up |
 | 2 | Volunteer (Sam) | Sessions → tick two sessions → **I'm coming** | Both appear on Home straight away, "not paired yet" |
 | 3 | Regular (Rex) | Sign up for a session | You're paired with Mock Trainee 1 at once ("your regular trainee") |
-| 4 | Admin | Admin → Pairing → a session; tap Sam, pick a trainee; press and hold a name | The unpaired count drops; the contact pop-up shows Telegram |
+| 4 | Admin | Admin → Sessions → **Pair** on a session; tap Sam, pick a trainee; press and hold any name | The unpaired count drops; the quick card shows Telegram, or a trainee's photo and details |
 | 5 | Admin | Pairing → **Regular pairings**: give Rina a different trainee | Rina's upcoming sessions move to the new trainee |
-| 6 | Admin | Clock in by hand → today's Art & Craft → clock Sam in, then out | Sam becomes a **Regular** (10 sessions) |
+| 6 | Admin | Sessions → **Clock in** on today's Art & Craft → clock Sam in, then out | Sam becomes a **Regular** (10 sessions) |
 | 7 | Regular | Trainees → any trainee → **Send update** | It waits under Admin → Notes to review |
 | 8 | Volunteer (Vera) | Home → your trainee → **See all details** | Only the allowed details appear; another trainee's page is refused |
 | 9 | Admin | Trainees → a trainee → **What volunteers see**; untick a detail; save | Vera no longer sees it for that trainee |
 | 10 | Admin | Volunteers → make Vera an admin, then remove admin access | You're asked for your own password |
-| 11 | Admin | Activity log | Every change above is listed with who did it |
+| 11 | Admin | Dashboard → **Activity log** | Every change above is listed with who did it |
 | 12 | Any | Resize the browser from phone width to full width | The tabs become a sidebar; tables become cards on a phone |
 
 ### Step 6: Check the phone layout
@@ -328,6 +328,7 @@ In Apps Script, go to **Project Settings → Script properties → Add script pr
 | `TRAINEE_SPREADSHEET_ID` | The trainee sheet, if it's a separate file. Paste the **full URL of the tab**, e.g. `https://docs.google.com/spreadsheets/d/…/edit#gid=123`: the `#gid=` part picks the tab | No |
 | `FIRST_ADMIN_EMAIL` | Your email, added in Stage 7 | Later |
 | `GUIDE_FOLDER_ID` | Created automatically the first time an admin uploads an infographic: the Drive folder "MINDS Volunteer App – Guide infographics" | Automatic |
+| `PHOTO_FOLDER_ID` | Created automatically the first time an admin uploads a trainee photo: the Drive folder "MINDS Volunteer App – Trainee photos" | Automatic |
 
 Sheet IDs are kept here rather than in the code, so they never end up on GitHub.
 
@@ -515,6 +516,9 @@ Only start this after the Exp test rounds (Stage 9) are finished and MINDS has a
 | `AUTO_SHARE_OBSERVATIONS` | `false` | Share volunteer notes without an admin's review |
 | `REQUIRE_GUIDE_BEFORE_BOOKING` | `true` | New volunteers read the guide before their first sign-up |
 | `GUIDE_FILES` | 8 MB; JPG, PNG, WebP, GIF, PDF | Infographics allowed in the guide, and the Drive folder they're saved in |
+| `TRAINEE_PHOTOS` | 5 MB; JPG, PNG, WebP, HEIC | Trainee photos, and the Drive folder they're saved in |
+| `TRAINEES.hiddenSections` | `Volunteers' Details` | Form sections never shown in the app |
+| `TRAINEES.cardSections` | For volunteers, Behaviour, Medical & Health, Abilities / Skills, Trainee's Details | Which details lead the short trainee card on Home |
 | `DEFAULT_VENUES` | MINDS Woodlands Gardens School | Venues `setup()` adds when the Venues tab is empty |
 
 ---
@@ -537,6 +541,7 @@ Only start this after the Exp test rounds (Stage 9) are finished and MINDS has a
 | Regular Pairings | pairing | A regular's fixed trainee; `active` or `ended`. Rows may be typed with names only (User ID and Trainee ID blank) |
 | Admin Activity Log | change | When, which admin, what they did, in plain English |
 | App Settings, Trainee Visibility | setting | What volunteers and regulars see about trainees (default, and per trainee) |
+| Trainee Photos | trainee | The trainee's photo (a Google Drive file ID), set by admins in the app |
 | Trainees (MINDS's sheet) | trainee | The app adds Trainee ID and two observation columns. Admins can add and edit trainees, writing only the mapped columns |
 | Fundraisers, Products | fundraiser / product | Prices in SGD; products are archived rather than deleted |
 | Orders, Order Items | order / line | Total worked out by the server; each line keeps the price it was sold at |
@@ -615,7 +620,7 @@ How each screen works: [docs/USER-GUIDE.md](docs/USER-GUIDE.md).
 - Agree with MINDS which trainee details volunteers and regulars may see (PDPA); the
   defaults in `Config.gs` are a starting point.
 - New House Visit form responses get a Trainee ID when `setup()` next runs.
-- Guide infographics are stored in Google Drive and shared "anyone with the link can view",
+- Guide infographics and trainee photos are stored in Google Drive and shared "anyone with the link can view",
   because volunteers don't sign in to Google. They need signal to load (text sections work
   offline). A Google Workspace account that blocks link sharing would stop volunteers seeing
   them; the app warns the admin when that happens.

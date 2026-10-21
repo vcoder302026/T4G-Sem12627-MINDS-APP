@@ -1,6 +1,7 @@
 // Section 3: Outings — which volunteer looks after which trainee, groups,
 // buses, and ticking who has boarded on the day.
 
+import { personName, traineeName } from '../../../js/quickview.js';
 import { call } from '../../../js/api.js';
 import { badge, el, fmtTimes, fuzzyFilter, labelled, mount, searchBox, todaySG, toast } from '../../../js/ui.js';
 import {
@@ -110,8 +111,8 @@ export function renderOuting(root, app, ctx, outingId) {
     rows = fuzzyFilter(rows, query, (a) => [a.traineeName, a.volunteerName, a.group, a.bus]);
     mount(listHost, table([
       { label: 'Boarded', cell: boardBox, class: 'w-20' },
-      { label: 'Trainee', cell: (a) => el('a', { href: `#/trainee/${encodeURIComponent(a.traineeId)}`, class: 'link' }, a.traineeName) },
-      { label: 'Looked after by', cell: (a) => a.volunteerName },
+      { label: 'Trainee', cell: (a) => el('a', { href: `#/trainee/${encodeURIComponent(a.traineeId)}`, class: 'link' }, traineeName(a.traineeName, a.traineeId)) },
+      { label: 'Looked after by', cell: (a) => personName(a.volunteerName, a.userId) },
       { label: 'Group', cell: (a) => a.group },
       { label: 'Bus', cell: (a) => a.bus },
       { label: '', cell: (a) => el('button', { class: 'btn btn-secondary btn-sm', onclick: () => editRow(a) }, icon('pencil', 'size-4'), 'Change'), class: 'text-right' },

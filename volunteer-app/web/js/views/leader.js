@@ -6,8 +6,9 @@ import { call, isNetworkError } from '../api.js';
 import { startScanner } from '../qr.js';
 import {
   backLink, badge, busy, clockTime, combobox, el, errorBlock, field, fmtDay, fmtHours, fmtTimes, formData, fuzzyFilter,
-  icon, initials, labelled, loading, mapsLink, modal, mount, multiPick, onLongPress, searchBox, section, toast, todaySG, typeBadges,
+  icon, initials, labelled, loading, mapsLink, mount, multiPick, searchBox, section, toast, todaySG, typeBadges,
 } from '../ui.js';
+import { personName, traineeName as traineeLabel } from '../quickview.js';
 import { projectPicker, venuePicker } from './content.js';
 
 function list(...rows) {
@@ -98,9 +99,11 @@ export function renderToday(root, app, ctx) {
           st.done ? badge(`${st.done} done`, 'indigo') : null,
           st.noShows ? badge(`${st.noShows} no-show${st.noShows === 1 ? '' : 's'}`, 'red') : null,
           s.status === 'closed' ? badge('Sign-ups closed', 'red') : null)),
-      s.date === today
-        ? el('a', { href: `#/scan/${s.sessionId}`, class: 'btn btn-success btn-sm shrink-0', 'aria-label': `Scan passes for ${s.title}` }, icon('scan', 'size-4'), 'Scan')
-        : el('a', { href: `#/pair/${s.sessionId}`, class: 'btn btn-secondary btn-sm shrink-0', 'aria-label': `Pair volunteers for ${s.title}` }, icon('sparkle', 'size-4'), 'Pair'));
+      // Everything for one session, right on its row: pairing, and on the day scanning and clocking in by hand.
+      el('div', { class: 'flex shrink-0 flex-col gap-1.5' },
+        el('a', { href: `#/pair/${s.sessionId}`, class: 'btn btn-secondary btn-sm', 'aria-label': `Pair volunteers for ${s.title}` }, icon('sparkle', 'size-4'), 'Pair'),
+        s.date === today ? el('a', { href: `#/scan/${s.sessionId}`, class: 'btn btn-success btn-sm', 'aria-label': `Scan passes for ${s.title}` }, icon('scan', 'size-4'), 'Scan') : null,
+        s.date === today ? el('a', { href: `#/clock/${s.sessionId}`, class: 'btn btn-secondary btn-sm', 'aria-label': `Clock in by hand for ${s.title}` }, icon('clock', 'size-4'), 'Clock in') : null));
   };
 
   const drawList = () => {
@@ -135,26 +138,18 @@ export function renderToday(root, app, ctx) {
   };
 
   mount(root,
-    el('div', { class: 'flex items-center justify-between gap-3' },
+    el('div', { class: 'flex flex-wrap items-center justify-between gap-3' },
       el('h1', { class: 'page-title' }, 'Sessions'),
-      el('a', { href: '#/new-session', class: 'btn btn-primary btn-sm' }, icon('plus', 'size-4'), 'New session')),
+      el('div', { class: 'flex gap-2' },
+        el('a', { href: '#/scan', class: 'btn btn-success btn-sm' }, icon('scan', 'size-4'), 'Scan passes'),
+        el('a', { href: '#/new-session', class: 'btn btn-primary btn-sm' }, icon('plus', 'size-4'), 'New session'))),
+    el('p', { class: 'mt-1 text-xs muted' }, 'Press and hold any name for their details.'),
     el('div', { class: 'mt-4' }, searchBox('Search sessions by title, venue, project or date', (q) => { query = q; drawList(); })),
     host);
   return withAdminHome(host, app, ctx, (a) => { latest = a; drawList(); });
 }
 
 /* ---------------- Session detail ---------------- */
-
-/** Press-and-hold details for a volunteer (phone, Telegram): kept out of the way until needed. */
-export function showVolunteerContact(v) {
-  const line = (href, iconName, text) => el('a', { href, target: href.startsWith('http') ? '_blank' : null, rel: 'noopener', class: 'pick-row font-bold text-indigo-700 dark:text-indigo-300' }, icon(iconName, 'size-5'), text);
-  modal(v.name, el('div', { class: 'space-y-2' },
-    el('div', { class: 'flex flex-wrap gap-1.5' }, typeBadges(v)),
-    v.telegram ? line(`https://t.me/${v.telegram}`, 'send', `Telegram @${v.telegram}`) : el('p', { class: 'text-sm muted' }, 'No Telegram handle saved.'),
-    v.phone ? line(`tel:${v.phone.replace(/\s/g, '')}`, 'phone', v.phone) : null,
-    v.standingTraineeName ? el('p', { class: 'text-sm' }, `Regular trainee: ${v.standingTraineeName}`) : null,
-    el('a', { href: `#/volunteer/${v.userId}`, class: 'btn btn-secondary btn-sm mt-2 w-full' }, 'Open full profile')));
-}
 
 export function renderSession(root, app, ctx, sessionId) {
   const draw = (d) => {
@@ -186,18 +181,16 @@ export function renderSession(root, app, ctx, sessionId) {
           busy(remove, 'Removing…', async () => { const res = await call('updateBooking', { bookingId: b.bookingId, status: 'cancelled' }); apply(res); toast(res.message); });
         });
       }
-      const name = onLongPress(el('button', { type: 'button', class: 'min-w-0 flex-1 text-left' },
-        el('span', { class: 'block truncate font-bold text-slate-900 dark:text-white' }, v.name),
-        el('span', { class: 'mt-0.5 flex flex-wrap gap-1' }, typeBadges(v), b.walkIn ? badge('Walk-in', 'purple') : null, b.feedbackGiven ? badge('Feedback in', 'indigo') : null)),
-      () => showVolunteerContact(v));
-      name.addEventListener('click', () => showVolunteerContact(v));
+      const name = el('div', { class: 'min-w-0 flex-1' },
+        personName(v.name, v.userId, 'block truncate font-bold text-slate-900 dark:text-white'),
+        el('span', { class: 'mt-0.5 flex flex-wrap gap-1' }, typeBadges(v), b.walkIn ? badge('Walk-in', 'purple') : null, b.feedbackGiven ? badge('Feedback in', 'indigo') : null));
       return el('div', { class: 'flex items-start gap-3 p-4' },
         el('span', { class: 'flex size-10 shrink-0 items-center justify-center rounded-xl bg-indigo-100 text-sm font-extrabold text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300' }, initials(v.name)),
         el('div', { class: 'min-w-0 flex-1' },
           el('div', { class: 'flex items-start gap-2' }, name, remove),
           el('p', { class: 'mt-1.5 text-sm' }, b.trainee
             ? [el('span', { class: 'muted' }, b.pairing === 'standing' ? 'Regular trainee: ' : 'Trainee: '),
-              el('a', { href: `#/trainee/${encodeURIComponent(b.trainee.id)}`, class: 'link' }, b.trainee.name)]
+              el('a', { href: `#/trainee/${encodeURIComponent(b.trainee.id)}`, class: 'link' }, traineeLabel(b.trainee.name, b.trainee.id))]
             : badge('Not paired yet', 'amber', 'alert')),
           attendance ? el('div', { class: 'mt-1.5' }, attendance) : null));
     };
@@ -249,7 +242,7 @@ export function renderSession(root, app, ctx, sessionId) {
         s.status !== 'open' ? badge(s.status === 'closed' ? 'Sign-ups closed' : 'Cancelled', 'red') : null),
       attending.size ? el('p', { class: 'mt-2 text-sm muted' },
         el('span', { class: 'font-bold text-slate-700 dark:text-neutral-200' }, 'Trainees attending: '),
-        [...attending].map((id) => traineeName[id] || id).join(', ')) : null,
+        [...attending].map((id, k) => [k ? ', ' : '', traineeLabel(traineeName[id] || id, id)])) : null,
       el('div', { class: 'mt-4 grid grid-cols-4 gap-2' },
         stat(`${d.stats.booked}${s.capacity ? `/${s.capacity}` : ''}`, 'Coming', 'text-slate-900 dark:text-white'),
         stat(d.stats.unpaired, 'To pair', 'text-amber-600 dark:text-amber-400'),
@@ -260,11 +253,11 @@ export function renderSession(root, app, ctx, sessionId) {
         isToday ? el('a', { href: `#/scan/${sessionId}`, class: 'btn btn-success' }, icon('scan'), 'Scan passes') : null,
         isToday ? el('a', { href: `#/clock/${sessionId}`, class: 'btn btn-secondary' }, icon('clock'), 'Clock in by hand') : null) : null,
       el('h2', { class: 'group-label' }, `Coming (${active.length})`),
-      el('p', { class: 'mb-2 text-xs muted' }, 'Tap or press and hold a name for their Telegram and phone.'),
+      el('p', { class: 'mb-2 text-xs muted' }, 'Press and hold a name for their Telegram, phone or trainee details.'),
       active.length ? list(active.map(row)) : el('p', { class: 'text-sm muted' }, 'No one has said they\'re coming yet.'),
       cancelled.length ? el('details', { class: 'mt-4' },
         el('summary', { class: 'group-label cursor-pointer' }, `No longer coming (${cancelled.length})`),
-        el('ul', { class: 'space-y-1 text-sm muted' }, cancelled.map((b) => el('li', {}, b.volunteer.name)))) : null,
+        el('ul', { class: 'space-y-1 text-sm muted' }, cancelled.map((b) => el('li', {}, personName(b.volunteer.name, b.volunteer.userId))))) : null,
       el('details', { class: 'card group mt-6 overflow-hidden' },
         el('summary', { class: 'section-head section-indigo cursor-pointer list-none select-none' },
           'Edit or close this session', icon('down', 'size-5 transition-transform duration-200 group-open:rotate-180')),
@@ -383,7 +376,7 @@ export function renderScan(root, app, ctx, presetSessionId) {
         const o = OUTCOME[r.outcome] || OUTCOME.error;
         return el('div', { class: 'flex items-center gap-3 p-3 text-sm' },
           el('span', { class: `flex size-7 shrink-0 items-center justify-center rounded-full text-white ${o.circle}` }, icon(o.icon, 'size-4')),
-          el('span', { class: 'min-w-0 flex-1 truncate font-bold text-slate-900 dark:text-white' }, r.name || 'Unknown'),
+          personName(r.name || 'Unknown', r.userId, 'min-w-0 flex-1 truncate font-bold text-slate-900 dark:text-white'),
           el('span', { class: 'shrink-0 muted' }, `${o.title.replace('Successful ', '').replace('!', '')}, ${r.time}`));
       })),
     ] : []);
@@ -424,12 +417,12 @@ export function renderScan(root, app, ctx, presetSessionId) {
         el('span', { class: `flex size-12 shrink-0 items-center justify-center rounded-full text-white shadow-lg ${o.circle}` }, icon(o.icon, 'size-6')),
         el('div', { class: 'min-w-0' },
           el('p', { class: 'text-lg font-extrabold leading-tight text-slate-900 dark:text-white' }, o.title),
-          res && res.volunteer ? el('p', { class: 'text-base font-bold text-slate-800 dark:text-neutral-100' }, res.volunteer.name) : null,
-          res && res.trainee ? el('p', { class: 'text-sm' }, `Paired with ${res.trainee.name}`) : null,
+          res && res.volunteer ? el('p', { class: 'text-base font-bold text-slate-800 dark:text-neutral-100' }, personName(res.volunteer.name, res.volunteer.userId)) : null,
+          res && res.trainee ? el('p', { class: 'text-sm' }, 'Paired with ', traineeLabel(res.trainee.name, res.trainee.id)) : null,
           res && res.session ? el('p', { class: 'text-xs muted' }, `${res.session.title}, ${fmtTimes(res.session)}`) : null)),
       el('p', { class: `mt-2 ${outcome === 'out' ? 'text-base font-bold' : ''}` }, res && res.message ? res.message : extra || ''),
       outcome === 'not-booked' ? walkInButton() : null));
-    if (res && res.volunteer) app.addRecentScan({ name: res.volunteer.name, outcome, time: new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) });
+    if (res && res.volunteer) app.addRecentScan({ name: res.volunteer.name, userId: res.volunteer.userId, outcome, time: new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) });
     drawRecent();
   };
 
@@ -508,9 +501,9 @@ export function renderClock(root, app, ctx, presetSessionId) {
           apply(res, `${v.name}: ${res.message}`);
         }));
       }
-      const name = onLongPress(el('button', { type: 'button', class: 'min-w-0 flex-1 text-left' },
-        el('span', { class: 'block truncate font-bold text-slate-900 dark:text-white' }, v.name),
-        el('span', { class: 'block truncate text-sm muted' }, b.trainee ? `With ${b.trainee.name}` : 'Not paired yet')), () => showVolunteerContact(v));
+      const name = el('div', { class: 'min-w-0 flex-1' },
+        personName(v.name, v.userId, 'block truncate font-bold text-slate-900 dark:text-white'),
+        el('span', { class: 'block truncate text-sm muted' }, b.trainee ? ['With ', traineeLabel(b.trainee.name, b.trainee.id)] : 'Not paired yet'));
       return el('div', { class: 'flex items-center gap-3 p-4' }, name, action);
     };
     const walkIn = combobox({
@@ -552,7 +545,7 @@ export function renderClock(root, app, ctx, presetSessionId) {
   select.addEventListener('change', () => { if (select.value) openSession(select.value); else mount(host); });
   mount(root,
     el('h1', { class: 'page-title' }, 'Clock in by hand'),
-    el('p', { class: 'mt-1 text-sm muted' }, 'For a volunteer whose phone is flat or who forgot their pass. Scanning QR passes is on the Scan page.'),
+    el('p', { class: 'mt-1 text-sm muted' }, 'For a volunteer whose phone is flat or who forgot their pass. Press and hold a name for their details.'),
     el('label', { class: 'label mt-4', for: 'clock-session' }, 'Session'), select, host);
   const fill = (h) => {
     const todays = h.sessions.filter((s) => s.date === today && s.status !== 'cancelled');

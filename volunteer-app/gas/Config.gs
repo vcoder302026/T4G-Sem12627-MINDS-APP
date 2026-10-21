@@ -30,6 +30,7 @@ const CONFIG = {
   PROP_SECRET: 'APP_SECRET',
   PROP_FIRST_ADMIN_EMAIL: 'FIRST_ADMIN_EMAIL',
   PROP_GUIDE_FOLDER_ID: 'GUIDE_FOLDER_ID', // automatic: the Drive folder for guide infographics (created on first upload)
+  PROP_PHOTO_FOLDER_ID: 'PHOTO_FOLDER_ID', // automatic: the Drive folder for trainee photos (created on first upload)
 
   TOKEN_TTL_DAYS: 30,            // how long a phone stays signed in
   PASSWORD_ITERATIONS: 400,      // HMAC rounds per password check (~0.3–0.8 s in Apps Script)
@@ -60,6 +61,14 @@ const CONFIG = {
     folderName: 'MINDS Volunteer App – Guide infographics',
     maxMb: 8,
     types: { 'image/jpeg': 'image', 'image/png': 'image', 'image/webp': 'image', 'image/gif': 'image', 'application/pdf': 'pdf' },
+  },
+  // Trainee photos, added by admins on a trainee's admin page. Stored like the
+  // guide's infographics (a Drive folder, link-shared so volunteers' phones can show them).
+  // Everyone who can open a trainee (their paired volunteer, regulars, admins) sees the photo.
+  TRAINEE_PHOTOS: {
+    folderName: 'MINDS Volunteer App – Trainee photos',
+    maxMb: 5,
+    types: ['image/jpeg', 'image/png', 'image/webp', 'image/heic'],
   },
   DEFAULT_VENUES: ['MINDS Woodlands Gardens School'], // added to the Venues tab by setup() when it is empty
   ADD_MISSING_TRAINEE_COLUMNS: true,  // setup() adds empty columns for volunteer-visible fields the trainee tab lacks
@@ -271,6 +280,16 @@ const CONFIG = {
       columns: {
         key: 'Setting',
         value: 'Value',
+        updatedBy: 'Updated By',
+        updatedAt: 'Updated At',
+      },
+    },
+    traineePhotos: {
+      tab: 'Trainee Photos', // one photo per trainee (a Google Drive file), set by admins in the app
+      columns: {
+        traineeId: 'Trainee ID',
+        traineeName: 'Trainee Name',
+        fileId: 'Drive File ID',
         updatedBy: 'Updated By',
         updatedAt: 'Updated At',
       },
@@ -499,8 +518,14 @@ const CONFIG = {
       { title: 'Emergency Contacts', headers: ['Caregiver Name', 'Caregiver Phone'] },
       { title: 'Volunteers\' Observations', headers: ['Latest Volunteer Observation', 'Observation Updated'] },
     ],
-    // Never shown in the app (row bookkeeping from the form).
+    // Never shown in the app: form bookkeeping, and the form's list of attached
+    // volunteers (the app keeps pairings itself, under Pairing).
     hiddenHeaders: ['Timestamp'],
+    hiddenSections: ['Volunteers\' Details'],
+    // The short card on a volunteer's Home shows up to 8 details, from these
+    // sections first; "See all details" opens everything they're allowed to see.
+    cardSections: ['For volunteers', 'Behaviour', 'Medical & Health', 'Abilities / Skills', 'Trainee\'s Details'],
+    cardSkipSections: ['General Details'],
 
     // Default details each kind of volunteer sees (admins can change these in
     // Admin → Settings → Trainee details, and per trainee). Matched against the

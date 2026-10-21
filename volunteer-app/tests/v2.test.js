@@ -271,3 +271,46 @@ describe('infographics in the Volunteer Guide', () => {
     assert.equal(log.length, 2);
   });
 });
+
+describe('trainee photos', () => {
+  const PNG = Buffer.from('89504e470d0a1a0a0000000d49484452', 'hex').toString('base64');
+
+  test('admins add, change and remove a photo; volunteers who can open the trainee see it', () => {
+    const before = ok(call('traineeProfile', { traineeId: 'T-0001' }));
+    assert.equal(before.trainee.photoUrl, '', 'no photo yet: the app shows a placeholder');
+    const added = ok(call('setTraineePhoto', { traineeId: 'T-0001', fileName: 'mock1.jpg', mimeType: 'image/jpeg', data: PNG }));
+    assert.match(added.message, /Added Mock Trainee 1's photo/);
+    assert.match(added.trainee.photoUrl, /thumbnail\?id=/);
+    const fileId = rt.records(MAIN, 'Trainee Photos')[0]['Drive File ID'];
+    assert.equal(rt.drive.files.get(fileId).sharing, 'ANYONE_WITH_LINK');
+    assert.equal(rt.drive.folders.get(rt.props.get('PHOTO_FOLDER_ID')).name, 'MINDS Volunteer App – Trainee photos');
+    assert.ok(ok(call('listTrainees')).trainees.find((t) => t.id === 'T-0001').photoUrl);
+
+    // the paired volunteer sees it on their session and on the trainee page
+    const v = person('vol@example.com', 'Val Volunteer');
+    const s = ok(call('createSession', { title: 'Art', date: '2026-10-17', startTime: '10:00', endTime: '12:00', venue: SCHOOL })).session;
+    const b = ok(rt.call('bookSession', { sessionId: s.sessionId }, v.token)).home.upcoming[0].bookingId;
+    ok(call('updateBooking', { bookingId: b, traineeId: 'T-0001' }));
+    assert.ok(ok(rt.call('volunteerHome', {}, v.token)).upcoming[0].trainee.photoUrl);
+    assert.ok(ok(rt.call('traineeInfo', { traineeId: 'T-0001' }, v.token)).trainee.photoUrl);
+    fails(rt.call('setTraineePhoto', { traineeId: 'T-0001', remove: true }, v.token), 'FORBIDDEN');
+
+    // change it from Google Drive, then remove it
+    const fromDrive = rt.drive.addFile('portrait.png', 'image/png');
+    ok(call('setTraineePhoto', { traineeId: 'T-0001', driveUrl: `https://drive.google.com/file/d/${fromDrive.id}/view` }));
+    assert.equal(rt.records(MAIN, 'Trainee Photos').length, 1, 'one photo per trainee');
+    fails(call('setTraineePhoto', { traineeId: 'T-0001', fileName: 'plan.pdf', mimeType: 'application/pdf', data: PNG }), 'VALIDATION_ERROR');
+    const removed = ok(call('setTraineePhoto', { traineeId: 'T-0001', remove: true }));
+    assert.equal(removed.trainee.photoUrl, '');
+    assert.ok(rt.drive.files.has(fromDrive.id), 'the file stays in Google Drive');
+    assert.equal(ok(call('listAdminLog', { query: 'photo' })).entries.length, 3);
+  });
+
+  test("the form's list of attached volunteers is not shown anywhere", () => {
+    const p = ok(call('traineeProfile', { traineeId: 'T-0002' }));
+    assert.ok(!p.sections.some((s) => s.title === "Volunteers' Details"));
+    assert.ok(!JSON.stringify(p.sections).includes('Name of Attached Volunteer'));
+    const settings = ok(call('visibilitySettings', {}));
+    assert.ok(!settings.sections.some((s) => s.title === "Volunteers' Details"));
+  });
+});

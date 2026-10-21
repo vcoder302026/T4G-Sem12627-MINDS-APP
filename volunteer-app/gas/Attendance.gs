@@ -218,6 +218,6 @@ function clockResult_(outcome, user, session, record, booking, message) {
     volunteer: { userId: user.userId, name: user.name },
     session: session ? { sessionId: session.sessionId, title: session.title, startTime: session.startTime, endTime: session.endTime } : null,
     attendance: record ? attendanceOut_(record) : null,
-    trainee: booking && booking.traineeName ? { name: booking.traineeName } : null,
+    trainee: booking && booking.traineeName ? { id: String(booking.traineeId), name: booking.traineeName } : null,
   };
 }

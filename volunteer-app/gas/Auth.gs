@@ -201,6 +201,7 @@ function listPeople_() {
       sessions: (hours[u.userId] || {}).sessions || 0,
       noShows: noShows[u.userId] || 0,
       regularTraineeName: standing[u.userId] ? standing[u.userId].traineeName : '',
+      regularTraineeId: standing[u.userId] ? standing[u.userId].traineeId : '',
     }));
   return { people: sortBy_(people, (x) => String(x.name).toLowerCase()), regularAfter: CONFIG.REGULAR_AFTER_SESSIONS };
 }

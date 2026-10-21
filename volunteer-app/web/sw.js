@@ -17,6 +17,7 @@ const SHELL = [
   './js/api.js',
   './js/config.js',
   './js/qr.js',
+  './js/quickview.js',
   './js/ui.js',
   './js/views/admin.js',
   './js/views/auth.js',

@@ -290,7 +290,9 @@ describe('signing up and pairing (volunteers, regulars, admins)', () => {
     const b2 = book(s2.sessionId);
     const home = ok(rt.call('volunteerHome', {}, vol.token));
     assert.deepEqual(home.upcoming.map((u) => [u.trainee.name, u.pairing]), [['Bea Lim', 'standing'], ['Bea Lim', 'standing']]);
-    assert.deepEqual(home.regularTrainee, { id: 'T-0002', name: 'Bea Lim' });
+    assert.equal(home.regularTrainee.name, 'Bea Lim', 'shown once, in full, at the top of Home');
+    assert.ok(home.regularTrainee.fields.length);
+    assert.equal(home.progress, undefined, 'progress to regular is not shown to volunteers');
 
     confirm(b2, { traineeId: 'T-0001' }); // an admin's choice for one session...
     const changed = ok(rt.call('setStandingPairing', { userId: vol.user.userId, traineeId: 'T-0003' }, leader));

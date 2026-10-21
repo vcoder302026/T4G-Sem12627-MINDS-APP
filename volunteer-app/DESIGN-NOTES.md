@@ -45,6 +45,16 @@ Mode" or the separate staff dashboard; those are replaced as follows.
   volunteers don't sign in to Google, and the app shows it via Drive's thumbnail and preview
   URLs. This needs the `drive` scope in `appsscript.json` (`drive.file` can't open files an
   admin picks by link). Removing an item never deletes the Drive file.
+- **Trainee photos** use the same Drive storage as the guide (`saveDriveImage_` in
+  `Content.gs`), in their own folder, recorded in an app-owned "Trainee Photos" tab rather than
+  in MINDS's form sheet. The app shows a placeholder when there is no photo.
+- **Press and hold any name.** Pages only mark names (`personName` / `traineeName` in
+  `web/js/quickview.js`, which set `data-person` / `data-trainee`); one document-level
+  listener opens the quick card, so a new page gets the behaviour just by using the helpers.
+  Volunteer contact details are fetched on demand and only for admins.
+- **A short admin menu.** Six sections plus More (`ADMIN_SECTIONS` in `web/js/app.js`);
+  pages that belong together are tabs drawn by the shell above the page, so the page code
+  doesn't change when the grouping does.
 - **Removing an admin needs a password.** The server checks the acting admin's own password
   (error code `PASSWORD_REQUIRED`); the app asks for it and retries.
 

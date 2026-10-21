@@ -190,3 +190,22 @@ body.wide .app-bar, body.wide .app-main, body.wide .app-tabs, body.wide .app-sub
 .edit-row { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; padding: .75rem; }
 .edit-row-main { flex: 1 1 11rem; min-width: 0; }
 .edit-row-actions { display: flex; gap: .5rem; margin-left: auto; }
+
+/* Trainee photos (ui.js → traineeAvatar): round, with a grey person placeholder when there is none. */
+.avatar { display: inline-flex; flex-shrink: 0; align-items: center; justify-content: center; overflow: hidden; border-radius: 9999px; object-fit: cover; background: #e2e8f0; }
+.avatar-sm { width: 2.5rem; height: 2.5rem; }
+.avatar-md { width: 3.5rem; height: 3.5rem; }
+.avatar-lg { width: 6rem; height: 6rem; }
+.avatar-empty { color: #94a3b8; border: 2px dashed #cbd5e1; background: #f1f5f9; }
+.dark .avatar-empty { color: #737373; border-color: #404040; background: #171717; }
+.avatar-icon { width: 55%; height: 55%; }
+
+/* Names you can press and hold (quickview.js): a light dotted underline, and no
+   text-selection pop-up on iPhone during a long press. */
+[data-person], [data-trainee] { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+.qv { text-decoration: underline dotted rgba(100, 116, 139, .55); text-decoration-thickness: 1.5px; text-underline-offset: 3px; cursor: context-menu; }
+/* Tabs at the top of a menu item that has several pages (e.g. Volunteers: People · Attendance · Hours). */
+.page-tabs { margin: 1.25rem auto 0; padding: 0 1rem; }
+.page-tabs .seg { overflow-x: auto; scrollbar-width: none; }
+.page-tabs .seg::-webkit-scrollbar { display: none; }
+.page-tabs .seg-item { flex: 1 0 auto; }

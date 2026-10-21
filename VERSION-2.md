@@ -20,7 +20,7 @@ record in the demo is fictional.
 
 | Area | Version 1 | Version 2 |
 | --- | --- | --- |
-| **Apps** | Phone app with a "Choose Mode" switch, plus a separate staff dashboard at `admin/` | **One app.** Admins see the volunteer pages plus an **Admin** menu. Tabs on a phone, a sidebar on a computer, same information on both. `admin/` now opens the app |
+| **Apps** | Phone app with a "Choose Mode" switch, plus a separate staff dashboard at `admin/` | **One app.** Admins see the volunteer pages plus a short **Admin** menu (Dashboard, Sessions, Pairing, Volunteers, Trainees, Settings, More), with tabs for each section's pages. Tabs on a phone, a sidebar on a computer, same information on both. `admin/` now opens the app |
 | **Profiles** | Volunteer or leader | **Volunteer** (new / ad hoc), **Regular** (after 10 attended sessions, or promoted by an admin) and **Admin** (on top of either) |
 | **Signing up** | Book → a leader confirms | Tick sessions → **I'm coming**. No confirmation. Several sessions at once |
 | **Pairing** | Automatic on confirm (same trainee as last time, else fewest pairings) | **Regulars:** a fixed trainee set by an admin, applied every time they sign up. **Volunteers:** paired by an admin on a WERONE-style pairing board. One trainee per volunteer, several volunteers per trainee |
@@ -46,9 +46,9 @@ record in the demo is fictional.
 | Pairing list maintained; follow the WERONE outing pairing interface; pull from a sheet of existing pairs | **Done** (pairing board; Regular Pairings tab accepts typed names; Pairing list view to screenshot) |
 | No booking confirmations on the dashboard; volunteers just say they're coming | **Done** |
 | No-shows visible per volunteer | **Done** (sessions, volunteer list and profile) |
-| Clock in by hand separate from the scan page; details on long press; Telegram only | **Done** |
+| Clock in by hand separate from the scan page; details on long press; Telegram only | **Done** (Clock in on each session's row; press and hold works on every volunteer and trainee name) |
 | Volunteer and trainee data in separate sheets; key in a URL for each, a specific tab | **Done** (`SPREADSHEET_ID`, `TRAINEE_SPREADSHEET_ID`; URL with `#gid=`) |
-| Regulars: info dump on any trainee, can update any trainee, auto-paired when they sign up | **Done** |
+| Regulars: info dump on any trainee, can update any trainee, auto-paired when they sign up | **Done** (their regular trainee's details are shown once at the top of Home, not on every session) |
 | Ad hoc volunteers: only their trainee, controlled details, can send updates | **Done** |
 | Admin controls what ad hoc and regular volunteers see; per trainee; "set as default" | **Done** (defaults are a starting point until MINDS confirms) |
 | Admin sees unpaired volunteers | **Done** (Unpaired count and filter) |
@@ -57,8 +57,8 @@ record in the demo is fictional.
 | Remove "open the phone app" | **Done** |
 | Upcoming sessions shown to all volunteers, for screenshots | **Done** (Sessions page; Pairing list for admins) |
 | Outings and fundraising as placeholders; trips separate | **Done** (Admin → Later) |
-| Infographic or PDF above the guide, changeable by admins, from Google Drive or a device | **Done** (Admin → Guide & projects → Add infographic) |
-| Trainee photo database | Not yet |
+| Infographic or PDF above the guide, changeable by admins, from Google Drive or a device | **Done** (Admin → Settings → Guide & projects → Add infographic) |
+| Trainee photo database | **Done** (admins add or change a photo on the trainee page; a placeholder shows until then). Caregiver consent still to confirm |
 | New registrations added to Google Contacts (Telegram in notes) | Not yet: needs the People API enabled on the vcoder302026 account |
 | Attendance for special events and committee roles | Not yet |
 | Registration fields from MINDS's Google Form; drop emergency contact | Waiting for the form |
@@ -85,16 +85,17 @@ The trainees are MINDS's 100 mock House Visit trainees, loaded as a separate fil
 1. **Sam (volunteer):** Sessions → tick two → **I'm coming**. Home shows them, not paired yet.
 2. **Rex (regular):** Home shows his regular trainee; signing up pairs him at once. Trainees →
    any trainee → read everything → **Send update**.
-3. **Ada (admin), on a phone-sized window:** Admin → Pairing → Art & Craft. Tap Sam, pick a
-   trainee. Press and hold a name for Telegram. **Pairing list** for a screenshot.
+3. **Ada (admin), on a phone-sized window:** Admin → Sessions → **Pair** on Art & Craft. Tap
+   Sam, pick a trainee. Press and hold any name for their details. **Pairing list** for a
+   screenshot.
 4. Pairing → **Regular pairings**: give Rina a new trainee; her upcoming sessions follow.
-5. **Clock in by hand** → Art & Craft → clock Sam in and out: he becomes a **Regular**.
+5. Sessions → **Clock in** on Art & Craft → clock Sam in and out: he becomes a **Regular**.
 6. Trainees → Mock Trainee 3 → **What volunteers see**: untick a detail, save. Sign in as Vera:
-   it's gone.
+   it's gone. Add a photo on the same page.
 7. Volunteers → make Vera an admin, then **Remove admin access**: your password is needed.
-8. Admin → **Guide & projects** → **Add infographic**: upload a picture or a PDF from your
-   computer. Open **Preview as a volunteer**.
-9. **Activity log**: everything above, with who did it.
+8. Admin → **Settings** → **Add infographic**: upload a picture or a PDF from your computer.
+   Open **Preview as a volunteer**.
+9. Dashboard → **Activity log**: everything above, with who did it.
 10. Widen the window: the tabs become a sidebar.
 
 The full walkthrough is in [volunteer-app/README.md](volunteer-app/README.md), Part 2.

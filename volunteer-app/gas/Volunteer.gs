@@ -109,14 +109,14 @@ function volunteerHome_(p, user) {
 
   const type = volunteerType_(user);
   const fixed = type === 'regular' ? activeStanding_(user.userId) : null;
-  const attended = sessionsAttended_(user.userId, attendance);
   return {
     user: publicUser_(user),
     today,
     guideRead: Boolean(user.guideReadAt),
     volunteerType: type,
-    regularTrainee: fixed ? { id: String(fixed.traineeId), name: fixed.traineeName } : null,
-    progress: { attended, needed: CONFIG.REGULAR_AFTER_SESSIONS },
+    // A regular's fixed trainee, in full, shown once at the top of Home. (Promotion
+    // to regular is automatic and not shown to volunteers.)
+    regularTrainee: fixed ? traineeForVolunteer_(fixed.traineeId, user) : null,
     upcoming,
     openSessions,
     pendingFeedback,

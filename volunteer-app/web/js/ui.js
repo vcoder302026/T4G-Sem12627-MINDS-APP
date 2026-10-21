@@ -506,31 +506,6 @@ export function typeBadges(p) {
   ];
 }
 
-/**
- * Press and hold (about half a second) on a phone, or right-click on a
- * computer, runs fn. Used for "show this person's contact details" shortcuts.
- */
-export function onLongPress(node, fn) {
-  let timer = null;
-  let start = null;
-  let fired = false;
-  const cancel = () => { clearTimeout(timer); timer = null; };
-  node.addEventListener('pointerdown', (e) => {
-    fired = false;
-    start = { x: e.clientX, y: e.clientY };
-    cancel();
-    timer = setTimeout(() => { fired = true; timer = null; if (navigator.vibrate) navigator.vibrate(20); fn(e); }, 500);
-  });
-  node.addEventListener('pointermove', (e) => {
-    if (start && Math.hypot(e.clientX - start.x, e.clientY - start.y) > 10) cancel();
-  });
-  ['pointerup', 'pointerleave', 'pointercancel'].forEach((t) => node.addEventListener(t, cancel));
-  node.addEventListener('contextmenu', (e) => { e.preventDefault(); if (!fired) fn(e); fired = false; });
-  // Swallow the click that follows a long press, so it doesn't also open the normal action.
-  node.addEventListener('click', (e) => { if (fired) { e.preventDefault(); e.stopImmediatePropagation(); fired = false; } }, true);
-  return node;
-}
-
 /** Asks for the signed-in admin's own password. Resolves to the text, or null if cancelled. */
 export function passwordPrompt(title, text) {
   return new Promise((resolve) => {
@@ -553,4 +528,16 @@ export function passwordPrompt(title, text) {
       m.close();
     });
   });
+}
+
+/**
+ * A trainee's photo, or a placeholder when there isn't one (or it can't load).
+ * size: 'sm' (list rows), 'md' (cards) or 'lg' (a trainee's page).
+ */
+export function traineeAvatar(t, size = 'md') {
+  const placeholder = () => el('span', { class: `avatar avatar-${size} avatar-empty`, role: 'img', 'aria-label': `No photo of ${t.name} yet` }, icon('user', 'avatar-icon'));
+  if (!t.photoUrl) return placeholder();
+  const img = el('img', { src: t.photoUrl, alt: `Photo of ${t.name}`, loading: 'lazy', class: `avatar avatar-${size}` });
+  img.addEventListener('error', () => img.replaceWith(placeholder()));
+  return img;
 }

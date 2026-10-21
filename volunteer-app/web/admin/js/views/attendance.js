@@ -1,5 +1,6 @@
 // Section 1: Attendance (fix and add records) and the volunteer hours report.
 
+import { personName } from '../../../js/quickview.js';
 import { call } from '../../../js/api.js';
 import { badge, el, fmtTimes, fuzzyFilter, labelled, mount, searchBox, todaySG, toast } from '../../../js/ui.js';
 import {
@@ -77,7 +78,7 @@ export function renderAttendance(root, app, ctx) {
     mount(listHost, table([
       { label: 'Date', cell: (r) => day(r.date), class: 'whitespace-nowrap' },
       { label: 'Session', cell: (r) => el('span', {}, el('span', { class: 'block font-bold' }, r.sessionTitle), el('span', { class: 'block text-xs muted' }, r.venue)) },
-      { label: 'Volunteer', cell: (r) => el('a', { href: `#/volunteer/${r.userId}`, class: 'link' }, r.volunteerName) },
+      { label: 'Volunteer', cell: (r) => el('a', { href: `#/volunteer/${r.userId}`, class: 'link' }, personName(r.volunteerName, r.userId)) },
       { label: 'In', cell: (r) => time(r.clockIn) },
       { label: 'Out', cell: (r) => time(r.clockOut) },
       { label: 'Hours', cell: (r) => (r.hours === null ? badge('In progress', 'amber') : hours(r.hours)), class: 'whitespace-nowrap' },
@@ -134,7 +135,7 @@ export function renderHours(root, app, ctx) {
     if (!data) return;
     const rows = fuzzyFilter(data.volunteers, query, (v) => [v.name, v.email, v.phone]);
     mount(listHost, table([
-      { label: 'Volunteer', cell: (v) => el('span', {}, el('span', { class: 'block font-bold' }, v.name), el('span', { class: 'block text-xs muted' }, v.email)) },
+      { label: 'Volunteer', cell: (v) => el('span', {}, personName(v.name, v.userId, 'block font-bold'), el('span', { class: 'block text-xs muted' }, v.email)) },
       { label: 'Sessions', cell: (v) => String(v.sessions), class: 'text-right' },
       { label: 'Hours', cell: (v) => el('span', { class: 'font-extrabold text-indigo-600 dark:text-indigo-400' }, hours(v.hours)), class: 'text-right whitespace-nowrap' },
       { label: 'First', cell: (v) => day(v.firstDate), class: 'whitespace-nowrap' },

@@ -8,7 +8,7 @@ import {
   backLink, badge, busy, clockTime, el, errorBlock, field, fmtDay, fmtHours, fmtTimes, formData, fuzzyFilter, icon,
   initials, likert, loading, mapsLink, mount, searchBox, section, statusBadge, toast, todaySG, typeBadges,
 } from '../ui.js';
-import { traineeCard } from './trainees.js';
+import { traineeCard, traineeLine } from './trainees.js';
 
 /** Draw from cache, then from the server. `draw` gets the volunteerHome payload. */
 async function withHome(root, app, ctx, draw) {
@@ -61,16 +61,6 @@ function guideBanner() {
 
 const UNPAIRED_HINT = "You're on the list. An admin will pair you with a trainee before the session.";
 
-/** "x of 10 sessions to become a regular" for new volunteers; nothing for regulars. */
-function regularProgress(h) {
-  if (h.volunteerType === 'regular' || !h.progress) return null;
-  const { attended, needed } = h.progress;
-  const pct = Math.min(100, Math.round((attended / needed) * 100));
-  return el('div', { class: 'mt-2' },
-    el('p', { class: 'text-xs font-bold muted' }, `${attended} of ${needed} sessions to become a regular volunteer`),
-    el('div', { class: 'mt-1 h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-neutral-800' },
-      el('div', { class: 'h-full rounded-full bg-emerald-500', style: `width:${pct}%` })));
-}
 
 function attendanceBox(a) {
   if (!a) return null;
@@ -107,6 +97,7 @@ export function renderHome(root, app, ctx) {
     const later = h.upcoming.filter((u) => u.session.date !== today);
 
     const admin = app.cachedAdminHome();
+    const regular = h.volunteerType === 'regular';
     mount(root,
       el('div', { class: 'flex flex-wrap items-center gap-2' },
         el('h1', { class: 'page-title' }, `Welcome, ${firstName(h.user.name)}!`),
@@ -114,7 +105,6 @@ export function renderHome(root, app, ctx) {
       el('p', { class: 'mt-1 text-sm muted' }, h.totals.sessions
         ? `You've volunteered ${fmtHours(h.totals.hours)} over ${h.totals.sessions} session${h.totals.sessions === 1 ? '' : 's'}.`
         : 'Your volunteering hours will show here after your first session.'),
-      regularProgress(h),
       h.guideRead === false ? guideBanner() : null,
       app.isAdmin && admin && (admin.unpairedTotal || admin.reviewCount) ? el('a', { href: '#/admin', class: 'card mt-4 flex items-center gap-3 border-l-4 border-l-purple-500 p-4 hover:shadow-md' },
         el('span', { class: 'flex size-10 shrink-0 items-center justify-center rounded-xl bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300' }, icon('shield', 'size-5')),
@@ -122,12 +112,8 @@ export function renderHome(root, app, ctx) {
           el('span', { class: 'block font-bold text-slate-900 dark:text-white' }, 'Admin'),
           el('span', { class: 'block muted' }, [admin.unpairedTotal ? `${admin.unpairedTotal} to pair` : '', admin.reviewCount ? `${admin.reviewCount} note${admin.reviewCount === 1 ? '' : 's'} to review` : ''].filter(Boolean).join(' · '))),
         icon('chevron', 'size-5 text-slate-400')) : null,
-      h.regularTrainee ? el('a', { href: `#/info/${encodeURIComponent(h.regularTrainee.id)}`, class: 'card mt-4 flex items-center gap-3 border-l-4 border-l-emerald-500 p-4 hover:shadow-md' },
-        el('span', { class: 'flex size-10 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' }, icon('heart', 'size-5')),
-        el('span', { class: 'min-w-0 flex-1' },
-          el('span', { class: 'block text-xs font-bold uppercase tracking-wider muted' }, 'Your regular trainee'),
-          el('span', { class: 'block font-bold text-slate-900 dark:text-white' }, h.regularTrainee.name)),
-        icon('chevron', 'size-5 text-slate-400')) : null,
+      // Regulars: their trainee's details once, here, instead of on every session.
+      h.regularTrainee ? traineeCard(h.regularTrainee, 'standing') : null,
 
       h.pendingFeedback.map((f) => el('div', { class: 'card mt-4 border-l-4 border-l-amber-400 p-4' },
         badge('Feedback needed', 'amber', 'message'),
@@ -145,7 +131,7 @@ export function renderHome(root, app, ctx) {
             sessionMeta(u.session)),
           u.attendance ? null : statusBadge(u.status)),
         attendanceBox(u.attendance),
-        traineeCard(u.trainee, u.pairing),
+        regular ? traineeLine(u.trainee, u.pairing) : traineeCard(u.trainee, u.pairing),
         !u.trainee && !u.attendance ? el('p', { class: 'alert alert-info mt-4' }, UNPAIRED_HINT) : null,
         u.attendance && u.attendance.clockOut ? null
           : el('a', { href: '#/pass', class: 'btn btn-primary mt-4 w-full' }, icon('qr'), 'Show my QR pass'))),
@@ -160,7 +146,7 @@ export function renderHome(root, app, ctx) {
               el('p', { class: 'text-sm muted' }, `${fmtTimes(u.session)}, `, venueLink(u.session))),
             statusBadge(u.status)),
           u.trainee ? null : el('p', { class: 'mt-2 text-xs muted' }, UNPAIRED_HINT),
-          traineeCard(u.trainee, u.pairing),
+          regular ? traineeLine(u.trainee, u.pairing) : traineeCard(u.trainee, u.pairing),
           el('div', { class: 'mt-2' }, cancelButton(app, u, draw)))))
         : emptyState('calendar', "You haven't signed up for any sessions", "Find sessions that suit you and say you're coming.",
           el('a', { href: h.guideRead === false ? '#/guide' : '#/sessions', class: 'btn btn-primary mt-5' }, h.guideRead === false ? 'Read the guide first' : 'Find a session')));
@@ -360,7 +346,6 @@ export function renderMe(root, app, ctx) {
           el('h1', { class: 'truncate text-xl font-extrabold text-slate-900 dark:text-white' }, u.name),
           el('p', { class: 'truncate font-mono text-xs muted' }, u.email),
           el('div', { class: 'mt-1.5 flex flex-wrap gap-1' }, typeBadges(h.user)))),
-      regularProgress(h),
       el('div', { class: 'mt-3 grid grid-cols-2 gap-3' },
         el('div', { class: 'card p-4' }, el('p', { class: 'text-3xl font-extrabold text-indigo-600 dark:text-indigo-400' }, fmtHours(h.totals.hours)), el('p', { class: 'mt-1 text-xs font-bold uppercase tracking-wider muted' }, 'Hours volunteered')),
         el('div', { class: 'card p-4' }, el('p', { class: 'text-3xl font-extrabold text-emerald-600 dark:text-emerald-400' }, String(h.totals.sessions)), el('p', { class: 'mt-1 text-xs font-bold uppercase tracking-wider muted' }, h.totals.sessions === 1 ? 'Session' : 'Sessions'))),

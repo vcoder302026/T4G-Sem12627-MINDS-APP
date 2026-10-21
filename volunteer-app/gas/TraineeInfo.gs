@@ -50,11 +50,13 @@ function traineeSections_() {
   const table = traineeTable_();
   const skip = [normHeader_(table.header('id')), normHeader_(table.header('name'))]
     .concat((CONFIG.TRAINEES.hiddenHeaders || []).map(normHeader_));
+  const hiddenSections = (CONFIG.TRAINEES.hiddenSections || []).map(normHeader_);
   const map = sectionMap_();
   const groups = {};
   table.allHeaders().forEach((h) => {
     if (skip.indexOf(h.norm) >= 0) return;
     const title = map.bySection[h.norm] || 'Other details';
+    if (hiddenSections.indexOf(normHeader_(title)) >= 0) return;
     (groups[title] = groups[title] || []).push(h);
   });
   const order = map.order.filter((t) => groups[t]).concat(Object.keys(groups).filter((t) => map.order.indexOf(t) === -1));
@@ -135,7 +137,61 @@ function traineeSectionsView_(row, allowed) {
 }
 
 function traineeBasics_(row) {
-  return { id: String(row.id), name: row.name, preferredName: row.preferredName || '', gender: row.gender || '' };
+  return { id: String(row.id), name: row.name, preferredName: row.preferredName || '', gender: row.gender || '', photoUrl: traineePhotoUrl_(row.id) };
+}
+
+/* ---------------- photos ---------------- */
+
+/** Trainee ID → Drive file ID, read once per request. */
+function traineePhotoMap_() {
+  if (DB_.cache.traineePhotos) return DB_.cache.traineePhotos;
+  const map = {};
+  table_('traineePhotos').rows().forEach((r) => { if (r.traineeId && r.fileId) map[String(r.traineeId)] = r.fileId; });
+  DB_.cache.traineePhotos = map;
+  return map;
+}
+
+/** The photo's address for an <img>, or '' (the app then shows a placeholder). */
+function traineePhotoUrl_(traineeId) {
+  const fileId = traineePhotoMap_()[String(traineeId)];
+  return fileId ? driveImageUrl_(fileId, 600) : '';
+}
+
+/**
+ * Admin adds, replaces (upload, or a Google Drive link) or removes (`remove: true`)
+ * a trainee's photo. Removing it leaves the file in Google Drive.
+ */
+function setTraineePhoto_(p, admin) {
+  onlyFields_(p, ['traineeId', 'remove', 'driveUrl', 'data', 'fileName', 'mimeType']);
+  const traineeId = str_(p.traineeId, 'Trainee', { required: true, max: 40 });
+  const trainee = traineeById_(traineeId);
+  if (!trainee) throw err_.notFound('Trainee not found.');
+  const photos = table_('traineePhotos');
+  const existing = photos.find((r) => String(r.traineeId) === traineeId);
+  delete DB_.cache.traineePhotos;
+  if (p.remove === true) {
+    if (existing) photos.remove(existing);
+    return Object.assign(traineeProfile_({ traineeId }), { message: `Removed ${trainee.name}'s photo.` });
+  }
+  const rules = CONFIG.TRAINEE_PHOTOS;
+  const saved = saveDriveImage_(p, rules.types, rules.maxMb, CONFIG.PROP_PHOTO_FOLDER_ID, rules.folderName, 'photo');
+  const stamp = { traineeName: trainee.name, fileId: saved.file.getId(), updatedBy: admin.name, updatedAt: fmtDateTime_(now_()) };
+  if (existing) photos.update(existing, stamp);
+  else photos.insert(Object.assign({ traineeId }, stamp));
+  delete DB_.cache.traineePhotos;
+  return Object.assign(traineeProfile_({ traineeId }), { message: `${existing ? 'Changed' : 'Added'} ${trainee.name}'s photo.${saved.warning}` });
+}
+
+/** The first few details for a short card: most useful sections first (Config.gs → TRAINEES.cardSections), form bookkeeping left out. */
+function cardFields_(sections, max) {
+  const prefer = (CONFIG.TRAINEES.cardSections || []).map(normHeader_);
+  const skip = (CONFIG.TRAINEES.cardSkipSections || []).map(normHeader_);
+  const rank = (s) => { const i = prefer.indexOf(normHeader_(s.title)); return i < 0 ? prefer.length : i; };
+  const ordered = sections.filter((s) => skip.indexOf(normHeader_(s.title)) === -1)
+    .map((s, i) => ({ s, i })).sort((a, b) => rank(a.s) - rank(b.s) || a.i - b.i).map((x) => x.s);
+  const fields = [];
+  ordered.forEach((s) => s.fields.forEach((f) => { if (fields.length < max) fields.push({ key: f.key, label: f.label, value: f.value }); }));
+  return fields;
 }
 
 /** The trainee card on a volunteer's upcoming session (Volunteer.gs → volunteerHome). */
@@ -145,8 +201,7 @@ function traineeForVolunteer_(id, user) {
   const audience = user ? volunteerType_(user) : 'volunteer';
   const allowed = user && user.role === 'admin' ? null : visibleFor_(row.id, audience).fields;
   const sections = traineeSectionsView_(row, allowed);
-  const fields = [];
-  sections.forEach((s) => s.fields.forEach((f) => { if (fields.length < 8) fields.push({ key: f.key, label: f.label, value: f.value }); }));
+  const fields = cardFields_(sections, 8);
   return Object.assign(traineeBasics_(row), {
     fields,
     moreDetails: sections.reduce((n, s) => n + s.fields.length, 0) > fields.length,
@@ -181,10 +236,12 @@ function traineeInfo_(p, user) {
   const regulars = standingRows_().filter((x) => String(x.traineeId) === traineeId)
     .map((x) => x.volunteerName);
   const mine = activeStanding_(user.userId);
+  const sections = traineeSectionsView_(row, allowed);
   return {
     trainee: traineeBasics_(row),
     access,
-    sections: traineeSectionsView_(row, allowed),
+    sections,
+    summary: cardFields_(sections, 5), // for the press-and-hold quick card
     notes: sharedNotes_(row.id, access === 'volunteer' ? CONFIG.NOTES_SHOWN_TO_VOLUNTEERS : 0),
     together,
     regulars: access === 'volunteer' ? [] : regulars,

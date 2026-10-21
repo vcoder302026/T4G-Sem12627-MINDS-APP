@@ -5,8 +5,9 @@
 
 import { call } from '../api.js';
 import {
-  backLink, badge, busy, el, errorBlock, field, fmtDay, fmtTimes, fuzzyFilter, icon, loading, mount, searchBox, toast,
+  backLink, badge, busy, el, errorBlock, field, fmtDay, fmtTimes, fuzzyFilter, icon, loading, mount, searchBox, toast, traineeAvatar,
 } from '../ui.js';
+import { asTrainee, personName, traineeName } from '../quickview.js';
 
 function list(...rows) {
   return el('div', { class: 'card divide-y divide-slate-100 overflow-hidden dark:divide-neutral-900' }, ...rows);
@@ -28,10 +29,11 @@ export function traineeCard(trainee, pairing) {
   const notes = trainee.notes || [];
   return el('div', { class: 'well mt-4 overflow-hidden' },
     el('div', { class: 'p-4' },
-      el('div', { class: 'flex items-start justify-between gap-2' },
-        el('div', { class: 'min-w-0' },
+      el('div', { class: 'flex items-center gap-3' },
+        traineeAvatar(trainee, 'md'),
+        el('div', { class: 'min-w-0 flex-1' },
           el('p', { class: 'text-xs font-bold uppercase tracking-wider muted' }, pairing === 'standing' ? 'Your regular trainee' : 'Your trainee'),
-          el('p', { class: 'mt-0.5 text-lg font-bold text-slate-900 dark:text-white' }, trainee.name,
+          el('p', { class: 'mt-0.5 text-lg font-bold text-slate-900 dark:text-white' }, traineeName(trainee.name, trainee.id),
             trainee.preferredName && trainee.preferredName !== trainee.name ? el('span', { class: 'text-sm font-medium muted' }, ` (goes by ${trainee.preferredName})`) : null)),
         trainee.gender ? badge(trainee.gender, 'slate', 'user') : null),
       trainee.fields.length ? el('dl', { class: 'mt-3 space-y-2 text-sm' }, trainee.fields.map((f) => el('div', {},
@@ -44,6 +46,20 @@ export function traineeCard(trainee, pairing) {
         el('span', { class: 'flex items-center gap-2' }, icon('book', 'size-4'), `Notes from previous volunteers (${notes.length})`),
         icon('down', 'size-4 transition-transform group-open:rotate-180')),
       el('div', { class: 'px-4 pb-4' }, notesList(notes))) : null);
+}
+
+/**
+ * One line instead of the full card: for regulars, whose trainee's details are
+ * shown once at the top of Home rather than on every session.
+ */
+export function traineeLine(trainee, pairing) {
+  if (!trainee) return null;
+  return el('a', { href: `#/info/${encodeURIComponent(trainee.id)}`, class: 'well mt-3 flex items-center gap-3 p-3 hover:shadow-sm' },
+    traineeAvatar(trainee, 'sm'),
+    el('span', { class: 'min-w-0 flex-1' },
+      el('span', { class: 'block text-xs font-bold uppercase tracking-wider muted' }, pairing === 'standing' ? 'With your regular trainee' : 'With'),
+      traineeName(trainee.name, trainee.id, 'block truncate font-bold text-slate-900 dark:text-white')),
+    icon('chevron', 'size-5 text-slate-400'));
 }
 
 /* ---------------- a trainee's page (volunteers and regulars) ---------------- */
@@ -75,11 +91,12 @@ export function renderTraineeInfo(root, app, ctx, traineeId) {
   const draw = (d) => {
     const t = d.trainee;
     mount(root, back,
-      el('div', { class: 'flex items-start justify-between gap-3' },
+      el('div', { class: 'flex items-center gap-4' },
+        traineeAvatar(t, 'lg'),
         el('div', { class: 'min-w-0' },
           el('h1', { class: 'page-title leading-tight' }, t.name),
-          t.preferredName && t.preferredName !== t.name ? el('p', { class: 'mt-1 muted' }, `Goes by ${t.preferredName}`) : null),
-        d.isMyRegular ? badge('Your regular trainee', 'emerald', 'heart') : null),
+          t.preferredName && t.preferredName !== t.name ? el('p', { class: 'mt-1 muted' }, `Goes by ${t.preferredName}`) : null,
+          d.isMyRegular ? el('div', { class: 'mt-1.5' }, badge('Your regular trainee', 'emerald', 'heart')) : null)),
       d.regulars.length ? el('p', { class: 'mt-2 text-sm muted' }, `Regular volunteers: ${d.regulars.join(', ')}`) : null,
       d.together.length ? el('div', { class: 'alert alert-info mt-4' },
         el('p', { class: 'font-bold' }, "You're paired for:"),
@@ -109,13 +126,13 @@ export function renderDirectory(root, app, ctx) {
   let data = null;
   let query = '';
   const host = el('div', { class: 'mt-4' });
-  const row = (t, mine) => el('a', { href: `#/info/${encodeURIComponent(t.id)}`, class: `flex items-center gap-3 p-4 hover:bg-slate-50 dark:hover:bg-neutral-900 ${mine ? 'select-ring' : ''}` },
-    el('span', { class: 'flex size-10 shrink-0 items-center justify-center rounded-xl bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' }, icon('heart', 'size-5')),
+  const row = (t, mine) => asTrainee(el('a', { href: `#/info/${encodeURIComponent(t.id)}`, class: `flex items-center gap-3 p-4 hover:bg-slate-50 dark:hover:bg-neutral-900 ${mine ? 'select-ring' : ''}` },
+    traineeAvatar(t, 'sm'),
     el('span', { class: 'min-w-0 flex-1' },
       el('span', { class: 'block truncate font-bold text-slate-900 dark:text-white' }, t.name),
       el('span', { class: 'block truncate text-sm muted' }, [t.preferredName && t.preferredName !== t.name ? `Goes by ${t.preferredName}` : '', t.gender,
         t.regulars.length ? `Regular: ${t.regulars.join(', ')}` : 'No regular volunteer yet'].filter(Boolean).join(' · '))),
-    mine ? badge('Yours', 'emerald') : icon('chevron', 'size-5 text-slate-300 dark:text-neutral-700'));
+    mine ? badge('Yours', 'emerald') : icon('chevron', 'size-5 text-slate-300 dark:text-neutral-700')), t.id);
   const draw = () => {
     if (!data) return;
     const shown = fuzzyFilter(data.trainees, query, (t) => [t.name, t.preferredName, t.id, t.regulars.join(' ')]);
@@ -164,8 +181,8 @@ export function renderReview(root, app, ctx) {
       return el('article', { class: 'card p-4' },
         el('div', { class: 'flex items-start justify-between gap-3' },
           el('div', { class: 'min-w-0' },
-            el('a', { href: `#/trainee/${encodeURIComponent(it.traineeId)}`, class: 'font-bold text-slate-900 hover:underline dark:text-white' }, it.traineeName),
-            el('p', { class: 'text-sm muted' }, `From ${it.volunteerName}, ${fmtDay(it.date)}${it.rating ? '' : ''}`)),
+            el('a', { href: `#/trainee/${encodeURIComponent(it.traineeId)}`, class: 'font-bold text-slate-900 hover:underline dark:text-white' }, traineeName(it.traineeName, it.traineeId)),
+            el('p', { class: 'text-sm muted' }, 'From ', personName(it.volunteerName, it.userId), `, ${fmtDay(it.date)}`)),
           it.rating ? badge(`Session ${it.rating}/5`, 'slate') : null),
         el('div', { class: 'mt-3' }, text),
         el('p', { class: 'hint' }, 'Edit before sharing if needed, e.g. remove anything private or not helpful to other volunteers.'),

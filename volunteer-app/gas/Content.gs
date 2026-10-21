@@ -170,11 +170,16 @@ function saveProject_(p, admin) {
 
 /* ---------------- volunteer guide ---------------- */
 
+/** An <img> address for a link-shared image in Google Drive, `width` pixels wide. */
+function driveImageUrl_(fileId, width) {
+  return `https://drive.google.com/thumbnail?id=${encodeURIComponent(fileId)}&sz=w${width || 2000}`;
+}
+
 /** Links for a guide infographic stored in Google Drive (shared "anyone with the link"). */
 function guideFileLinks_(fileId) {
   const id = encodeURIComponent(fileId);
   return {
-    imageUrl: `https://drive.google.com/thumbnail?id=${id}&sz=w2000`,
+    imageUrl: driveImageUrl_(fileId, 2000),
     previewUrl: `https://drive.google.com/file/d/${id}/preview`,
     openUrl: `https://drive.google.com/file/d/${id}/view`,
   };
@@ -215,10 +220,10 @@ function saveGuideSection_(p, admin) {
   return contentForLeaders_();
 }
 
-/** The Drive folder for guide infographics, created the first time it's needed. */
-function guideFolder_() {
+/** A Drive folder the app owns (its ID kept in a script property), created the first time it's needed. */
+function appFolder_(propKey, name) {
   const props = PropertiesService.getScriptProperties();
-  const id = props.getProperty(CONFIG.PROP_GUIDE_FOLDER_ID);
+  const id = props.getProperty(propKey);
   if (id) {
     try {
       return DriveApp.getFolderById(id);
@@ -226,9 +231,48 @@ function guideFolder_() {
       // the folder was deleted: make a new one
     }
   }
-  const folder = DriveApp.createFolder(CONFIG.GUIDE_FILES.folderName);
-  props.setProperty(CONFIG.PROP_GUIDE_FOLDER_ID, folder.getId());
+  const folder = DriveApp.createFolder(name);
+  props.setProperty(propKey, folder.getId());
   return folder;
+}
+
+function guideFolder_() {
+  return appFolder_(CONFIG.PROP_GUIDE_FOLDER_ID, CONFIG.GUIDE_FILES.folderName);
+}
+
+/**
+ * Saves a file an admin chose: uploaded (base64 `data`, `fileName`, `mimeType`)
+ * into the app's folder, or picked from Google Drive by link (`driveUrl`).
+ * Either way it's link-shared for viewing. Returns { file, warning }.
+ */
+function saveDriveImage_(p, allowedTypes, maxMb, folderProp, folderName, what) {
+  const allowed = (t) => allowedTypes.indexOf(t) >= 0;
+  const typeError = what === 'photo' ? 'Choose a photo (JPG or PNG).' : 'Choose an image (JPG or PNG) or a PDF.';
+  let file;
+  if (p.driveUrl) {
+    const fileId = driveFileId_(p.driveUrl);
+    try {
+      file = DriveApp.getFileById(fileId);
+    } catch (e) {
+      throw err_.validation('The app\'s Google account can\'t open that file. Share it with the account the app runs as, or upload it from your device instead.');
+    }
+    if (!allowed(file.getMimeType())) throw err_.validation(typeError);
+  } else {
+    const mimeType = str_(p.mimeType, 'File type', { required: true, max: 100 });
+    if (!allowed(mimeType)) throw err_.validation(typeError);
+    const fileName = str_(p.fileName, 'File name', { required: true, max: 200 }).replace(/[\\/:*?"<>|]+/g, '_');
+    if (typeof p.data !== 'string' || !p.data) throw err_.validation('No file was received. Choose the file again.');
+    let bytes;
+    try {
+      bytes = Utilities.base64Decode(p.data.replace(/^data:[^,]*,/, ''));
+    } catch (e) {
+      throw err_.validation('The file could not be read. Choose it again.');
+    }
+    if (bytes.length > maxMb * 1024 * 1024) throw err_.validation(`The file is too big. Use one under ${maxMb} MB.`);
+    file = appFolder_(folderProp, folderName).createFile(Utilities.newBlob(bytes, mimeType, fileName));
+  }
+  const warning = shareForViewing_(file) ? '' : ' Volunteers may not be able to see it: set the file to "Anyone with the link can view" in Google Drive.';
+  return { file, warning };
 }
 
 /** The file ID in a Google Drive link (…/file/d/<id>/…, …?id=<id>, or the bare ID). */
@@ -261,32 +305,9 @@ function addGuideFile_(p, admin) {
   const existing = p.sectionId ? guide.find((x) => x.sectionId === id_(p.sectionId, 'Section')) : null;
   if (p.sectionId && !existing) throw err_.notFound('Guide section not found.');
   const types = CONFIG.GUIDE_FILES.types;
-  let file;
-  let warning = '';
-  if (p.driveUrl) {
-    const fileId = driveFileId_(p.driveUrl);
-    try {
-      file = DriveApp.getFileById(fileId);
-    } catch (e) {
-      throw err_.validation('The app\'s Google account can\'t open that file. Share it with the account the app runs as, or upload it from your device instead.');
-    }
-    if (!types[file.getMimeType()]) throw err_.validation('Choose an image (JPG or PNG) or a PDF.');
-    if (!shareForViewing_(file)) warning = ' Volunteers may not be able to see it: set the file to "Anyone with the link can view" in Google Drive.';
-  } else {
-    const mimeType = str_(p.mimeType, 'File type', { required: true, max: 100 });
-    if (!types[mimeType]) throw err_.validation('Choose an image (JPG or PNG) or a PDF.');
-    const fileName = str_(p.fileName, 'File name', { required: true, max: 200 }).replace(/[\\/:*?"<>|]+/g, '_');
-    if (typeof p.data !== 'string' || !p.data) throw err_.validation('No file was received. Choose the file again.');
-    let bytes;
-    try {
-      bytes = Utilities.base64Decode(p.data.replace(/^data:[^,]*,/, ''));
-    } catch (e) {
-      throw err_.validation('The file could not be read. Choose it again.');
-    }
-    if (bytes.length > CONFIG.GUIDE_FILES.maxMb * 1024 * 1024) throw err_.validation(`The file is too big. Use one under ${CONFIG.GUIDE_FILES.maxMb} MB.`);
-    file = guideFolder_().createFile(Utilities.newBlob(bytes, mimeType, fileName));
-    if (!shareForViewing_(file)) warning = ' Volunteers may not be able to see it: set the file to "Anyone with the link can view" in Google Drive.';
-  }
+  const saved = saveDriveImage_(p, Object.keys(types), CONFIG.GUIDE_FILES.maxMb, CONFIG.PROP_GUIDE_FOLDER_ID, CONFIG.GUIDE_FILES.folderName, 'guide');
+  const file = saved.file;
+  const warning = saved.warning;
   const kind = types[file.getMimeType()];
   const stamp = { kind, fileId: file.getId(), fileName: file.getName(), updatedBy: admin.name, updatedAt: fmtDateTime_(now_()) };
   if (p.title !== undefined) stamp.title = str_(p.title, 'Heading', { max: LIMITS.NAME });
@@ -371,7 +392,7 @@ function seedContent_() {
     DEFAULT_GUIDE.forEach((g, i) => table_('guide').insert({
       sectionId: newId_('G'), order: i + 1, kind: 'text', title: g.title, body: g.body, updatedBy: 'setup', updatedAt: fmtDateTime_(now_()),
     }));
-    added.push(`Added ${DEFAULT_GUIDE.length} starter Volunteer Guide sections (edit them in the app: Admin → Guide & projects)`);
+    added.push(`Added ${DEFAULT_GUIDE.length} starter Volunteer Guide sections (edit them in the app: Admin → Settings → Guide & projects)`);
   }
   if (!projectRows_().length) {
     DEFAULT_PROJECTS.forEach((pr, i) => table_('projects').insert({
