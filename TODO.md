@@ -45,18 +45,8 @@ Sources: the October meeting minutes with MINDS, `VERSION-2.md` §2 and §5, and
 - [ ] Decide whether outings, fundraising and house visits stay in this app or are removed
   (they're kept under Admin → "Later (placeholders)"). Overseas trip attendance stays separate.
 
-### 1.3b Project descriptions
-- [ ] MINDS to check the short descriptions of **West End (WE)** and **Regular Service Project for
-  the Intellectually Disabled (RSPID)** shown in the Volunteer Guide (written as placeholders;
-  admins can edit them under Settings → Guide & projects)
 
-### 1.4 More than one trainee per regular?
-- [ ] Confirm. The minutes say a regular may be paired with more than one trainee; we built
-  **one trainee per volunteer** (as asked later). A trainee can already have several volunteers.
-- **If yes:** the booking row holds one trainee today (`Bookings` → `Trainee ID`); it would need
-  a list of trainees per booking, and the pairing board would need to allow several.
-
-### 1.5 Google account for production
+### 1.4 Google account for production
 - [ ] MINDS provides the Google account the live app runs as (owns the sheets, the Apps Script
   project and the guide's Drive folder)
 - [ ] Check that account allows "anyone with the link" sharing. Guide infographics depend on
@@ -89,14 +79,7 @@ Sources: the October meeting minutes with MINDS, `VERSION-2.md` §2 and §5, and
   committee), or a separate "Event Attendance" tab, so the hours report can include or
   exclude them.
 
-### 2.4 "By Thursday, who's coming on Saturday"
-- [ ] Each week, tell admins who has signed up for the weekend's sessions, and who still needs
-  pairing
-- **Suggested:** a time-driven trigger in Apps Script (Thursday evening) that emails the admins
-  a summary built from `adminHome_`. A Telegram bot message would need a bot token.
-- The Dashboard and Sessions pages already show who's coming; this is the reminder.
-
-### 2.5 Choosing infographics from Google Drive inside the app
+### 2.4 Choosing infographics from Google Drive inside the app
 - [ ] Optional: a "Choose from Drive" button (Google Picker) instead of pasting a share link
 - **Needs:** a Google Cloud project with an OAuth client ID and API key for the GitHub Pages
   site. Pasting a link works today without any of that.
