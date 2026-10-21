@@ -15,11 +15,11 @@ import {
 const PROFILE = [
   ['name', 'Full name', { required: true }],
   ['email', 'Email', { type: 'email', required: true }],
-  ['phone', 'Phone', { type: 'tel', placeholder: '+65 9123 4567' }],
+  ['phone', 'Phone', { type: 'tel', inputmode: 'tel', placeholder: '+65 91234567', hint: '+65 followed by 8 digits.' }],
   ['birthday', 'Birthday', { type: 'date' }],
   ['telegram', 'Telegram', { placeholder: 'username, without @' }],
   ['emergencyName', 'Emergency contact name', {}],
-  ['emergencyPhone', 'Emergency contact phone', { type: 'tel' }],
+  ['emergencyPhone', 'Emergency contact phone', { type: 'tel', inputmode: 'tel', placeholder: '+65 91234567', hint: '+65 followed by 8 digits.' }],
   ['emergencyRelation', 'Relationship', { placeholder: 'e.g. Mother' }],
 ];
 
@@ -73,7 +73,8 @@ export function renderVolunteers(root, app, ctx) {
     const payload = { ...d, createLogin: d.createLogin === 'yes' };
     Object.keys(payload).forEach((k) => { if (payload[k] === '') delete payload[k]; });
     const res = await withAdminPassword('createVolunteer', payload);
-    toast(res.message);
+    toast(res.contact ? `${res.message} ${res.contact.status === 'saved' ? 'Saved to Google Contacts.' : `Not saved to Google Contacts: ${res.contact.message}`}` : res.message,
+      res.contact && res.contact.status !== 'saved' ? 'warn' : 'ok');
     if (res.tempPassword) showTempPassword(res.person.name, res.person.email, res.tempPassword);
     refresh();
   }, { wide: true });
@@ -167,6 +168,17 @@ export function renderVolunteer(root, app, ctx, userId) {
       });
     });
     const roleBtn = el('button', { class: 'btn btn-secondary btn-sm' }, icon('shield', 'size-4'), p.role === 'admin' ? 'Remove admin access' : 'Make an admin');
+    // Google Contacts (Contacts.gs): shown when CONTACTS_SYNC is on. Saves now, or retries a failed save.
+    const contactBtn = d.contact && d.contact.on
+      ? el('button', { class: 'btn btn-secondary btn-sm' }, icon('userPlus', 'size-4'), d.contact.saved ? 'Update Google contact' : 'Save to Google Contacts')
+      : null;
+    if (contactBtn) {
+      contactBtn.addEventListener('click', () => busy(contactBtn, 'Saving…', async () => {
+        const res = await call('syncContact', { userId });
+        toast(res.message, res.contact && res.contact.saved ? 'ok' : 'warn');
+        refresh();
+      }));
+    }
     roleBtn.addEventListener('click', () => save(roleBtn, { role: p.role === 'admin' ? 'volunteer' : 'admin' }));
     const statusBtn = el('button', { class: p.status === 'inactive' ? 'btn btn-success btn-sm' : 'btn btn-danger btn-sm' }, p.status === 'inactive' ? 'Reactivate' : 'Deactivate');
     statusBtn.addEventListener('click', () => {
@@ -196,6 +208,8 @@ export function renderVolunteer(root, app, ctx, userId) {
             dl('Phone', p.phone), dl('Telegram', p.telegram ? `@${p.telegram}` : ''), dl('Birthday', p.birthday),
             dl('Regular trainee', d.regularTrainee ? traineeName(d.regularTrainee.name, d.regularTrainee.id) : (regular ? 'Not set: see Pairing → Regular pairings' : '')),
             d.typeSetBy ? dl('Profile set by', d.typeSetBy) : null,
+            d.contact && d.contact.on ? dl('Google Contacts', d.contact.saved ? d.contact.status
+              : d.contact.status ? el('span', { class: 'font-bold text-red-600 dark:text-red-400' }, d.contact.status) : 'Not saved yet') : null,
             dl('Emergency contact', `${p.emergencyName || ''}${p.emergencyRelation ? ` (${p.emergencyRelation})` : ''}`),
             dl('Emergency phone', p.emergencyPhone), dl('Registered', p.createdAt),
             p.updatedBy ? dl('Last edited', `${p.updatedAt} by ${p.updatedBy}`) : null)),
@@ -213,7 +227,7 @@ export function renderVolunteer(root, app, ctx, userId) {
               { label: 'From', cell: (x) => (x.from ? day(x.from) : ''), class: 'whitespace-nowrap' },
               { label: 'To', cell: (x) => (x.active ? badge('Now', 'emerald') : x.to ? day(x.to) : ''), class: 'whitespace-nowrap' },
             ], d.regularHistory)) : null,
-          panel('Profile and access', null, el('div', { class: 'flex flex-wrap gap-2 p-4' }, typeBtn, roleBtn, resetBtn, statusBtn),
+          panel('Profile and access', null, el('div', { class: 'flex flex-wrap gap-2 p-4' }, typeBtn, roleBtn, resetBtn, statusBtn, contactBtn),
             el('p', { class: 'px-4 pb-4 text-xs muted' }, 'Making, removing, deactivating or reactivating an admin asks for the admin password (Settings → Admin password). Every change is in the Activity log.')))));
   };
   mount(root, host);

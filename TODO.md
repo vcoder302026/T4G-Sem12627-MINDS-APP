@@ -73,14 +73,14 @@ Sources: the October meeting minutes with MINDS, `VERSION-2.md` §2 and §5, and
 - [ ] Optional: let admins hide photos from ad hoc volunteers (like other details, in
   `gas/TraineeInfo.gs` → `traineeBasics_`)
 
-### 2.2 Google Contacts sync
-- [ ] When a volunteer registers, add them as a Google contact in an admin account, with their
-  Telegram handle in the contact's notes (mock-up account: vcoder302026@gmail.com)
-- **Needs:** the **People API** advanced service turned on in Apps Script, the
-  `https://www.googleapis.com/auth/contacts` scope in `appsscript.json`, and the owner
-  re-authorising.
-- **Where:** call it from `register_` in `gas/Auth.gs` (and `createVolunteer_` in
-  `gas/Dashboard.gs`). Don't let a Contacts failure stop the registration; log it instead.
+### 2.2 Google Contacts sync (built; to switch on and confirm)
+- [x] New and admin-added volunteers are saved to the Google account the app runs as (name,
+  email, +65 phone, Telegram in the notes, a label); edits update the same contact (`gas/Contacts.gs`)
+- [ ] Exp: add the People API service, set `CONTACTS_SYNC` = `on` and `CONTACTS_LABEL` =
+  `MINDS Volunteers (Exp)`, run `testContactsAccess()`, publish a new version (README → Google Contacts sync)
+- [ ] MINDS to confirm the production Google account, and add a sentence about saving contacts
+  to the registration consent notice (PDPA)
+- [ ] Decide what happens to a contact when a volunteer is deactivated (today: nothing)
 
 ### 2.3 Attendance for special events and committee roles
 - [ ] A page to record who helped at a special event or held a committee role, and their hours

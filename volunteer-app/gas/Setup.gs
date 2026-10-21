@@ -34,6 +34,9 @@ function setupInternal_(dryRun) {
   const adminPasswordLine = ensureAdminPassword_(dryRun);
   if (adminPasswordLine) report.push(adminPasswordLine);
   report.push(`Main sheet: "${ss.getName()}"`);
+  report.push(contactsOn_()
+    ? `Google Contacts sync: on, label "${contactLabel_()}"${typeof People === 'undefined' ? ' (but the People API service is not added: Services (+) → People API)' : ''}. Run testContactsAccess() once to allow it.`
+    : 'Google Contacts sync: off (set the script property CONTACTS_SYNC to "on" to save volunteers as contacts).');
   Object.keys(CONFIG.TABLES).forEach((key) => {
     const def = CONFIG.TABLES[key];
     const headers = Object.keys(def.columns).map((k) => def.columns[k]);

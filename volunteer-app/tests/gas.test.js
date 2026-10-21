@@ -106,7 +106,7 @@ describe('linking to an existing sheet', () => {
   test('values stay exactly as typed in the sheet (no date/number auto-conversion)', () => {
     const row = rt.records(SHEET, 'Volunteers').find((r) => r.Email === 'v1@example.com');
     assert.equal(row.Birthday, '2001-05-06');
-    assert.equal(row.Phone.trim(), '+65 9123 4567');
+    assert.equal(row.Phone.trim(), '+65 91234567'); // stored as +65 and 8 digits, still text
     assert.equal(row.Telegram, 'vol_one');
     assert.equal(rt.tab(SHEET, '_Auth').isSheetHidden(), true);
   });
@@ -648,7 +648,7 @@ describe('editing details in the app', () => {
     assert.match(res.message, /phone, Telegram, emergency contact and relationship/);
     assert.equal(res.user.telegram, 'new_handle');
     const row = rt.records(SHEET, 'Volunteers').find((r) => r.Email === 'v1@example.com');
-    assert.equal(row.Phone.trim(), '+65 9000 1111');
+    assert.equal(row.Phone.trim(), '+65 90001111');
     assert.equal(row['Emergency Contact Name'], 'Parent Two');
     assert.equal(row['Details Updated By'], 'Vol One');
     assert.equal(ok(rt.call('updateProfile', { phone: '+65 9000 1111' }, vol.token)).message, 'No changes to save.');
@@ -863,5 +863,116 @@ describe('the admin password (separate from sign-in passwords)', () => {
     // the lock is per admin: the other admin can use the new password straight away
     const leaderId = ok(rt.call('me', {}, leader)).user.userId;
     ok(rt.call('setRole', { userId: leaderId, role: 'volunteer', adminPassword: fresh }, vol.token));
+  });
+});
+
+describe('phone and email checks', () => {
+  test('phones are Singapore numbers: +65 and 8 digits, stored as "+65 91234567"', () => {
+    const reg = (phone, i) => rt.call('register', volunteerPayload({ email: `p${i}@example.com`, phone }));
+    ['+65 9123 4567', '+6591234567', '91234567', '9123-4567', '65 91234567'].forEach((phone, i) => {
+      assert.equal(ok(reg(phone, i)).user.phone, '+65 91234567', phone);
+    });
+    ['9123456', '912345678', '+60 12345678', '+65 9123 456', '+1 4155550000', 'abc'].forEach((phone, i) => {
+      const e = fails(reg(phone, i + 10), 'VALIDATION_ERROR');
+      assert.match(e.message, /\+65 followed by 8 digits/, phone);
+    });
+    fails(rt.call('register', volunteerPayload({ email: 'x1@example.com', emergencyPhone: '1234' })), 'VALIDATION_ERROR');
+    fails(rt.call('updateProfile', { phone: '+65 1234' }, vol.token), 'VALIDATION_ERROR');
+    assert.equal(ok(rt.call('updateProfile', { phone: '8123 4567' }, vol.token)).user.phone, '+65 81234567');
+    fails(rt.call('createVolunteer', { name: 'X', email: 'x2@example.com', phone: '12345' }, leader), 'VALIDATION_ERROR');
+  });
+
+  test('emails must look like name@domain.tld', () => {
+    ['name@example.com', 'first.last+minds@mail.example.sg', 'A_B-c@sub.domain.com.sg'].forEach((email, i) => {
+      assert.equal(ok(rt.call('register', volunteerPayload({ email, phone: `+65 9000 000${i}` }))).user.email, email.toLowerCase());
+    });
+    ['plainaddress', 'a@b', 'a@b.c', 'a b@example.com', 'a@@example.com', '.a@example.com', 'a.@example.com',
+      'a..b@example.com', 'a@-example.com', 'a@example..com', 'a@exam_ple.com', 'a@example.c0m'].forEach((email) => {
+      fails(rt.call('register', volunteerPayload({ email })), 'VALIDATION_ERROR');
+    });
+  });
+});
+
+describe('Google Contacts sync', () => {
+  const contacts = () => [...rt.contacts.people.values()];
+  const turnOn = (label = 'MINDS Volunteers (Exp)') => {
+    rt.props.set('CONTACTS_SYNC', 'on');
+    rt.props.set('CONTACTS_LABEL', label);
+  };
+
+  test('off by default: nothing is sent to Google', () => {
+    volunteer('off@example.com', 'Off Person');
+    assert.equal(contacts().length, 0);
+    assert.equal(rt.contacts.state.calls.length, 0);
+    fails(rt.call('syncContact', { userId: vol.user.userId }, leader), 'CONFLICT');
+  });
+
+  test('registering saves a contact: name, email, phone, Telegram in the notes, the label', () => {
+    turnOn();
+    const res = ok(rt.call('register', volunteerPayload({ name: 'Nora Tan', email: 'nora@example.com', phone: '9123 4567', telegram: '@nora_tan' })));
+    assert.equal(res.contact.status, 'saved');
+    const [c] = contacts();
+    assert.equal(c.names[0].unstructuredName, 'Nora Tan');
+    assert.equal(c.emailAddresses[0].value, 'nora@example.com');
+    assert.equal(c.phoneNumbers[0].value, '+65 91234567');
+    assert.match(c.biographies[0].value, /^Telegram: @nora_tan\nMINDS volunteer/);
+    const group = [...rt.contacts.groups.values()].find((g) => g.name === 'MINDS Volunteers (Exp)');
+    assert.ok(group, 'the label is created');
+    assert.equal(c.memberships[0].contactGroupMembership.contactGroupResourceName, group.resourceName);
+    const row = rt.records(SHEET, 'Volunteers').find((r) => r.Email === 'nora@example.com');
+    assert.equal(row['Google Contact ID'], c.resourceName);
+    assert.match(row['Google Contact'], /^Saved /);
+  });
+
+  test('an admin adding a volunteer saves one too; edits update the same contact', () => {
+    turnOn();
+    const added = ok(rt.call('createVolunteer', { name: 'Omar Lee', email: 'omar@example.com', phone: '+6581234567', telegram: 'omar_lee' }, leader));
+    assert.equal(added.contact.status, 'saved');
+    assert.equal(contacts().length, 1);
+    ok(rt.call('updatePerson', { userId: added.person.userId, phone: '8765 4321', telegram: 'omar_l2' }, leader));
+    assert.equal(contacts().length, 1, 'no duplicate');
+    assert.equal(contacts()[0].phoneNumbers[0].value, '+65 87654321');
+    assert.match(contacts()[0].biographies[0].value, /@omar_l2/);
+    // Changes that aren't contact details don't call Google
+    const calls = rt.contacts.state.calls.length;
+    ok(rt.call('updatePerson', { userId: added.person.userId, birthday: '2001-02-03' }, leader));
+    assert.equal(rt.contacts.state.calls.length, calls);
+    // A volunteer editing their own phone updates their contact too
+    ok(rt.call('syncContact', { userId: vol.user.userId }, leader));
+    ok(rt.call('updateProfile', { phone: '9000 1111' }, vol.token));
+    assert.equal(contacts().find((c) => c.emailAddresses[0].value === 'v1@example.com').phoneNumbers[0].value, '+65 90001111');
+  });
+
+  test('if Google fails, the volunteer is still saved and the row says why; it can be retried', () => {
+    turnOn();
+    rt.contacts.state.failWith = 'Quota exceeded';
+    const res = ok(rt.call('register', volunteerPayload({ email: 'fail@example.com' })));
+    assert.equal(res.contact.status, 'failed');
+    assert.match(rt.records(SHEET, 'Volunteers').find((r) => r.Email === 'fail@example.com')['Google Contact'], /^Failed .*Quota exceeded/);
+    rt.contacts.state.failWith = '';
+    const retry = ok(rt.call('syncContact', { userId: res.user.userId }, leader));
+    assert.match(retry.message, /Saved .* in Google Contacts/);
+    assert.equal(retry.contact.saved, true);
+    // Deleted in Google Contacts? Saving again creates it again.
+    rt.contacts.people.clear();
+    ok(rt.call('syncContact', { userId: res.user.userId }, leader));
+    assert.equal(contacts().length, 1);
+  });
+
+  test('without the People API service added, registration works and says what to do', () => {
+    turnOn();
+    rt.evaluate('People = undefined');
+    const res = ok(rt.call('register', volunteerPayload({ email: 'nopeople@example.com' })));
+    assert.equal(res.contact.status, 'failed');
+    assert.match(res.contact.message, /Services \(\+\) → People API/);
+    assert.match(rt.run('testContactsAccess'), /Problem: The People API service is not added/);
+  });
+
+  test('syncAllContacts() saves existing volunteers once; testContactsAccess() reports OK', () => {
+    turnOn('MINDS Volunteers');
+    assert.match(rt.run('testContactsAccess'), /OK: contacts will be saved/);
+    assert.match(rt.run('syncAllContacts'), /saved 2 volunteer\(s\)/); // the admin and Vol One
+    assert.match(rt.run('syncAllContacts'), /saved 0 volunteer\(s\)/);
+    assert.equal(contacts().length, 2);
   });
 });

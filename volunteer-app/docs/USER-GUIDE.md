@@ -64,6 +64,7 @@ computer) to see a volunteer's Telegram and phone, or a trainee's photo and key 
 | Clock people in | **Sessions** → **Scan** on today's session (or **Scan passes** at the top). If a phone is flat: **Clock in** on the session's row, then **Clock in** / **Clock out**, or add a walk-in |
 | Promote someone to regular | **Volunteers** → their name → **Promote to regular** (or **Move back to volunteer**) |
 | Make or remove an admin | **Volunteers** → their name → **Make an admin** / **Remove admin access**. Making or removing an admin (and deactivating or reactivating one) asks for the **admin password** (a shared password, not your sign-in password) |
+| Save someone to Google Contacts | Happens by itself when they register or you add them (if sync is on). On their page: **Save to Google Contacts** / **Update Google contact** to retry |
 | Deactivate someone | **Volunteers** → **Deactivate** next to their name (they can't sign in; their hours stay) |
 | Fix attendance, export hours | **Volunteers** → **Attendance** (fix a missed scan) and **Hours** (export CSV) |
 | Add or change a trainee's photo | **Trainees** → the trainee → **Add photo** / **Change photo** (from this device, or a Google Drive link) or **Remove** |

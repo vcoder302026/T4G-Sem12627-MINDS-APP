@@ -207,7 +207,8 @@ responses (`tests/fixtures/house-visit-mock.json`), loaded as a separate trainee
 linked by URL, as it would be in production.
 
 Open **<http://localhost:5173/__sheet>** in another tab to see what the app would write to
-both Google Sheets. Refresh it after each action.
+both Google Sheets, and **<http://localhost:5173/__contacts>** for what it would save to Google
+Contacts. Refresh them after each action.
 
 - To **stop** the demo, press **Ctrl+C**. All demo data resets when it stops.
 - To use **another port**, run `PORT=5174 npm run dev`.
@@ -299,7 +300,7 @@ A simple trainee tab still works too: `Name`, `Preferred Name`, `Gender`, `Commu
 1. In the sheet, open **Extensions → Apps Script**.
 2. For each file in [`gas/`](gas), create a script file with the
    same name (**+ → Script**) and paste in its contents: `Admin`, `AdminLog`, `AdminPassword`, `Attendance`,
-   `Auth`, `Config`, `Content`, `Dashboard`, `Db`, `Fundraising`, `Main`, `Outings`, `Pairing`,
+   `Auth`, `Config`, `Contacts`, `Content`, `Dashboard`, `Db`, `Fundraising`, `Main`, `Outings`, `Pairing`,
    `Profile`, `Setup`, `TraineeInfo`, `Trainees`, `Trips`, `Util`, `Visits`, `Volunteer`.
    (Or paste them all into one file: `cat gas/*.gs | pbcopy` on a Mac.)
    Delete the default `Code.gs`.
@@ -330,6 +331,8 @@ In Apps Script, go to **Project Settings → Script properties → Add script pr
 | `TRAINEE_SPREADSHEET_ID` | The trainee sheet, if it's a separate file. Paste the **full URL of the tab**, e.g. `https://docs.google.com/spreadsheets/d/…/edit#gid=123`: the `#gid=` part picks the tab | No |
 | `FIRST_ADMIN_EMAIL` | Your email, added in Stage 7 | Later |
 | `GUIDE_FOLDER_ID` | Created automatically the first time an admin uploads an infographic: the Drive folder "MINDS Volunteer App – Guide infographics" | Automatic |
+| `CONTACTS_SYNC` | `on` to save new and edited volunteers to Google Contacts (see "Google Contacts sync") | No |
+| `CONTACTS_LABEL` | The contact label, e.g. `MINDS Volunteers (Exp)`. Default "MINDS Volunteers" | No |
 | `PHOTO_FOLDER_ID` | Created automatically the first time an admin uploads a trainee photo: the Drive folder "MINDS Volunteer App – Trainee photos" | Automatic |
 
 Sheet IDs are kept here rather than in the code, so they never end up on GitHub.
@@ -510,6 +513,33 @@ Only start this after the Exp test rounds (Stage 9) are finished and MINDS has a
       See [Limits of this prototype](#limits-of-this-prototype).
 - [ ] Make the first admin with `makeFirstAdmin()`, then remove `FIRST_ADMIN_EMAIL`.
 
+### Google Contacts sync (optional)
+
+When it's on, every volunteer who registers, or whom an admin adds, is saved as a contact in
+the **Google account the app runs as** (the account that deployed the Apps Script web app; for
+Exp, `vcoder302026@gmail.com`). Editing their name, email, phone or Telegram updates the same
+contact. Each contact has the name, email, phone (`+65 91234567`), **Telegram in the notes**,
+and a label (`CONTACTS_LABEL`, default "MINDS Volunteers"). If Google Contacts fails, the
+volunteer is still saved and the **Google Contact** column on the Volunteers tab says why; an
+admin can retry from the volunteer's page (**Save to Google Contacts**).
+
+1. In the Apps Script project: **Services (+) → People API → Add** (identifier `People`).
+   Replace `appsscript.json` with [`gas/appsscript.json`](gas/appsscript.json), which lists the
+   People API and the Contacts permission.
+2. **Project Settings → Script properties:** add `CONTACTS_SYNC` = `on`, and for testing
+   `CONTACTS_LABEL` = `MINDS Volunteers (Exp)` (so test contacts are easy to find and delete).
+3. Run **`testContactsAccess()`**. Google asks for the new **Contacts** permission: Review
+   permissions → the account → Allow. The Execution log should say `OK: contacts will be saved…`.
+4. **Deploy → Manage deployments → ✏️ → New version → Deploy.**
+5. Optional: run **`syncAllContacts()`** to save volunteers who registered before sync was on.
+
+Phone numbers are checked as Singapore numbers: **+65 followed by 8 digits** (typed as
+`91234567`, `9123 4567` or `+6591234567`, saved as `+65 91234567`). Emails must look like
+`name@domain.tld`. Both are checked in the app and again on the server.
+
+In the **local demo**, sync is on and goes to a stand-in: <http://localhost:5173/__contacts>
+shows what would be saved.
+
 ### Key settings in `Config.gs`
 
 | Setting | Default | What it does |
@@ -537,7 +567,7 @@ Only start this after the Exp test rounds (Stage 9) are finished and MINDS has a
 
 | Tab | One row per | Notes |
 | --- | --- | --- |
-| Volunteers | person | Profile, emergency contact, Role (`admin` = Admin menu), Volunteer Type (`volunteer`/`regular`) and who set it, Status (`inactive` blocks sign-in) |
+| Volunteers | person | Profile (phone saved as `+65 91234567`), emergency contact, Role (`admin` = Admin menu), Volunteer Type (`volunteer`/`regular`) and who set it, Status (`inactive` blocks sign-in), Google Contact ID and status (when sync is on) |
 | _Auth (hidden) | person | Salted password hashes. Never shown in the app |
 | Sessions | session | Venue, project(s) (several separated by commas), trainees attending; status `open` / `closed` / `cancelled` |
 | Bookings | sign-up | `confirmed` ("coming") or `cancelled`; paired trainee and how (`standing` = regular's fixed trainee, `manual` = an admin); walk-in flag |
@@ -607,6 +637,7 @@ variables instead.
 | Live site: "Couldn't reach the server" | Check that `GAS_EXP_URL` ends in `/exec`, web app access is **Anyone**, and you reran the web deploy. |
 | `SPREADSHEET_ID is not set` or "tab was not found" | Add the script property and run `setup()`. |
 | Code change isn't live | Publish a **New version** of the existing deployment, or set up Stage 8. |
+| A volunteer isn't in Google Contacts | Check the **Google Contact** column on the Volunteers tab: it says why (e.g. People API not added, permission not allowed). Fix it, then **Save to Google Contacts** on their page, or run `syncAllContacts()`. |
 | Admin password forgotten, or "There is no admin password yet" | In Apps Script, run `resetAdminPassword()` (or `setup()` the first time) and read the new password in the Execution log. |
 | Camera doesn't start | Use the HTTPS GitHub Pages site and allow camera access in the browser. |
 

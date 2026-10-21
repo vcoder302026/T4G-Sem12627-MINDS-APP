@@ -39,6 +39,9 @@ export function createDemoRuntime() {
   rt.props.set('TRAINEE_SPREADSHEET_ID', `https://docs.google.com/spreadsheets/d/house-visit-sheet/edit#gid=${form.getSheetId()}`);
   rt.run('setup'); // adds Trainee IDs (T-0001 = Mock Trainee 1, …), the starter venue, guide and project
   rt.evaluate(`setAdminActionPassword_('${DEMO.adminPassword}')`); // a known one for the demo (setup() made a random one)
+  // Google Contacts sync on, into a stand-in for Google Contacts: see http://localhost:5173/__contacts
+  rt.props.set('CONTACTS_SYNC', 'on');
+  rt.props.set('CONTACTS_LABEL', 'MINDS Volunteers (local demo)');
   // Guide infographics live in Google Drive in production. Locally, the in-memory
   // "Drive" serves them at /__drive/<id> (see the server below).
   rt.evaluate("guideFileLinks_ = function (fileId) { const u = '/__drive/' + encodeURIComponent(fileId); return { imageUrl: u, previewUrl: u, openUrl: u }; };");
@@ -182,6 +185,24 @@ const MIME = {
 const escapeHtml = (v) => String(v instanceof Date ? v.toISOString() : v)
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
+/** What the app has saved to "Google Contacts" (the local stand-in), like contacts.google.com would show. */
+function contactsPage(rt) {
+  const groups = Object.fromEntries([...rt.contacts.groups.values()].map((g) => [g.resourceName, g.name]));
+  const rows = [...rt.contacts.people.values()].map((c) => `<tr>
+    <td>${escapeHtml((c.names[0] || {}).unstructuredName || '')}</td>
+    <td>${escapeHtml(c.emailAddresses.map((x) => x.value).join(', '))}</td>
+    <td>${escapeHtml(c.phoneNumbers.map((x) => x.value).join(', '))}</td>
+    <td style="white-space:pre-line">${escapeHtml((c.biographies[0] || {}).value || '')}</td>
+    <td>${escapeHtml(c.memberships.map((m) => groups[m.contactGroupMembership.contactGroupResourceName] || '').join(', '))}</td>
+    <td><code>${escapeHtml(c.resourceName)}</code></td></tr>`).join('');
+  return `<!doctype html><meta charset="utf-8"><title>Google Contacts (local stand-in)</title>
+<style>body{font:14px system-ui;margin:24px}table{border-collapse:collapse;width:100%}td,th{border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top}th{background:#f3f4f6}</style>
+<h1>Google Contacts (local stand-in)</h1>
+<p>What the app would save in the Google account it runs as. Register a volunteer, or add one as an admin, then refresh this page.
+In Exp and production these go to the real Google Contacts instead.</p>
+<table><tr><th>Name</th><th>Email</th><th>Phone</th><th>Notes</th><th>Label</th><th>ID</th></tr>${rows || '<tr><td colspan="6">No contacts yet.</td></tr>'}</table>`;
+}
+
 function sheetPage(rt) {
   const sheets = ['demo-sheet', 'house-visit-sheet'].flatMap((id) => rt.spreadsheet(id).getSheets());
   const tabs = sheets.map((sheet) => {
@@ -228,6 +249,10 @@ export function startMockServer({ port = PORT, latency = LATENCY_MS, quiet = fal
       res.writeHead(200, { 'Content-Type': file.mime, 'Cache-Control': 'no-store' });
       return res.end(Buffer.from(file.bytes.map((b) => (b < 0 ? b + 256 : b))));
     }
+    if (url.pathname === '/__contacts') {
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
+      return res.end(contactsPage(rt));
+    }
     if (url.pathname === '/__sheet') {
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
       return res.end(sheetPage(rt));
@@ -249,6 +274,7 @@ export function startMockServer({ port = PORT, latency = LATENCY_MS, quiet = fal
     console.log(`  Regular:   ${DEMO.regular.email} / ${DEMO.regular.password}`);
     console.log(`  Volunteer: ${DEMO.volunteer.email} / ${DEMO.volunteer.password}`);
     console.log(`  Admin password (to make or remove an admin): ${DEMO.adminPassword}`);
+    console.log(`  Google Contacts (stand-in): http://localhost:${port}/__contacts`);
     console.log(`  Sheet view: http://localhost:${port}/__sheet`);
   });
   return { server, rt };

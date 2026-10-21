@@ -3,8 +3,7 @@
 
 import { call } from '../api.js';
 import {
-  backLink, badge, busy, el, errorBlock, field, fmtDay, fmtHours, formData, icon, initials, loading, mount, section, toast,
-  todaySG,
+  backLink, badge, busy, el, errorBlock, field, fmtDay, fmtHours, formData, icon, initials, isEmail, loading, mount, PHONE_HINT, section, sgPhone, toast, todaySG,
 } from '../ui.js';
 
 const FIELDS = ['name', 'birthday', 'email', 'phone', 'telegram', 'emergencyName', 'emergencyPhone', 'emergencyRelation'];
@@ -39,11 +38,11 @@ function detailsForm(person, { self, submit, extra }) {
         hint: self ? 'You sign in with this email.' : 'They sign in with this email. Let them know if you change it.',
       }),
       passwordBox,
-      field('phone', 'Phone', { type: 'tel', value: person.phone, placeholder: '+65 9123 4567' }),
+      field('phone', 'Phone', { type: 'tel', inputmode: 'tel', value: person.phone, placeholder: '+65 91234567', hint: PHONE_HINT }),
       field('telegram', 'Telegram handle', { optional: true, autocapitalize: 'none', value: person.telegram ? `@${person.telegram}` : '', placeholder: '@yourhandle' })),
     section('Emergency contact', 'red',
       field('emergencyName', 'Name', { value: person.emergencyName }),
-      field('emergencyPhone', 'Phone', { type: 'tel', value: person.emergencyPhone, placeholder: '+65 9123 4567' }),
+      field('emergencyPhone', 'Phone', { type: 'tel', inputmode: 'tel', value: person.emergencyPhone, placeholder: '+65 91234567', hint: PHONE_HINT }),
       field('emergencyRelation', self ? 'Relationship to you' : 'Relationship', { optional: true, value: person.emergencyRelation, placeholder: 'e.g. Mother' })),
     extra || null,
     submit);
@@ -58,12 +57,16 @@ function detailsForm(person, { self, submit, extra }) {
     const v = String(value ?? '').trim();
     if (key === 'telegram') return v.replace(/^@/, '');
     if (key === 'email') return v.toLowerCase();
+    if (key === 'phone' || key === 'emergencyPhone') return sgPhone(v) || v; // "9123 4567" is the same number as "+65 91234567"
     return v;
   };
   const changes = () => {
     const d = formData(form);
     const missing = Object.keys(REQUIRED).find((k) => !d[k]);
     if (missing) throw new Error(REQUIRED[missing]);
+    if (!isEmail(d.email)) throw new Error('Check the email address: it should look like name@example.com.');
+    if (!sgPhone(d.phone)) throw new Error(`Phone: ${PHONE_HINT}`);
+    if (d.emergencyPhone && !sgPhone(d.emergencyPhone)) throw new Error(`Emergency contact phone: ${PHONE_HINT}`);
     const out = {};
     FIELDS.forEach((k) => {
       if (normal(k, d[k]) !== normal(k, person[k])) out[k] = d[k] || '';

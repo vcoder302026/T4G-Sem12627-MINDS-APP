@@ -31,6 +31,12 @@ const CONFIG = {
   PROP_FIRST_ADMIN_EMAIL: 'FIRST_ADMIN_EMAIL',
   PROP_GUIDE_FOLDER_ID: 'GUIDE_FOLDER_ID', // automatic: the Drive folder for guide infographics (created on first upload)
   PROP_PHOTO_FOLDER_ID: 'PHOTO_FOLDER_ID', // automatic: the Drive folder for trainee photos (created on first upload)
+  // Google Contacts (Contacts.gs): set CONTACTS_SYNC to "on" to save new and edited
+  // volunteers as contacts in the Google account the app runs as. CONTACTS_LABEL
+  // names the contact label (default "MINDS Volunteers"; use e.g. "MINDS Volunteers (Exp)" for testing).
+  PROP_CONTACTS_SYNC: 'CONTACTS_SYNC',
+  PROP_CONTACTS_LABEL: 'CONTACTS_LABEL',
+  PROP_CONTACTS_GROUP: 'CONTACTS_GROUP', // automatic: "label|contactGroups/…"
 
   TOKEN_TTL_DAYS: 30,            // how long a phone stays signed in
   PASSWORD_ITERATIONS: 400,      // HMAC rounds per password check (~0.3–0.8 s in Apps Script)
@@ -102,6 +108,8 @@ const CONFIG = {
         volunteerType: 'Volunteer Type', // volunteer (new / ad hoc) | regular
         typeSetBy: 'Type Set By',        // "Automatic (10 sessions)" or the admin who changed it
         typeSetAt: 'Type Set At',
+        contactId: 'Google Contact ID',  // automatic (Contacts.gs): people/c… in the app's Google account
+        contactStatus: 'Google Contact', // automatic: "Saved …", "Updated …" or "Failed …: reason"
         status: 'Status',        // active | inactive
         createdAt: 'Registered At',
         guideReadAt: 'Guide Read At',

@@ -5,7 +5,7 @@
 
 import { call, isNetworkError, onUnauthorized, session, storage } from './api.js';
 import { CONFIG } from './config.js';
-import { el, mount, toast } from './ui.js';
+import { el, mount, sgPhone, toast } from './ui.js';
 import { icon } from '../admin/js/kit.js';
 import { installQuickView } from './quickview.js';
 import { renderLogin, renderRegister } from './views/auth.js';
@@ -473,5 +473,16 @@ if ('serviceWorker' in navigator && location.protocol === 'https:') {
 
 setOffline(navigator.onLine === false);
 installQuickView(app);
+// Phone boxes tidy themselves to "+65 91234567" when you leave them; emails to lowercase.
+document.addEventListener('focusout', (e) => {
+  const t = e.target;
+  if (!(t instanceof HTMLInputElement)) return;
+  if (t.name === 'phone' || t.name === 'emergencyPhone') {
+    const n = sgPhone(t.value);
+    if (n) t.value = n;
+  } else if (t.type === 'email' && t.value) {
+    t.value = t.value.trim().toLowerCase();
+  }
+}, true);
 route();
 app.flushScans();

@@ -299,11 +299,11 @@ function createVolunteer_(p, admin) {
   const rec = {
     name: str_(p.name, 'Full name', { required: true, max: LIMITS.SHORT }),
     email: email_(p.email),
-    phone: phone_(p.phone, 'Phone', { optional: true }),
+    phone: sgPhone_(p.phone, 'Phone', { optional: true }),
     birthday: date_(p.birthday, 'Birthday', { optional: true }),
     telegram: telegram_(p.telegram),
     emergencyName: str_(p.emergencyName, 'Emergency contact name', { max: LIMITS.SHORT }),
-    emergencyPhone: phone_(p.emergencyPhone, 'Emergency contact phone', { optional: true }),
+    emergencyPhone: sgPhone_(p.emergencyPhone, 'Emergency contact phone', { optional: true }),
     emergencyRelation: str_(p.emergencyRelation, 'Relationship', { max: 50 }),
   };
   if (rec.birthday && rec.birthday > todayStr_()) throw err_.validation('Birthday cannot be in the future.');

@@ -84,10 +84,30 @@ function oneOf_(value, label, options) {
   return value;
 }
 
+/**
+ * An email address, lowercased. Checks the usual shape: name@domain.tld, with
+ * letters, numbers and . _ % + - before the @, a domain of letters, numbers and
+ * hyphens, and a top-level domain of 2+ letters (e.g. .sg, .com).
+ */
 function email_(value) {
-  const s = str_(value, 'Email', { required: true, max: LIMITS.NAME }).toLowerCase();
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(s)) throw err_.validation('Email address is not valid.');
+  const s = str_(value, 'Email', { required: true, max: 254 }).toLowerCase();
+  const ok = /^[a-z0-9._%+-]+@([a-z0-9]([a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}$/.test(s)
+    && !/\.\./.test(s) && !/^\.|\.@/.test(s) && s.split('@')[0].length <= 64;
+  if (!ok) throw err_.validation('Email address is not valid. Check it looks like name@example.com.');
   return s;
+}
+
+/**
+ * A Singapore phone number, stored as "+65 91234567" (+65, a space, then 8 digits).
+ * Accepts the 8 digits on their own, or with +65 / 65 in front, with spaces or dashes.
+ */
+function sgPhone_(value, label, opts) {
+  const s = str_(value, label, { required: !(opts && opts.optional), max: 30 });
+  if (!s) return '';
+  const digits = s.replace(/[\s-]/g, '');
+  const m = /^(?:\+65|65)?(\d{8})$/.exec(digits);
+  if (!m) throw err_.validation(`${label} must be a Singapore number: +65 followed by 8 digits, e.g. +65 91234567.`);
+  return `+65 ${m[1]}`;
 }
 
 function phone_(value, label, opts) {

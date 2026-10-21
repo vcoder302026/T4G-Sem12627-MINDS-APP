@@ -557,3 +557,19 @@ export function projectBadges(projects) {
     return b;
   });
 }
+
+/**
+ * A Singapore phone number as "+65 91234567", or null if it isn't one. Accepts
+ * the 8 digits alone or with +65 / 65, with spaces or dashes. (The server checks too.)
+ */
+export function sgPhone(value) {
+  const m = /^(?:\+65|65)?(\d{8})$/.exec(String(value || '').replace(/[\s-]/g, ''));
+  return m ? `+65 ${m[1]}` : null;
+}
+export const PHONE_HINT = '+65 followed by 8 digits, e.g. +65 91234567.';
+
+/** True for an email that looks like name@domain.tld (same rule as the server). */
+export function isEmail(value) {
+  const s = String(value || '').trim().toLowerCase();
+  return /^[a-z0-9._%+-]+@([a-z0-9]([a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}$/.test(s) && !/\.\./.test(s) && !/^\.|\.@/.test(s);
+}

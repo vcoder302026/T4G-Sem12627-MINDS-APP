@@ -79,10 +79,10 @@ function register_(p) {
     name: str_(p.name, 'Full name', { required: true, max: LIMITS.SHORT }),
     birthday: date_(p.birthday, 'Birthday'),
     email: email_(p.email),
-    phone: phone_(p.phone, 'Phone'),
+    phone: sgPhone_(p.phone, 'Phone'),
     telegram: telegram_(p.telegram),
     emergencyName: str_(p.emergencyName, 'Emergency contact name', { required: true, max: LIMITS.SHORT }),
-    emergencyPhone: phone_(p.emergencyPhone, 'Emergency contact phone'),
+    emergencyPhone: sgPhone_(p.emergencyPhone, 'Emergency contact phone'),
     emergencyRelation: str_(p.emergencyRelation, 'Relationship', { max: 50 }),
   };
   if (rec.birthday > todayStr_()) throw err_.validation('Birthday cannot be in the future.');

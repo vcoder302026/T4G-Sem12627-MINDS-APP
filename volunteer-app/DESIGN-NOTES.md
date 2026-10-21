@@ -56,6 +56,14 @@ Mode" or the separate staff dashboard; those are replaced as follows.
   sign-ups, and keeps every Regular Pairings row (ended ones too) as each regular's trainees over
   time. Pairing screens get it per volunteer (`pairHistoryFor_` in `Pairing.gs`); the full list is
   `pairingHistory_` (admins only).
+- **Google Contacts sync** (`Contacts.gs`) runs after a successful register, admin add, or
+  edit of name, email, phone or Telegram, inside the same request, and never fails it: errors
+  are written to the volunteer's "Google Contact" column and can be retried. Contacts go to the
+  account the web app runs as (People API advanced service); the contact ID is kept so edits
+  update the same contact, and a contact deleted in Google is simply created again.
+- **Phone numbers** for volunteers and emergency contacts are Singapore numbers, normalised to
+  `+65 91234567` (`sgPhone_` in `Util.gs`, `sgPhone` in `ui.js`); caregiver numbers from MINDS's
+  sheet keep the looser check.
 - **A short admin menu.** Six sections plus More (`ADMIN_SECTIONS` in `web/js/app.js`);
   pages that belong together are tabs drawn by the shell above the page, so the page code
   doesn't change when the grouping does.
