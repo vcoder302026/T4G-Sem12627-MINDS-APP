@@ -21,7 +21,7 @@ record in the demo is fictional.
 | Area | Version 1 | Version 2 |
 | --- | --- | --- |
 | **Apps** | Phone app with a "Choose Mode" switch, plus a separate staff dashboard at `admin/` | **One app.** Admins see the volunteer pages plus a short **Admin** menu (Dashboard, Sessions, Pairing, Volunteers, Trainees, Settings, More), with tabs for each section's pages. Tabs on a phone, a sidebar on a computer, same information on both. `admin/` now opens the app |
-| **Profiles** | Volunteer or leader | **Volunteer** (new / ad hoc), **Regular** (after 10 attended sessions, or promoted by an admin) and **Admin** (on top of either) |
+| **Profiles** | Volunteer or leader | **Volunteer** (new / ad hoc), **Regular** (after 10 attended sessions, or promoted by an admin) and **Admin** (a regular volunteer with the Admin menu: becoming an admin makes someone a regular) |
 | **Signing up** | Book → a leader confirms | Tick sessions → **I'm coming**. No confirmation. Several sessions at once |
 | **Pairing** | Automatic on confirm (same trainee as last time, else fewest pairings) | **Regulars:** a fixed trainee set by an admin, applied every time they sign up. **Volunteers:** paired by an admin on a WERONE-style pairing board. One trainee per volunteer, several volunteers per trainee |
 | **Trainee details** | A few fixed columns | **Every column** of MINDS's trainee sheet (e.g. the House Visit form), grouped like the form. Admins choose what volunteers and regulars see (default, per trainee, set as default) |
@@ -116,6 +116,7 @@ The full walkthrough is in [volunteer-app/README.md](volunteer-app/README.md), P
    Review permissions → your account → Allow. `setup()` adds the new tabs (Regular Pairings, Admin Activity Log, App
    Settings, Trainee Visibility), the Volunteer Type column, Trainee IDs on the form sheet,
    and promotes anyone who already has 10 attended sessions.
+   It also makes existing admins regular volunteers (admins are regulars by default).
    It also creates the **admin password** and shows it once in the Execution log (a line starting
    "Created the ADMIN PASSWORD"). Write it down and give it to the admins. If it's lost, run
    `resetAdminPassword()` for a new one.

@@ -15,7 +15,7 @@ newest version of the app and 🌗 switches dark mode.
 | --- | --- | --- |
 | **Volunteer** | Everyone starts here (new / ad hoc) | An admin pairs you with a trainee for each session. You see your trainee's details that admins allow. |
 | **Regular** | After 10 attended sessions (automatic), or when an admin promotes you | You can read about any trainee. An admin can give you a fixed trainee, who you're paired with every time you sign up. |
-| **Admin** | Volunteers or regulars with admin access | The Admin menu, on top of everything above. |
+| **Admin** | Regular volunteers with admin access (becoming an admin makes someone a regular) | The Admin menu, on top of everything above. |
 
 ## For every volunteer
 

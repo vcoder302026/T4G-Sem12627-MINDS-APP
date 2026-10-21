@@ -315,7 +315,7 @@ function createVolunteer_(p, admin) {
     throw err_.conflict('Someone with this email is already on the volunteer list.');
   }
   const user = users.insert(Object.assign(rec, {
-    userId: newId_('U'), role, volunteerType: 'volunteer', status: 'active', createdAt: fmtDateTime_(now_()),
+    userId: newId_('U'), role, volunteerType: role === 'admin' ? 'regular' : 'volunteer', typeSetBy: role === 'admin' ? 'Made an admin' : '', status: 'active', createdAt: fmtDateTime_(now_()),
   }, stamp_(admin)));
   let tempPassword = '';
   if (createLogin) {

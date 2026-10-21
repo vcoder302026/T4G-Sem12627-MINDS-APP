@@ -191,11 +191,13 @@ function updatePerson_(p, admin) {
 
   const oldName = target.name;
   applyProfileChanges_(users, target, changes, admin);
+  const madeRegular = !wasAdmin && willBeAdmin && makeRegularAsAdmin_(target); // admins are regular volunteers by default
   const profileChanges = {};
   Object.keys(changes).filter((k) => PROFILE_FIELDS.indexOf(k) >= 0).forEach((k) => { profileChanges[k] = changes[k]; });
   const parts = [];
   if (Object.keys(profileChanges).length) parts.push(changedMessage_(profileChanges, `Updated ${oldName}'s`));
   if (changes.role) parts.push(changes.role === 'admin' ? `${target.name} is now an admin.` : `${target.name} is no longer an admin.`);
+  if (madeRegular) parts.push('Admins are regular volunteers, so they are now a regular too.');
   if (changes.status) parts.push(changes.status === 'inactive' ? `${target.name} is deactivated and can no longer sign in.` : `${target.name} is active again.`);
   if (changes.email) parts.push(`They now sign in with ${changes.email}.`);
   const message = parts.join(' ') || 'No changes to save.';

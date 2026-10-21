@@ -58,7 +58,7 @@ gives an overview of both apps.
 | --- | --- | --- | --- |
 | **Volunteer** | Everyone starts here (new / ad hoc) | Only the trainee they're paired with, and only the details admins allow | An admin pairs them for each session |
 | **Regular** | After **10 attended sessions** (automatic), or promoted by an admin | Any trainee, with the details admins allow (everything by default) | An admin can give them a **fixed trainee**; it's applied every time they say they're coming, until an admin changes it |
-| **Admin** | A volunteer or regular with admin access | Everything | As above, plus they pair everyone else |
+| **Admin** | A regular volunteer with admin access: becoming an admin makes them a regular (an admin can change that by hand) | Everything | As above, plus they pair everyone else |
 
 A volunteer has **one trainee** per session. A trainee can have **several volunteers**,
 ideally at least one regular; the app flags trainees without one.
@@ -347,7 +347,8 @@ Sheet IDs are kept here rather than in the code, so they never end up on GitHub.
      Settings, Trainee Visibility and the hidden `_Auth`) and the placeholder tabs from
      Version 1 (Fundraisers, Products, Orders, Order Items, Outings, Outing Assignments,
      Trips, Trip Participants, Trip Logistics, Trip Expenses, House Visits);
-   - gives every volunteer a Volunteer Type, and makes anyone with 10+ attended sessions a regular;
+   - gives every volunteer a Volunteer Type, makes anyone with 10+ attended sessions a regular,
+     and makes admins regulars (admins are regular volunteers by default);
    - adds any missing columns to existing tabs;
    - gives every trainee a Trainee ID;
    - adds a starter venue, guide and project;

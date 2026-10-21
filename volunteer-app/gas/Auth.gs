@@ -215,6 +215,7 @@ function setRole_(p, admin) {
     checkAdminPassword_(admin, p.adminPassword, role === 'admin' ? 'Enter the admin password to make someone an admin.' : 'Enter the admin password to remove an admin.');
   }
   users.update(target, { role });
+  if (role === 'admin') makeRegularAsAdmin_(target); // admins are regular volunteers by default
   return { person: publicUser_(target) };
 }
 

@@ -326,7 +326,7 @@ describe('signing up and pairing (volunteers, regulars, admins)', () => {
     assert.equal(ok(rt.call('volunteerHome', {}, vol.token)).upcoming[0].trainee.name, 'Alex Tan', 'unpaired upcoming sessions pick up the new pairing');
     const res = ok(rt.call('setVolunteerType', { userId: vol.user.userId, volunteerType: 'volunteer' }, leader));
     assert.match(res.message, /regular pairing with Alex Tan has ended/);
-    assert.equal(ok(rt.call('listStandingPairings', {}, leader)).regulars.length, 0);
+    assert.ok(!ok(rt.call('listStandingPairings', {}, leader)).regulars.some((r) => r.userId === vol.user.userId), 'no longer on the regulars board');
   });
 
   test('pairs pasted into the Regular Pairings tab as plain names are used', () => {
@@ -338,7 +338,7 @@ describe('signing up and pairing (volunteers, regulars, admins)', () => {
     const s = createSession();
     ok(rt.call('bookSession', { sessionId: s.sessionId }, vol.token));
     assert.equal(ok(rt.call('volunteerHome', {}, vol.token)).upcoming[0].trainee.name, 'Chris Ng');
-    assert.equal(ok(rt.call('listStandingPairings', {}, leader)).regulars[0].traineeName, 'Chris Ng');
+    assert.equal(ok(rt.call('listStandingPairings', {}, leader)).regulars.find((r) => r.userId === vol.user.userId).traineeName, 'Chris Ng');
   });
 
   test(`volunteers become regulars after ${10} sessions, unless an admin set their type`, () => {
@@ -768,6 +768,35 @@ describe('adding sessions', () => {
   });
 });
 
+
+describe('admins are regular volunteers by default', () => {
+  test('every way of becoming an admin makes them a regular; setup() fixes existing admins', () => {
+    assert.equal(ok(rt.call('me', {}, leader)).user.volunteerType, 'regular', 'the first admin (makeFirstAdmin)');
+    const res = ok(rt.call('updatePerson', { userId: vol.user.userId, role: 'admin', adminPassword: ADMIN_PW }, leader));
+    assert.match(res.message, /now a regular too/);
+    assert.equal(rt.records(SHEET, 'Volunteers').find((r) => r['User ID'] === vol.user.userId)['Type Set By'], 'Made an admin');
+    const sam = volunteer('sam@example.com', 'Sam Ong');
+    ok(rt.call('setRole', { userId: sam.user.userId, role: 'admin', adminPassword: ADMIN_PW }, leader));
+    assert.equal(ok(rt.call('me', {}, sam.token)).user.volunteerType, 'regular');
+    const added = ok(rt.call('createVolunteer', { name: 'New Admin', email: 'na@example.com', phone: '+65 9000 2222', role: 'admin', adminPassword: ADMIN_PW }, leader));
+    assert.equal(added.person.volunteerType, 'regular');
+    // Losing admin access doesn't undo it; an admin can move them back by hand, and setup() respects that.
+    ok(rt.call('setRole', { userId: sam.user.userId, role: 'volunteer', adminPassword: ADMIN_PW }, leader));
+    assert.equal(ok(rt.call('me', {}, sam.token)).user.volunteerType, 'regular');
+    ok(rt.call('setVolunteerType', { userId: vol.user.userId, volunteerType: 'volunteer' }, leader));
+    // An admin from before this rule (type "volunteer", not set by anyone) is fixed by setup()
+    const row = rt.records(SHEET, 'Volunteers').findIndex((r) => r['User ID'] === sam.user.userId);
+    ok(rt.call('setRole', { userId: sam.user.userId, role: 'admin', adminPassword: ADMIN_PW }, leader));
+    const tab = rt.tab(SHEET, 'Volunteers');
+    const header = tab.getRange(1, 1, 1, tab.getLastColumn()).getValues()[0];
+    tab.getRange(row + 2, header.indexOf('Volunteer Type') + 1).setValue('volunteer');
+    tab.getRange(row + 2, header.indexOf('Type Set By') + 1).setValue('');
+    rt.run('setup');
+    const after = rt.records(SHEET, 'Volunteers');
+    assert.equal(after.find((r) => r['User ID'] === sam.user.userId)['Volunteer Type'], 'regular', 'setup() made the old admin a regular');
+    assert.equal(after.find((r) => r['User ID'] === vol.user.userId)['Volunteer Type'], 'volunteer', 'a deliberate choice is kept');
+  });
+});
 
 describe('the admin password (separate from sign-in passwords)', () => {
   test('every change to who is an admin needs it: make, remove, deactivate, reactivate, add as admin', () => {

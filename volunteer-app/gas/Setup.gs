@@ -127,7 +127,8 @@ function makeFirstAdmin() {
   const user = users.find((u) => String(u.email).toLowerCase() === email);
   if (!user) throw new Error(`No registered account for ${email}. Register in the app first, then run this again.`);
   users.update(user, { role: 'admin' });
-  const msg = `${user.name} (${email}) is now an admin.`;
+  makeRegularAsAdmin_(user); // admins are regular volunteers by default
+  const msg = `${user.name} (${email}) is now an admin and a regular volunteer.`;
   logAdminAction_({ userId: '', name: 'Apps Script editor' }, 'makeFirstAdmin', { userId: user.userId }, null);
   console.log(msg);
   return msg;
@@ -149,6 +150,9 @@ function refreshVolunteerTypes_() {
       filled += 1;
     }
     if (maybePromote_(u.userId)) promoted += 1;
+    // Admins are regular volunteers by default, unless a person deliberately set them back.
+    const setByPerson = u.typeSetBy && !/^(automatic|made an admin)/i.test(String(u.typeSetBy));
+    if (u.role === 'admin' && !setByPerson && makeRegularAsAdmin_(u)) promoted += 1;
   });
   const parts = [];
   if (filled) parts.push(`set ${filled} volunteer type(s) to "volunteer"`);
