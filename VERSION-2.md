@@ -61,7 +61,8 @@ record in the demo is fictional.
 | Trainee photo database | **Done** (admins add or change a photo on the trainee page; a placeholder shows until then). Caregiver consent still to confirm |
 | New registrations added to Google Contacts (Telegram in notes) | **Done**, off until switched on: new and admin-added volunteers are saved to the app's Google account, with Telegram in the notes and a label (volunteer-app/README.md → Google Contacts sync). Phones are checked as +65 and 8 digits |
 | Attendance for special events and committee roles | Not yet |
-| Registration fields from MINDS's Google Form; drop emergency contact | Waiting for the form |
+| Registration fields from MINDS's Google Form; drop emergency contact | Emergency contact **removed** (sign-up asks for name, birthday, email, phone and Telegram). The rest waits for the form |
+| "By Thursday, update who's coming on Saturday" | Not yet (the dashboard shows who's coming; a reminder could follow) |
 | Revisit adding/editing sessions; merging session and outing attendance | Adding is now just picking dates (Regular session, 2:30–5:30 pm, Woodlands, from dropdowns). Editing and merging with outings: waiting for Mr Sadil |
 | Note the history of trainees' previous partners | **Done**, for admins: Pairing → History, history hints when pairing, and each regular's trainees over time |
 
@@ -130,7 +131,7 @@ The full walkthrough is in [volunteer-app/README.md](volunteer-app/README.md), P
    point: volunteers see the short name, gender, language, allergies and dietary needs,
    activities to avoid, behaviour and abilities; regulars see everything. Admins can change
    this in the app any time.
-2. **Registration form fields** (the Google Form), including dropping the emergency contact.
+2. **Registration form fields** (the Google Form). The emergency contact has been dropped, as agreed.
 3. **Sessions vs outings:** whether admins keep creating sessions here, and how outing
    attendance relates (with Mr Sadil).
 4. **Google Contacts sync:** contacts go to the Google account the app runs as. Confirm that's the account MINDS wants (for testing: vcoder302026@gmail.com), and add a line about it to the registration consent notice.

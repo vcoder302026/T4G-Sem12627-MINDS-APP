@@ -367,9 +367,7 @@ export function renderMe(root, app, ctx) {
         el('div', { class: 'section-head section-blue' }, 'My details',
           el('a', { href: '#/edit-me', class: 'btn btn-secondary btn-sm normal-case tracking-normal' }, icon('pencil', 'size-4'), 'Edit')),
         el('dl', { class: 'divide-y divide-slate-100 px-4 py-2 text-sm dark:divide-neutral-800' },
-          detail('Email', u.email), detail('Phone', u.phone), detail('Telegram', u.telegram ? `@${u.telegram}` : ''), detail('Birthday', u.birthday),
-          detail('Emergency contact', `${u.emergencyName || ''}${u.emergencyRelation ? ` (${u.emergencyRelation})` : ''}`),
-          detail('Emergency phone', u.emergencyPhone))),
+          detail('Email', u.email), detail('Phone', u.phone), detail('Telegram', u.telegram ? `@${u.telegram}` : ''), detail('Birthday', u.birthday))),
       accordion('Change password', 'indigo', pwForm),
       el('div', { class: 'mt-3' }, list(linkRow('#/guide', 'book', 'Volunteer Guide', 'Projects, what to wear and what we expect'))),
       el('button', { class: 'btn btn-danger mt-3 w-full', onclick: () => app.signOut() }, icon('logout'), 'Sign out'));

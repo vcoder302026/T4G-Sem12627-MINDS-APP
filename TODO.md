@@ -30,7 +30,8 @@ Sources: the October meeting minutes with MINDS, `VERSION-2.md` §2 and §5, and
 ### 1.2 Registration fields
 - [ ] Get MINDS's volunteer registration Google Form (it's in the shared Drive)
 - [ ] Match the sign-up form to it
-- [ ] Drop the emergency contact if MINDS confirms only Telegram is needed
+- [x] Emergency contact removed from sign-up, Me and Edit my details (old details stay in the sheet and on the admin page)
+- [ ] Should Telegram be required at sign-up, now that it's the main way to reach volunteers? (It's optional today)
 - **Where:** `gas/Auth.gs` (`register_`), `gas/Profile.gs` (`PROFILE_FIELDS`, `profilePatch_`),
   `gas/Config.gs` (`TABLES.users`), `web/js/views/auth.js`, `web/js/views/profile.js`, and
   the volunteer edit form in `web/admin/js/views/people.js`.

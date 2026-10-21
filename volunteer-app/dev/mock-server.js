@@ -48,8 +48,7 @@ export function createDemoRuntime() {
   rt.evaluate("driveImageUrl_ = function (fileId) { return '/__drive/' + encodeURIComponent(fileId); };");
 
   const reg = (name, email, password, extra = {}) => rt.call('register', {
-    name, email, password, birthday: '2000-01-15', phone: '+65 9000 0000', telegram: '',
-    emergencyName: 'Demo Contact', emergencyPhone: '+65 8000 0000', emergencyRelation: 'Parent', consent: true, ...extra,
+    name, email, password, birthday: '2000-01-15', phone: '+65 9000 0000', telegram: '', consent: true, ...extra,
   }).data;
   const ada = reg('Ada Admin', DEMO.admin.email, DEMO.admin.password, { telegram: 'ada_admin' });
   rt.call('acknowledgeGuide', {}, ada.token);

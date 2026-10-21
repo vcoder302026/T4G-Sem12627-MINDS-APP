@@ -67,15 +67,11 @@ export function renderRegister(root, app) {
       field('email', 'Email', { type: 'email', autocomplete: 'email', inputmode: 'email', hint: "You'll use this to sign in." }),
       field('phone', 'Phone', { type: 'tel', autocomplete: 'tel', inputmode: 'tel', placeholder: '+65 91234567', hint: PHONE_HINT }),
       field('telegram', 'Telegram handle', { optional: true, autocapitalize: 'none', placeholder: '@yourhandle' })),
-    section('Emergency contact', 'red',
-      field('emergencyName', 'Name'),
-      field('emergencyPhone', 'Phone', { type: 'tel', inputmode: 'tel', placeholder: '+65 91234567', hint: PHONE_HINT }),
-      field('emergencyRelation', 'Relationship to you', { optional: true, placeholder: 'e.g. Mother' })),
     section('Account', 'indigo',
       field('password', 'Password', { type: 'password', autocomplete: 'new-password', hint: 'At least 8 characters.' }),
       field('password2', 'Type it again', { type: 'password', autocomplete: 'new-password' }),
       el('label', { class: 'flex items-start gap-3 text-sm' }, consent,
-        el('span', {}, 'I agree that MINDS may collect and use these details to arrange volunteering, record my hours, and contact me or my emergency contact if needed, in line with the Personal Data Protection Act.'))),
+        el('span', {}, 'I agree that MINDS may collect and use these details to arrange volunteering, record my hours, and contact me if needed, in line with the Personal Data Protection Act.'))),
     el('div', { class: 'action-bar' }, el('div', { class: 'mx-auto max-w-2xl' }, submit)));
 
   form.addEventListener('submit', (e) => {
@@ -89,9 +85,6 @@ export function renderRegister(root, app) {
       (!isEmail(d.email) && 'Check your email address: it should look like name@example.com.') ||
       (!d.phone && 'Enter your phone number.') ||
       (!sgPhone(d.phone) && `Phone: ${PHONE_HINT}`) ||
-      (!d.emergencyName && 'Enter an emergency contact name.') ||
-      (!d.emergencyPhone && 'Enter an emergency contact phone number.') ||
-      (!sgPhone(d.emergencyPhone) && `Emergency contact phone: ${PHONE_HINT}`) ||
       (form.password.value.length < 8 && 'Choose a password with at least 8 characters.') ||
       (form.password.value !== form.password2.value && "The two passwords don't match.") ||
       (!consent.checked && 'Tick the box to agree to the personal data notice.');
@@ -109,9 +102,6 @@ export function renderRegister(root, app) {
           email: d.email,
           phone: d.phone,
           telegram: d.telegram,
-          emergencyName: d.emergencyName,
-          emergencyPhone: d.emergencyPhone,
-          emergencyRelation: d.emergencyRelation,
           password: form.password.value,
           consent: true,
         });

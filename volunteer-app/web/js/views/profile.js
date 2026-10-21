@@ -6,15 +6,13 @@ import {
   backLink, badge, busy, el, errorBlock, field, fmtDay, fmtHours, formData, icon, initials, isEmail, loading, mount, PHONE_HINT, section, sgPhone, toast, todaySG,
 } from '../ui.js';
 
-const FIELDS = ['name', 'birthday', 'email', 'phone', 'telegram', 'emergencyName', 'emergencyPhone', 'emergencyRelation'];
+const FIELDS = ['name', 'birthday', 'email', 'phone', 'telegram']; // no emergency contact: MINDS only needs Telegram
 
 const REQUIRED = {
   name: 'Enter a full name.',
   birthday: 'Enter a birthday.',
   email: 'Enter an email.',
   phone: 'Enter a phone number.',
-  emergencyName: 'Enter an emergency contact name.',
-  emergencyPhone: 'Enter an emergency contact phone number.',
 };
 
 /**
@@ -40,10 +38,6 @@ function detailsForm(person, { self, submit, extra }) {
       passwordBox,
       field('phone', 'Phone', { type: 'tel', inputmode: 'tel', value: person.phone, placeholder: '+65 91234567', hint: PHONE_HINT }),
       field('telegram', 'Telegram handle', { optional: true, autocapitalize: 'none', value: person.telegram ? `@${person.telegram}` : '', placeholder: '@yourhandle' })),
-    section('Emergency contact', 'red',
-      field('emergencyName', 'Name', { value: person.emergencyName }),
-      field('emergencyPhone', 'Phone', { type: 'tel', inputmode: 'tel', value: person.emergencyPhone, placeholder: '+65 91234567', hint: PHONE_HINT }),
-      field('emergencyRelation', self ? 'Relationship to you' : 'Relationship', { optional: true, value: person.emergencyRelation, placeholder: 'e.g. Mother' })),
     extra || null,
     submit);
 
@@ -57,7 +51,7 @@ function detailsForm(person, { self, submit, extra }) {
     const v = String(value ?? '').trim();
     if (key === 'telegram') return v.replace(/^@/, '');
     if (key === 'email') return v.toLowerCase();
-    if (key === 'phone' || key === 'emergencyPhone') return sgPhone(v) || v; // "9123 4567" is the same number as "+65 91234567"
+    if (key === 'phone') return sgPhone(v) || v; // "9123 4567" is the same number as "+65 91234567"
     return v;
   };
   const changes = () => {
@@ -66,7 +60,6 @@ function detailsForm(person, { self, submit, extra }) {
     if (missing) throw new Error(REQUIRED[missing]);
     if (!isEmail(d.email)) throw new Error('Check the email address: it should look like name@example.com.');
     if (!sgPhone(d.phone)) throw new Error(`Phone: ${PHONE_HINT}`);
-    if (d.emergencyPhone && !sgPhone(d.emergencyPhone)) throw new Error(`Emergency contact phone: ${PHONE_HINT}`);
     const out = {};
     FIELDS.forEach((k) => {
       if (normal(k, d[k]) !== normal(k, person[k])) out[k] = d[k] || '';
@@ -121,7 +114,7 @@ export function renderEditMe(root, app, ctx) {
     mount(root,
       backLink('#/me', 'Me'),
       el('h1', { class: 'page-title' }, 'Edit my details'),
-      el('p', { class: 'mb-6 mt-1 muted' }, 'Keep these up to date so admins can reach you, or your emergency contact, on the day.'),
+      el('p', { class: 'mb-6 mt-1 muted' }, 'Keep these up to date so admins can reach you on the day.'),
       form,
       el('div', { class: 'h-24' }));
   };
