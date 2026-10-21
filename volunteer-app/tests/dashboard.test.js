@@ -78,9 +78,16 @@ describe('dashboard access and setup', () => {
 
   test('overview counts people, hours and upcoming events', () => {
     const o = ok(call('dashboardOverview'));
-    assert.equal(o.counts.volunteers, 1);
-    assert.equal(o.counts.leaders, 1);
+    assert.equal(o.counts.volunteers, 2); // everyone active, admins included
+    assert.equal(o.counts.newVolunteers, 2);
+    assert.equal(o.counts.regulars, 0);
+    assert.equal(o.counts.admins, 1);
     assert.equal(o.counts.trainees, 2);
+    assert.equal(o.counts.traineesWithoutRegular, 2);
+    ok(call('setVolunteerType', { userId: vol.user.userId, volunteerType: 'regular' }));
+    ok(call('setStandingPairing', { userId: vol.user.userId, traineeId: 'T-0001' }));
+    const counts = ok(call('dashboardOverview')).counts;
+    assert.deepEqual([counts.newVolunteers, counts.regulars, counts.traineesWithoutRegular], [1, 1, 1]);
     assert.equal(o.counts.hoursTotal, 0);
     ok(call('createOuting', { title: 'Zoo', date: '2026-10-20', location: 'Singapore Zoo' }));
     ok(call('createTrip', { title: 'Bangkok', destination: 'Thailand', startDate: '2026-12-01', endDate: '2026-12-05' }));

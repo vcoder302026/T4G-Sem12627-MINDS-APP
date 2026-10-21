@@ -1,5 +1,5 @@
 // Loads the two small third-party libraries on demand (with CDN fallbacks),
-// draws a volunteer's QR code, and runs the leader's camera scanner.
+// draws a volunteer's QR code, and runs the admin's camera scanner.
 
 import { CONFIG } from './config.js';
 

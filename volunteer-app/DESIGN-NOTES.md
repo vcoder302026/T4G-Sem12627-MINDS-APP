@@ -4,6 +4,64 @@ This explains the two changes asked for, why they're built as a new
 `volunteer-app/` folder rather than as edits to the Node prototype in the
 repository root, and what to do if you must keep the Node app instead.
 
+## Version 2 (October 2026): what changed in the design
+
+Version 2 follows the October stakeholder meeting with MINDS. Sections further down
+describe Version 1 where they mention confirming bookings, automatic pairing, "Choose
+Mode" or the separate staff dashboard; those are replaced as follows.
+
+- **One app, three profiles.** No modes: admins get an Admin menu on top of the volunteer
+  pages. The Version 1 dashboard pages (`web/admin/js/views/`) are imported by the main app
+  (`web/js/app.js`), so there is one sign-in, one router and one menu. The layout CSS that
+  turns the tabs into a sidebar is plain CSS at the end of `web/src/input.css` (copied into
+  `web/styles.css`), so it works even when Tailwind hasn't been rebuilt.
+- **Volunteer types live on the person** (`Volunteer Type` column). Promotion after
+  `REGULAR_AFTER_SESSIONS` attended sessions happens in the same locked write as the
+  clock-out that reaches it. `Type Set By` records whether a person or the rule set it; the
+  rule never overrides a person.
+- **No confirmation step.** Saying "I'm coming" writes a `confirmed` booking. Older
+  `pending` rows are treated as coming.
+- **Pairing is explicit, not guessed.** The Version 1 picker (continuity, then fewest
+  pairings) is gone, at MINDS's request. A regular's fixed trainee lives in the Regular
+  Pairings tab and is copied onto the booking (`Pairing = standing`) when they sign up;
+  an admin's choice for one session is `manual` and is never overwritten when the fixed
+  pairing changes. Rows can be typed with plain names, matched at read time
+  (`standingRows_` in `Pairing.gs`), so MINDS can paste an existing pairing list.
+- **The pairing board copies the WERONE outing app's manual pairing page** (two columns,
+  a search per column, an unpaired filter, tap to pair, quick-pair pop-up, press and hold for
+  details). Its auto-pairing logic wasn't reused: MINDS asked for fixed pairings instead.
+- **Trainee details are read column by column** from MINDS's own sheet (e.g. the House
+  Visit form's responses), grouped by the form's `Map (Fixed)` tab. Headers are matched
+  loosely (case, spacing, curly quotes) and a column may list alternative headers. Who sees
+  which column is data, not code: a default per audience (App Settings tab) and optional
+  per-trainee settings (Trainee Visibility tab), keyed by the normalised header text.
+- **Admin activity log.** `Main.gs` logs every successful admin write inside the same lock,
+  so the log can't disagree with the data. `AdminLog.gs` turns each action into a sentence
+  using current names. Passwords are never logged.
+- **Guide infographics in Google Drive.** A guide item is `text`, `image` or `pdf`. Uploads
+  arrive as base64 in the normal POST (the 200 kB request limit is raised for this one
+  action) and are saved in an app-owned Drive folder; files picked by link are used where
+  they are. Either way the file is set to "anyone with the link can view", because
+  volunteers don't sign in to Google, and the app shows it via Drive's thumbnail and preview
+  URLs. This needs the `drive` scope in `appsscript.json` (`drive.file` can't open files an
+  admin picks by link). Removing an item never deletes the Drive file.
+- **Trainee photos** use the same Drive storage as the guide (`saveDriveImage_` in
+  `Content.gs`), in their own folder, recorded in an app-owned "Trainee Photos" tab rather than
+  in MINDS's form sheet. The app shows a placeholder when there is no photo.
+- **Press and hold any name.** Pages only mark names (`personName` / `traineeName` in
+  `web/js/quickview.js`, which set `data-person` / `data-trainee`); one document-level
+  listener opens the quick card, so a new page gets the behaviour just by using the helpers.
+  Volunteer contact details are fetched on demand and only for admins.
+- **Pairing history** counts sessions a pair actually attended (a clock-in on the booking), not
+  sign-ups, and keeps every Regular Pairings row (ended ones too) as each regular's trainees over
+  time. Pairing screens get it per volunteer (`pairHistoryFor_` in `Pairing.gs`); the full list is
+  `pairingHistory_` (admins only).
+- **A short admin menu.** Six sections plus More (`ADMIN_SECTIONS` in `web/js/app.js`);
+  pages that belong together are tabs drawn by the shell above the page, so the page code
+  doesn't change when the grouping does.
+- **Removing an admin needs a password.** The server checks the acting admin's own password
+  (error code `PASSWORD_REQUIRED`); the app asks for it and retries.
+
 ## Why not bolt Sheets and QR onto the existing Node app?
 
 The root app (Prototype 1) was deliberately scoped as a **localhost-only staff

@@ -2,7 +2,6 @@
 // real Apps Script code (gas/*.gs) against an in-memory demo spreadsheet.
 //
 //   npm run dev            → http://localhost:5173
-//   http://localhost:5173/admin/    the staff dashboard (same backend and sheet)
 //   http://localhost:5173/__sheet   shows what the "Google Sheet" contains right now
 //
 // Data lives in memory and resets when the server restarts.
@@ -19,128 +18,151 @@ const PORT = Number(process.env.PORT || 5173);
 const LATENCY_MS = Number(process.env.MOCK_LATENCY_MS ?? 400); // Apps Script is not instant; feel it locally
 
 export const DEMO = {
-  leader: { email: 'leader@example.com', password: 'LeaderDemo123' },
+  admin: { email: 'admin@example.com', password: 'AdminDemo123' },
+  regular: { email: 'regular@example.com', password: 'RegularDemo123' },
   volunteer: { email: 'volunteer@example.com', password: 'VolunteerDemo123' },
 };
+
+// MINDS's mock House Visit form responses (100 fictional trainees), from tests/fixtures.
+const HOUSE_VISIT = JSON.parse(fs.readFileSync(path.join(here, '..', 'tests', 'fixtures', 'house-visit-mock.json'), 'utf8'));
 
 export function createDemoRuntime() {
   const rt = createGasRuntime();
   rt.createSpreadsheet('demo-sheet', 'MINDS Volunteer Data (local demo)');
-  // Stands in for the partner's existing trainee list. Fictional people only.
-  rt.fillTab('demo-sheet', 'Trainees', [
-    ['Name', 'Preferred Name', 'Gender', 'Programme', 'Communication', 'Behaviours', 'Things to Take Note', 'Interests', 'Support Needs', 'Medical Notes', 'Caregiver Name', 'Caregiver Phone', 'Active', 'Dietary Notes'],
-    ['Alex Tan Wei Ming', 'Alex', 'Male', 'Day Activity Centre', 'Verbal: short sentences, speak slowly', 'Likes routine; may walk away when tired', 'Gets anxious with loud noises: offer ear muffs', 'Music, jigsaw puzzles, trains', 'Reminders to drink water', 'Epilepsy care plan on file', 'Mdm Tan', '91234567', 'Yes', 'No beef'],
-    ['Bea Lim', 'Bea', 'Female', 'Day Activity Centre', 'Non-verbal: uses gestures and picture cards', 'Friendly, loves high-fives', 'Allergic to peanuts: no outside snacks', 'Drawing, K-pop', 'Hand-over-hand help with scissors', '', 'Mr Lim', '92345678', 'Yes', 'Peanut allergy'],
-    ['Chris Ng', '', 'Male', 'Employment Development', 'Verbal, very chatty', 'Enjoys being given jobs', '', 'Football, cooking', '', 'Asthma inhaler in bag', 'Mrs Ng', '93456789', 'Yes', 'Halal'],
-    ['Dana Goh', 'Dana', 'Female', 'Day Activity Centre', 'A few words plus some sign language', 'Shy at first; warms up with music', 'Wheelchair user: check the room layout first', 'Dancing, colouring', 'Wheelchair user', '', 'Ms Goh', '94567890', 'Yes', ''],
-    ['Evan Lee', '', 'Male', 'Day Activity Centre', 'Verbal', '', '', 'Lego', '', '', 'Mr Lee', '95678901', 'No', ''],
-  ]);
+  // Trainees live in their own file, the House Visit form's response sheet,
+  // linked by URL like in production. Fictional people only.
+  rt.createSpreadsheet('house-visit-sheet', '[Exp] House Visit Template Form (Responses)');
+  const form = rt.fillTab('house-visit-sheet', 'Form Responses 1', [HOUSE_VISIT.headers, ...HOUSE_VISIT.rows]);
+  rt.fillTab('house-visit-sheet', 'Map (Fixed)', HOUSE_VISIT.map);
   rt.props.set('SPREADSHEET_ID', 'demo-sheet');
-  rt.run('setup'); // also adds the starter venue (MINDS Woodlands Gardens School), guide and project
+  rt.props.set('TRAINEE_SPREADSHEET_ID', `https://docs.google.com/spreadsheets/d/house-visit-sheet/edit#gid=${form.getSheetId()}`);
+  rt.run('setup'); // adds Trainee IDs (T-0001 = Mock Trainee 1, …), the starter venue, guide and project
+  // Guide infographics live in Google Drive in production. Locally, the in-memory
+  // "Drive" serves them at /__drive/<id> (see the server below).
+  rt.evaluate("guideFileLinks_ = function (fileId) { const u = '/__drive/' + encodeURIComponent(fileId); return { imageUrl: u, previewUrl: u, openUrl: u }; };");
+  rt.evaluate("driveImageUrl_ = function (fileId) { return '/__drive/' + encodeURIComponent(fileId); };");
 
   const reg = (name, email, password, extra = {}) => rt.call('register', {
     name, email, password, birthday: '2000-01-15', phone: '+65 9000 0000', telegram: '',
     emergencyName: 'Demo Contact', emergencyPhone: '+65 8000 0000', emergencyRelation: 'Parent', consent: true, ...extra,
-  });
-  reg('Leader Lee', DEMO.leader.email, DEMO.leader.password);
-  rt.props.set('FIRST_ADMIN_EMAIL', DEMO.leader.email);
+  }).data;
+  const ada = reg('Ada Admin', DEMO.admin.email, DEMO.admin.password, { telegram: 'ada_admin' });
+  rt.call('acknowledgeGuide', {}, ada.token);
+  rt.props.set('FIRST_ADMIN_EMAIL', DEMO.admin.email);
   rt.run('makeFirstAdmin');
-  const vera = reg('Vera Volunteer', DEMO.volunteer.email, DEMO.volunteer.password, { telegram: 'vera_volunteers' }).data;
-  const sam = reg('Sam Siva', 'sam@example.com', 'VolunteerDemo123', { phone: '+65 9111 2222' }).data;
-  // Both demo volunteers have read the Volunteer Guide; a newly registered account has not.
-  rt.call('acknowledgeGuide', {}, vera.token);
-  rt.call('acknowledgeGuide', {}, sam.token);
+  const admin = rt.call('login', DEMO.admin).data.token;
+  const call = (action, payload) => {
+    const res = rt.call(action, payload, admin);
+    if (!res.ok) throw new Error(`${action}: ${res.error.message}`);
+    return res.data;
+  };
+  // Illustrated stand-in photos for two trainees (the others show the placeholder).
+  [['T-0001', 'demo-trainee-1.png'], ['T-0003', 'demo-trainee-3.png']].forEach(([traineeId, file]) => call('setTraineePhoto', {
+    traineeId, fileName: file, mimeType: 'image/png', data: fs.readFileSync(path.join(here, file)).toString('base64'),
+  }));
+  // A sample infographic at the top of the Volunteer Guide (admins add their own under Admin → Guide & projects).
+  call('addGuideFile', {
+    fileName: 'Your first session.png', mimeType: 'image/png', position: 'top',
+    data: fs.readFileSync(path.join(here, 'demo-infographic.png')).toString('base64'),
+    body: 'A sample infographic. Admins can replace it with MINDS\'s own picture or PDF.',
+  });
+  const rex = reg('Rex Regular', DEMO.regular.email, DEMO.regular.password, { telegram: 'rex_regular', phone: '+65 9333 4444' });
+  const rina = reg('Rina Regular', 'rina@example.com', 'RegularDemo123', { telegram: 'rina_r' });
+  const vera = reg('Vera Volunteer', DEMO.volunteer.email, DEMO.volunteer.password, { telegram: 'vera_volunteers' });
+  const sam = reg('Sam Siva', 'sam@example.com', 'VolunteerDemo123', { phone: '+65 9111 2222', telegram: 'sam_siva' });
+  // Everyone in the demo has read the Volunteer Guide; a newly registered account has not.
+  [rex, rina, vera, sam].forEach((v) => rt.call('acknowledgeGuide', {}, v.token));
 
-  const leader = rt.call('login', DEMO.leader).data.token;
   const SCHOOL = 'MINDS Woodlands Gardens School';
-  const PROJECT = 'School activity support';
+  const PROJECT = ['West End (WE)', 'Regular Service Project for the Intellectually Disabled (RSPID)'];
   const today = rt.context.todayStr_();
   const day = (n) => rt.context.addDays_(today, n);
   const mk = (title, date, startTime, endTime, capacity, notes = '', extra = {}) =>
-    rt.call('createSession', { title, date, startTime, endTime, venue: SCHOOL, project: PROJECT, capacity, notes, ...extra }, leader).data.session;
-  const bookingOf = (res, sessionId) => res.data.home.upcoming.find((u) => u.session.sessionId === sessionId).bookingId;
+    call('createSession', { title, date, startTime, endTime, venue: SCHOOL, project: PROJECT, capacity, notes, ...extra }).session;
+  const come = (v, sessionId) => rt.call('bookSession', { sessionId }, v.token).data.home.upcoming.find((u) => u.session.sessionId === sessionId).bookingId;
+  const attend = (date, title, people) => {
+    rt.setNow(`${date}T09:00:00+08:00`);
+    const s = mk(title, date, '14:30', '17:30', 10);
+    const ids = people.map(([v, traineeId]) => {
+      const b = come(v, s.sessionId);
+      if (traineeId) call('updateBooking', { bookingId: b, traineeId });
+      return b;
+    });
+    rt.setNow(`${date}T14:30:00+08:00`);
+    ids.forEach((b) => call('manualClock', { bookingId: b }));
+    rt.setNow(`${date}T17:30:00+08:00`);
+    ids.forEach((b) => call('manualClock', { bookingId: b }));
+    rt.setNow(null);
+    return { s, ids };
+  };
 
-  // Yesterday: Vera with Alex and Sam with Bea, both finished and gave feedback.
-  const yesterday = day(-1);
-  rt.setNow(`${yesterday}T09:00:00+08:00`);
-  const past = mk('Music & movement', yesterday, '10:00', '12:00', 4);
-  const pv = bookingOf(rt.call('bookSession', { sessionId: past.sessionId }, vera.token), past.sessionId);
-  const ps = bookingOf(rt.call('bookSession', { sessionId: past.sessionId }, sam.token), past.sessionId);
-  rt.call('updateBooking', { bookingId: pv, status: 'confirmed', traineeId: 'T-0001' }, leader);
-  rt.call('updateBooking', { bookingId: ps, status: 'confirmed', traineeId: 'T-0002' }, leader);
-  rt.setNow(`${yesterday}T10:00:00+08:00`);
-  rt.call('manualClock', { bookingId: pv }, leader);
-  rt.call('manualClock', { bookingId: ps }, leader);
-  rt.setNow(`${yesterday}T12:00:00+08:00`);
-  rt.call('manualClock', { bookingId: pv }, leader);
-  rt.call('manualClock', { bookingId: ps }, leader);
-  rt.call('submitFeedback', {
-    bookingId: pv, rating: 4, sessionFeedback: 'Good session, the playlist worked well.',
-    traineeObservation: 'Alex was calmer when I showed him the picture card for the next activity before we moved on. He loved the drumming.',
-  }, vera.token);
-  rt.call('submitFeedback', {
-    bookingId: ps, rating: 5, sessionFeedback: '',
-    traineeObservation: 'Bea points to the picture cards to choose colours. Give her two choices at a time.',
-  }, sam.token);
+  // Regulars: Rex and Rina were promoted by an admin and each has a fixed trainee.
+  [rex, rina].forEach((v) => call('setVolunteerType', { userId: v.user.userId, volunteerType: 'regular' }));
+  // Rex was with Mock Trainee 5 for a few weeks, then an admin rotated him (see Pairing → History).
+  rt.setNow(`${day(-40)}T09:00:00+08:00`);
+  call('setStandingPairing', { userId: rex.user.userId, traineeId: 'T-0005' });
+  rt.setNow(null);
+  call('setStandingPairing', { userId: rina.user.userId, traineeId: 'T-0002' });
+
+  // History: Sam has attended 8 sessions plus yesterday's (9), so clocking him out today makes him a regular automatically.
+  for (let i = 8; i >= 1; i -= 1) {
+    attend(day(-7 * i - 1), 'Regular session', [[sam, 'T-0004'], ...(i <= 2 ? [[vera, 'T-0003']] : []), ...(i >= 3 && i <= 5 ? [[rex, null]] : [])]);
+  }
+  rt.setNow(`${day(-12)}T09:00:00+08:00`);
+  call('setStandingPairing', { userId: rex.user.userId, traineeId: 'T-0001' }); // rotated to a new trainee
   rt.setNow(null);
 
-  // A leader shares Sam's observation (it becomes a note for future volunteers); Vera's waits for review.
-  const queue = rt.call('reviewQueue', {}, leader).data.items;
-  const samNote = queue.find((q) => q.volunteerName === 'Sam Siva');
-  rt.call('reviewObservation', { feedbackId: samNote.feedbackId, decision: 'share' }, leader);
-  rt.call('addTraineeNote', { traineeId: 'T-0001', note: 'Uses a picture schedule. Show the next activity card before changing activity.' }, leader);
+  // Yesterday: everyone gave feedback; Vera's note waits for an admin.
+  const { ids: [samB, veraB] } = attend(day(-1), 'Regular session', [[sam, 'T-0004'], [vera, 'T-0003'], [rex, null]]);
+  rt.call('submitFeedback', {
+    bookingId: veraB, rating: 4, sessionFeedback: 'Good session, the playlist worked well.',
+    traineeObservation: 'Was calmer when I showed the picture card for the next activity before we moved on. Loved the drumming.',
+  }, vera.token);
+  rt.call('submitFeedback', { bookingId: samB, rating: 5, traineeObservation: 'Points to picture cards to choose colours. Give two choices at a time.' }, sam.token);
+  const queue = call('reviewQueue', {}).items;
+  call('reviewObservation', { feedbackId: queue.find((q) => q.volunteerName === 'Sam Siva').feedbackId, decision: 'share' });
+  call('addTraineeNote', { traineeId: 'T-0001', note: 'Uses a picture schedule. Show the next activity card before changing activity.' });
+  rt.call('submitTraineeUpdate', { traineeId: 'T-0010', note: 'Met at the void deck on Saturday: has started a part-time job and is proud of it.' }, rex.token);
 
-  // Today and coming up.
-  const art = mk('Art & Craft', today, '10:00', '12:00', 6, 'Aprons provided. Wear covered shoes.');
-  mk('Sports & games', today, '14:00', '16:00', 4, 'Meet at the school hall.');
-  const baking = mk('Baking: banana muffins', day(3), '09:30', '11:30', 5);
-  mk('Sports carnival helpers', day(7), '08:00', '13:00', 20, 'Bring a water bottle and cap.', { traineeIds: ['T-0003', 'T-0004'] });
+  // Today and coming up. Regulars are paired with their fixed trainee as soon as they say they're coming.
+  // Sessions are "Regular session", 2:30 to 5:30 pm at Woodlands (Config.gs → SESSION_OPTIONS).
+  const art = mk('Regular session', today, '14:30', '17:30', 8, 'Wear covered shoes.');
+  const baking = mk('Regular session', day(3), '14:30', '17:30', 8);
+  mk('Regular session', day(10), '14:30', '17:30', 8);
+  const carnival = mk('Sports carnival helpers', day(7), '08:00', '13:00', 20, 'Bring a water bottle and cap.', { traineeIds: ['T-0001', 'T-0002', 'T-0003', 'T-0004', 'T-0005'] });
+  come(rex, art.sessionId);
+  const veraArt = come(vera, art.sessionId);
+  call('updateBooking', { bookingId: veraArt, traineeId: 'T-0003' }); // an admin paired Vera
+  come(sam, art.sessionId); // still to pair: try Admin → Pairing
+  rt.call('bookSessions', { sessionIds: [baking.sessionId, carnival.sessionId] }, rina.token);
+  rt.call('bookSessions', { sessionIds: [baking.sessionId, carnival.sessionId] }, vera.token);
+  come(rex, carnival.sessionId);
 
-  // Vera is confirmed and paired automatically (with Alex: they were paired before).
-  const b1 = bookingOf(rt.call('bookSession', { sessionId: art.sessionId }, vera.token), art.sessionId);
-  rt.call('updateBooking', { bookingId: b1, status: 'confirmed' }, leader);
-  rt.call('bookSession', { sessionId: baking.sessionId }, vera.token);
-  rt.call('bookSession', { sessionId: art.sessionId }, sam.token); // pending: try "Confirm all & pair trainees"
-
-  // Staff dashboard (/admin/): a fundraiser, an outing, an overseas trip and house visits.
-  const fr = rt.call('createFundraiser', { name: 'Charity bake sale', description: 'Cookies, cards and bags made by trainees.', startDate: day(-7), endDate: day(14) }, leader).data.fundraiser;
+  // Placeholders from Version 1 (fundraising, outings, trips, house visits), with the mock trainees.
+  const fr = call('createFundraiser', { name: 'Charity bake sale', description: 'Cookies, cards and bags made by trainees.', startDate: day(-7), endDate: day(14) }).fundraiser;
   [['Chocolate chip cookies (box of 6)', '5.50'], ['Greeting cards (set of 4)', '8'], ['Handmade tote bag', '12']]
-    .forEach(([name, price]) => rt.call('saveProduct', { fundraiserId: fr.fundraiserId, name, price }, leader));
-  const products = rt.call('fundraiserDetail', { fundraiserId: fr.fundraiserId }, leader).data.products;
-  const pid = (start) => products.find((x) => x.name.startsWith(start)).productId;
-  const order = (customerName, customerContact, items, paymentStatus) => rt.call('createOrder', {
+    .forEach(([name, price]) => call('saveProduct', { fundraiserId: fr.fundraiserId, name, price }));
+  const products = call('fundraiserDetail', { fundraiserId: fr.fundraiserId }).products;
+  const pid = (startText) => products.find((x) => x.name.startsWith(startText)).productId;
+  const order = (customerName, customerContact, items, paymentStatus) => call('createOrder', {
     fundraiserId: fr.fundraiserId, customerName, customerContact, paymentStatus,
-    items: items.map(([start, quantity]) => ({ productId: pid(start), quantity })),
-  }, leader).data;
+    items: items.map(([startText, quantity]) => ({ productId: pid(startText), quantity })),
+  });
   const first = order('Mdm Rachel Lee', '+65 9222 3333', [['Chocolate', 2], ['Handmade', 1]], 'paid');
-  rt.call('updateOrder', { orderId: first.orderId, collectionStatus: 'collected' }, leader);
+  call('updateOrder', { orderId: first.orderId, collectionStatus: 'collected' });
   order('Mr Daniel Wong', 'daniel@example.com', [['Greeting', 3]], 'unpaid');
-  order('Office pre-order (Level 5)', '', [['Chocolate', 10], ['Greeting', 2]], 'paid');
 
-  const zoo = rt.call('createOuting', { title: 'Zoo outing', date: day(5), startTime: '09:00', location: 'Singapore Zoo', notes: 'Meet at the school gate at 08:30. Bring a cap.' }, leader).data.outing;
-  [['T-0001', vera, 'A', '1'], ['T-0002', sam, 'A', '1'], ['T-0003', vera, 'B', '2']].forEach(([traineeId, v, group, bus]) =>
-    rt.call('assignOutingTrainee', { outingId: zoo.outingId, traineeId, userId: v.user.userId, group, bus }, leader));
-
-  const trip = rt.call('createTrip', { title: 'Bangkok cultural exchange', destination: 'Bangkok, Thailand', startDate: day(45), endDate: day(49), notes: 'Partner school visit and city tour.' }, leader).data.trip;
-  rt.call('addTripParticipant', { tripId: trip.tripId, traineeId: 'T-0001', userId: vera.user.userId }, leader);
-  rt.call('addTripParticipant', { tripId: trip.tripId, traineeId: 'T-0004', notes: 'Needs a wheelchair-accessible room.' }, leader);
-  const flights = rt.call('addTripLogistics', { tripId: trip.tripId, description: 'Book flights', dueDate: day(10) }, leader).data.logistics[0];
-  rt.call('updateTripLogistics', { itemId: flights.itemId, status: 'done' }, leader);
-  rt.call('addTripLogistics', { tripId: trip.tripId, description: 'Collect passport copies from caregivers', dueDate: day(20) }, leader);
-  rt.call('addTripLogistics', { tripId: trip.tripId, description: 'Buy travel insurance', dueDate: day(30) }, leader);
-  rt.call('addTripExpense', { tripId: trip.tripId, description: 'Flights deposit', amount: '1200', date: day(-2), paidBy: 'MINDS office' }, leader);
-  rt.call('addTripExpense', { tripId: trip.tripId, description: 'Hotel deposit', amount: '450.50', date: day(-1), paidBy: 'MINDS office' }, leader);
-
-  rt.call('createVisit', {
-    traineeId: 'T-0001', userId: vera.user.userId, date: day(-20),
-    family: 'Mum is managing well; grandmother now lives with them.', dailyLiving: 'Dresses himself; needs reminders to drink water.',
-    social: 'Enjoys the Saturday music group.', health: 'No seizures this month.', followUp: 'Share the picture schedule with the family.',
-  }, leader);
-  rt.call('createVisit', {
-    traineeId: 'T-0002', userId: sam.user.userId, date: day(-3),
-    family: 'Dad works night shifts; aunt helps in the afternoons.', social: 'Wants to join an art class.',
-    followUp: 'Send details of the community art class to Mr Lim.',
-  }, leader);
+  const zoo = call('createOuting', { title: 'Zoo outing', date: day(5), startTime: '09:00', location: 'Singapore Zoo', notes: 'Meet at the school gate at 08:30. Bring a cap.' }).outing;
+  [['T-0001', rex, 'A', '1'], ['T-0002', rina, 'A', '1'], ['T-0003', vera, 'B', '2']].forEach(([traineeId, v, group, bus]) =>
+    call('assignOutingTrainee', { outingId: zoo.outingId, traineeId, userId: v.user.userId, group, bus }));
+  const trip = call('createTrip', { title: 'Bangkok cultural exchange', destination: 'Bangkok, Thailand', startDate: day(45), endDate: day(49), notes: 'Partner school visit and city tour.' }).trip;
+  call('addTripParticipant', { tripId: trip.tripId, traineeId: 'T-0001', userId: rex.user.userId });
+  call('addTripLogistics', { tripId: trip.tripId, description: 'Collect passport copies from caregivers', dueDate: day(20) });
+  call('createVisit', {
+    traineeId: 'T-0001', userId: rex.user.userId, date: day(-20),
+    family: 'Mum is managing well.', dailyLiving: 'Dresses himself; needs reminders to drink water.',
+    social: 'Enjoys the Saturday music group.', followUp: 'Share the picture schedule with the family.',
+  });
   return rt;
 }
 
@@ -159,11 +181,11 @@ const escapeHtml = (v) => String(v instanceof Date ? v.toISOString() : v)
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
 function sheetPage(rt) {
-  const book = rt.spreadsheet('demo-sheet');
-  const tabs = book.getSheets().map((sheet) => {
+  const sheets = ['demo-sheet', 'house-visit-sheet'].flatMap((id) => rt.spreadsheet(id).getSheets());
+  const tabs = sheets.map((sheet) => {
     const rows = sheet.dump();
     const [head = [], ...body] = rows;
-    return `<h2>${escapeHtml(sheet.getName())}${sheet.isSheetHidden() ? ' <small>(hidden)</small>' : ''}</h2>
+    return `<h2>${escapeHtml(sheet.getParent().getName())} → ${escapeHtml(sheet.getName())}${sheet.isSheetHidden() ? ' <small>(hidden)</small>' : ''}</h2>
       <table><thead><tr>${head.map((h) => `<th>${escapeHtml(h)}</th>`).join('')}</tr></thead>
       <tbody>${body.map((r) => `<tr>${r.map((c) => `<td>${escapeHtml(c)}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
   });
@@ -194,11 +216,21 @@ export function startMockServer({ port = PORT, latency = LATENCY_MS, quiet = fal
       res.writeHead(200, { 'Content-Type': 'application/json' });
       return res.end(JSON.stringify({ now: rt.context.fmtDateTime_(rt.context.now_()) }));
     }
+    if (url.pathname.startsWith('/__drive/')) {
+      // Local stand-in for a guide infographic shared from Google Drive.
+      const file = rt.drive.files.get(decodeURIComponent(url.pathname.slice('/__drive/'.length)));
+      if (!file) {
+        res.writeHead(404, { 'Content-Type': 'text/plain' });
+        return res.end('Not found');
+      }
+      res.writeHead(200, { 'Content-Type': file.mime, 'Cache-Control': 'no-store' });
+      return res.end(Buffer.from(file.bytes.map((b) => (b < 0 ? b + 256 : b))));
+    }
     if (url.pathname === '/__sheet') {
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
       return res.end(sheetPage(rt));
     }
-    // Folders serve their index.html, like GitHub Pages (so /admin/ opens the staff dashboard).
+    // Folders serve their index.html, like GitHub Pages.
     const rel = decodeURIComponent(url.pathname.endsWith('/') ? `${url.pathname}index.html` : url.pathname);
     const file = path.normalize(path.join(WEB_DIR, rel));
     if (!file.startsWith(WEB_DIR) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) {
@@ -211,9 +243,9 @@ export function startMockServer({ port = PORT, latency = LATENCY_MS, quiet = fal
   server.listen(port, () => {
     if (quiet) return;
     console.log(`MINDS Volunteer app (local mock) → http://localhost:${port}`);
-    console.log(`  Leader:    ${DEMO.leader.email} / ${DEMO.leader.password}`);
+    console.log(`  Admin:     ${DEMO.admin.email} / ${DEMO.admin.password}`);
+    console.log(`  Regular:   ${DEMO.regular.email} / ${DEMO.regular.password}`);
     console.log(`  Volunteer: ${DEMO.volunteer.email} / ${DEMO.volunteer.password}`);
-    console.log(`  Staff dashboard: http://localhost:${port}/admin/`);
     console.log(`  Sheet view: http://localhost:${port}/__sheet`);
   });
   return { server, rt };

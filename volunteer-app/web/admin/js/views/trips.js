@@ -1,6 +1,7 @@
 // Section 4: Overseas trips — participants (with a medical/dietary copy for
 // the trip), the logistics checklist and expenses.
 
+import { personName, traineeName } from '../../../js/quickview.js';
 import { call } from '../../../js/api.js';
 import { badge, el, mount, toast } from '../../../js/ui.js';
 import {
@@ -126,11 +127,11 @@ export function renderTrip(root, app, ctx, tripId) {
       el('div', { class: 'mt-6' }, panel(`Participants (${plural(tot.participants, 'trainee')})`,
         t.status !== 'cancelled' ? el('button', { class: 'btn btn-primary btn-sm', onclick: addParticipant }, icon('plus', 'size-4'), 'Register a trainee') : null,
         table([
-          { label: 'Trainee', cell: (x) => el('a', { href: `#/trainee/${encodeURIComponent(x.traineeId)}`, class: 'link' }, x.traineeName) },
+          { label: 'Trainee', cell: (x) => el('a', { href: `#/trainee/${encodeURIComponent(x.traineeId)}`, class: 'link' }, traineeName(x.traineeName, x.traineeId)) },
           { label: 'Status', cell: (x) => inlineSelect(PARTICIPANT_STATUS, x.status, async (v) => {
             try { apply(await call('updateTripParticipant', { participantId: x.participantId, status: v })); } catch (err) { toast(err.message, 'error'); throw err; }
           }, `Status of ${x.traineeName}`) },
-          { label: 'Volunteer', cell: (x) => x.volunteerName || badge('Not assigned', 'amber') },
+          { label: 'Volunteer', cell: (x) => (x.volunteerName ? personName(x.volunteerName, x.userId) : badge('Not assigned', 'amber')) },
           { label: 'Medical (trip copy)', cell: (x) => x.medicalNotes, class: 'max-w-xs whitespace-pre-line' },
           { label: 'Dietary (trip copy)', cell: (x) => x.dietaryNotes, class: 'max-w-xs whitespace-pre-line' },
           { label: 'Notes', cell: (x) => x.notes, class: 'max-w-xs whitespace-pre-line' },

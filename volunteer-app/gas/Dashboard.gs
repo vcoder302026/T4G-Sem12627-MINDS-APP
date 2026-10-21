@@ -65,7 +65,7 @@ function traineeRef_(value, label) {
 function pickLists_() {
   const volunteers = table_('users').rows()
     .filter((u) => u.userId && u.status !== 'inactive')
-    .map((u) => ({ userId: u.userId, name: u.name, email: u.email, role: u.role === 'admin' ? 'admin' : 'volunteer' }));
+    .map((u) => ({ userId: u.userId, name: u.name, email: u.email, role: u.role === 'admin' ? 'admin' : 'volunteer', type: volunteerType_(u) }));
   return { volunteers: sortBy_(volunteers, (v) => String(v.name).toLowerCase()), trainees: traineeList_() };
 }
 
@@ -99,7 +99,7 @@ function dashboardOverview_() {
   const orders = table_('orders').rows();
 
   const upcomingSessions = sortBy_(sessions.filter((s) => s.date >= today), (s) => `${s.date} ${s.startTime}`).slice(0, 5)
-    .map((s) => Object.assign(sessionOut_(s), { stats: sessionStats_(s.sessionId, bookings, attendance) }));
+    .map((s) => Object.assign(sessionOut_(s), { stats: sessionStats_(s.sessionId, bookings, attendance, today) }));
   const upcomingOutings = sortBy_(outings.filter((o) => o.date >= today), (o) => `${o.date} ${o.startTime}`).slice(0, 5)
     .map((o) => Object.assign(outingOut_(o), { assigned: assignments.filter((a) => a.outingId === o.outingId).length }));
   const upcomingTrips = sortBy_(trips.filter((t) => t.endDate >= today), (t) => t.startDate).slice(0, 5)
@@ -108,14 +108,20 @@ function dashboardOverview_() {
   return {
     today,
     counts: {
-      volunteers: activeUsers.filter((u) => u.role !== 'admin').length,
-      leaders: activeUsers.filter((u) => u.role === 'admin').length,
+      volunteers: activeUsers.length,
+      newVolunteers: activeUsers.filter((u) => volunteerType_(u) !== 'regular').length,
+      regulars: activeUsers.filter((u) => volunteerType_(u) === 'regular').length,
+      admins: activeUsers.filter((u) => u.role === 'admin').length,
       trainees: trainees.filter(isActiveTrainee_).length,
       sessionsThisMonth: sessions.filter((s) => String(s.date).slice(0, 7) === month).length,
       hoursThisMonth: sumHours_(done.filter((a) => String(a.date).slice(0, 7) === month)),
       hoursTotal: sumHours_(done),
       onSiteNow: attendance.filter((a) => a.date === today && a.clockIn && !a.clockOut).length,
-      pendingBookings: bookings.filter((b) => b.status === 'pending' && String(b.sessionDate) >= today).length,
+      unpairedUpcoming: bookings.filter((b) => b.status !== 'cancelled' && !b.traineeId && String(b.sessionDate) >= today).length,
+      traineesWithoutRegular: (() => {
+        const withRegular = regularsByTrainee_();
+        return trainees.filter((t) => isActiveTrainee_(t) && !withRegular[String(t.id)]).length;
+      })(),
       reviewCount: table_('feedback').filter((f) => f.noteStatus === 'pending' && f.traineeObservation).length,
       openFundraisers: table_('fundraisers').filter((f) => f.status !== 'closed').length,
       unpaidOrders: orders.filter((o) => o.paymentStatus !== 'paid').length,
@@ -197,6 +203,7 @@ function updateAttendance_(p, admin) {
   }
   if (clockIn.getTime() > now_().getTime()) throw err_.validation('Clock-in cannot be in the future.');
   table.update(row, patch);
+  if (patch.clockOut) maybePromote_(row.userId);
   return { record: attendanceRow_(row, nameMaps_(), byKey_(table_('sessions').rows(), 'sessionId')), message: 'Attendance updated.' };
 }
 
@@ -236,7 +243,11 @@ function addAttendance_(p, admin) {
     clockIn: fmtDateTime_(clockIn), clockOut: fmtDateTime_(clockOut), hours: hoursBetween_(clockIn, clockOut),
     clockInBy: admin.name, clockOutBy: admin.name, method: 'Dashboard', editedBy: admin.name, editedAt: stampNow,
   });
-  return { record: attendanceRow_(record, nameMaps_(), byKey_(table_('sessions').rows(), 'sessionId')), message: `Recorded ${record.hours} h for ${user.name}.` };
+  const promoted = maybePromote_(user.userId);
+  return {
+    record: attendanceRow_(record, nameMaps_(), byKey_(table_('sessions').rows(), 'sessionId')),
+    message: `Recorded ${record.hours} h for ${user.name}.${promoted ? ` ${user.name} is now a regular volunteer.` : ''}`,
+  };
 }
 
 /* ---------- hours report ---------- */
@@ -303,7 +314,7 @@ function createVolunteer_(p, admin) {
     throw err_.conflict('Someone with this email is already on the volunteer list.');
   }
   const user = users.insert(Object.assign(rec, {
-    userId: newId_('U'), role, status: 'active', createdAt: fmtDateTime_(now_()),
+    userId: newId_('U'), role, volunteerType: 'volunteer', status: 'active', createdAt: fmtDateTime_(now_()),
   }, stamp_(admin)));
   let tempPassword = '';
   if (createLogin) {

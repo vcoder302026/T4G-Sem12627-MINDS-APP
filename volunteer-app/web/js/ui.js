@@ -131,8 +131,7 @@ export function badge(text, tone = 'slate', iconName) {
 }
 
 export function statusBadge(status) {
-  if (status === 'confirmed') return badge('Confirmed', 'emerald', 'tick');
-  if (status === 'pending') return badge('Pending', 'amber');
+  if (status === 'confirmed' || status === 'pending') return badge('Coming', 'emerald', 'tick');
   if (status === 'cancelled') return badge('Cancelled', 'red');
   return badge(status);
 }
@@ -422,7 +421,7 @@ export function multiPick({ name, options, values = [], placeholder = 'Search', 
   };
 }
 
-/** Renders leader-written text safely: "- " lines become bullets, "1. " lines numbered steps. */
+/** Renders admin-written text safely: "- " lines become bullets, "1. " lines numbered steps. */
 export function richText(body) {
   const blocks = [];
   let para = [];
@@ -498,3 +497,62 @@ export function labelled(label, control, { hint, optional } = {}) {
 
 /** Google Maps search link for an address (opens the Maps app on phones). */
 export const mapsLink = (place) => `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place)}`;
+
+/** The three profiles: Admin (on top of either), Regular, Volunteer (new / ad hoc). */
+export function typeBadges(p) {
+  return [
+    p.role === 'admin' ? badge('Admin', 'purple', 'shield') : null,
+    p.volunteerType === 'regular' || p.type === 'regular' ? badge('Regular', 'emerald') : badge('Volunteer', 'indigo'),
+  ];
+}
+
+/** Asks for the signed-in admin's own password. Resolves to the text, or null if cancelled. */
+export function passwordPrompt(title, text) {
+  return new Promise((resolve) => {
+    let done = false;
+    const input = el('input', { type: 'password', name: 'adminPassword', class: 'input', autocomplete: 'current-password', 'aria-label': 'Your password' });
+    const submit = el('button', { type: 'submit', class: 'btn btn-danger' }, 'Confirm');
+    const cancel = el('button', { type: 'button', class: 'btn btn-secondary' }, 'Cancel');
+    const form = el('form', { class: 'space-y-4' },
+      el('p', { class: 'text-sm' }, text),
+      el('label', { class: 'label', for: 'pw-confirm' }, 'Your password'), input,
+      el('div', { class: 'flex justify-end gap-2' }, cancel, submit));
+    input.id = 'pw-confirm';
+    const m = modal(title, form, () => { if (!done) resolve(null); });
+    cancel.addEventListener('click', () => m.close());
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      if (!input.value) { input.focus(); return; }
+      done = true;
+      resolve(input.value);
+      m.close();
+    });
+  });
+}
+
+/**
+ * A trainee's photo, or a placeholder when there isn't one (or it can't load).
+ * size: 'sm' (list rows), 'md' (cards) or 'lg' (a trainee's page).
+ */
+export function traineeAvatar(t, size = 'md') {
+  const placeholder = () => el('span', { class: `avatar avatar-${size} avatar-empty`, role: 'img', 'aria-label': `No photo of ${t.name} yet` }, icon('user', 'avatar-icon'));
+  if (!t.photoUrl) return placeholder();
+  const img = el('img', { src: t.photoUrl, alt: `Photo of ${t.name}`, loading: 'lazy', class: `avatar avatar-${size}` });
+  img.addEventListener('error', () => img.replaceWith(placeholder()));
+  return img;
+}
+
+/** A project's short name for badges: the code in brackets, e.g. "RSPID", else the name. */
+export function projectShort(name) {
+  const m = /\(([^()]{1,12})\)\s*$/.exec(String(name || ''));
+  return m ? m[1] : String(name || '');
+}
+
+/** One badge per project, with the full name on hover. */
+export function projectBadges(projects) {
+  return (projects || []).map((p) => {
+    const b = badge(projectShort(p), 'emerald');
+    b.title = p;
+    return b;
+  });
+}

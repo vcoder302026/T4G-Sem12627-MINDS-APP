@@ -84,20 +84,37 @@ export function panel(title, actions, ...body) {
 /**
  * Table. columns: [{ label, cell: (row) => text|node, class }]
  * Options: empty (text when no rows), href(row) makes the first cell a link.
+ * On a computer it is a table; on a phone the same rows show as cards
+ * (first column as the title, the others as "label: value" lines), so the same
+ * information is there on both.
  */
 export function table(columns, rows, { empty = 'Nothing here yet.', href, rowClass } = {}) {
   if (!rows.length) return el('p', { class: 'px-4 py-8 text-center text-sm muted' }, empty);
-  return el('div', { class: 'overflow-x-auto' },
+  const content = (c, r, i) => {
+    const value = c.cell(r);
+    return i === 0 && href ? el('a', { href: href(r), class: 'link' }, value) : value;
+  };
+  const blank = (v) => v === '' || v === null || v === undefined;
+  const wide = el('div', { class: 'only-wide overflow-x-auto' },
     el('table', { class: 'w-full text-left text-sm' },
       el('thead', { class: 'bg-slate-50 text-xs font-bold uppercase tracking-wider text-slate-500 dark:bg-neutral-900 dark:text-neutral-400' },
         el('tr', {}, columns.map((c) => el('th', { scope: 'col', class: `whitespace-nowrap px-4 py-2.5 ${c.class || ''}` }, c.label)))),
       el('tbody', { class: 'divide-y divide-slate-100 dark:divide-neutral-800' },
         rows.map((r) => el('tr', { class: `align-top hover:bg-slate-50/60 dark:hover:bg-neutral-900/60 ${rowClass ? rowClass(r) : ''}` },
           columns.map((c, i) => {
-            const value = c.cell(r);
-            const content = i === 0 && href ? el('a', { href: href(r), class: 'link' }, value) : value;
-            return el('td', { class: `px-4 py-3 ${c.class || ''}` }, content === '' || content === null || content === undefined ? '—' : content);
+            const v = content(c, r, i);
+            return el('td', { class: `px-4 py-3 ${c.class || ''}` }, blank(v) ? '—' : v);
           }))))));
+  const narrow = el('div', { class: 'only-narrow' }, rows.map((r) => {
+    const title = content(columns[0], r, 0);
+    const lines = columns.slice(1).map((c, j) => {
+      const v = content(c, r, j + 1);
+      if (blank(v)) return null;
+      return c.label ? el('div', { class: 'rt-line' }, el('span', {}, c.label), el('span', {}, v)) : el('div', { class: 'mt-2' }, v);
+    });
+    return el('div', { class: `rt-card ${rowClass ? rowClass(r) : ''}` }, el('div', { class: 'mb-1 font-bold' }, title), lines);
+  }));
+  return el('div', {}, wide, narrow);
 }
 
 /** Toolbar row above a table: search, filters, buttons. */

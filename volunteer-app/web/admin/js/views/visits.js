@@ -1,5 +1,6 @@
 // Section 5: House visits — add-only visit history, newest first.
 
+import { personName, traineeName } from '../../../js/quickview.js';
 import { call } from '../../../js/api.js';
 import { el, fuzzyFilter, labelled, mount, searchBox, todaySG, toast } from '../../../js/ui.js';
 import { day, field, formModal, icon, load, pageHead, panel, plural, row, stat, statGrid, toolbar, traineePicker, volunteerPicker } from '../kit.js';
@@ -15,8 +16,8 @@ function visitCard(v) {
   return el('article', { class: 'card overflow-hidden' },
     el('header', { class: 'flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-4 py-3 dark:border-neutral-800' },
       el('div', {},
-        el('a', { href: `#/trainee/${encodeURIComponent(v.traineeId)}`, class: 'link text-base' }, v.traineeName),
-        el('p', { class: 'text-xs muted' }, `Visited by ${v.volunteerName} · recorded by ${v.createdBy}`)),
+        el('a', { href: `#/trainee/${encodeURIComponent(v.traineeId)}`, class: 'link text-base' }, traineeName(v.traineeName, v.traineeId)),
+        el('p', { class: 'text-xs muted' }, 'Visited by ', personName(v.volunteerName, v.userId), ` · recorded by ${v.createdBy}`)),
       el('span', { class: 'badge badge-indigo' }, day(v.date))),
     el('dl', { class: 'grid gap-x-6 gap-y-3 p-4 text-sm sm:grid-cols-2' },
       AREAS.filter(([k]) => v[k]).map(([k, label]) => el('div', {},

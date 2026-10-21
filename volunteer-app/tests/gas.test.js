@@ -75,9 +75,11 @@ function createSession(fields = {}) {
 function book(sessionId, v = vol) {
   return ok(rt.call('bookSession', { sessionId }, v.token)).home.upcoming.find((u) => u.session.sessionId === sessionId).bookingId;
 }
+/** An admin pairs a booking with a trainee for that session. */
 function confirm(bookingId, extra = {}) {
-  return ok(rt.call('updateBooking', { bookingId, status: 'confirmed', ...extra }, leader));
+  return ok(rt.call('updateBooking', { bookingId, ...extra }, leader));
 }
+const PW = 'password123'; // every test account's password
 
 describe('linking to an existing sheet', () => {
   test('setup keeps existing trainee columns, adds IDs, missing volunteer fields and write-back columns', () => {
@@ -93,7 +95,7 @@ describe('linking to an existing sheet', () => {
     rt.run('setup');
     assert.deepEqual(rt.records(SHEET, 'Venues').map((v) => v.Venue), [SCHOOL]);
     assert.equal(rt.records(SHEET, 'Volunteer Guide').length, 5);
-    assert.equal(rt.records(SHEET, 'Projects').length, 1);
+    assert.deepEqual(rt.records(SHEET, 'Projects').map((p) => p.Project), ['West End (WE)', 'Regular Service Project for the Intellectually Disabled (RSPID)']);
     const before = JSON.stringify(rt.tab(SHEET, 'Trainees').dump());
     assert.match(rt.run('checkConfig'), /"Trainees" is ready/);
     assert.equal(JSON.stringify(rt.tab(SHEET, 'Trainees').dump()), before);
@@ -145,18 +147,20 @@ describe('accounts and roles', () => {
     const parts = vol.token.split('.');
     parts[1] = 'U-SOMEONE';
     fails(rt.call('me', {}, parts.join('.')), 'UNAUTHORIZED');
-    for (const action of ['adminHome', 'scan', 'listTrainees', 'reviewQueue', 'saveVenue', 'saveGuideSection', 'confirmAll']) {
+    for (const action of ['adminHome', 'scan', 'listTrainees', 'reviewQueue', 'saveVenue', 'saveGuideSection', 'setStandingPairing', 'setVolunteerType', 'listAdminLog', 'saveVisibility']) {
       fails(rt.call(action, {}, vol.token), 'FORBIDDEN');
     }
   });
 
-  test('promotion takes effect immediately; last leader cannot be removed', () => {
+  test('promotion takes effect immediately; removing an admin needs your password; last admin cannot be removed', () => {
     ok(rt.call('setRole', { userId: vol.user.userId, role: 'admin' }, leader));
     ok(rt.call('adminHome', {}, vol.token));
     const leaderId = ok(rt.call('me', {}, leader)).user.userId;
-    fails(rt.call('setRole', { userId: leaderId, role: 'volunteer' }, leader), 'CONFLICT');
-    ok(rt.call('setRole', { userId: leaderId, role: 'volunteer' }, vol.token));
-    fails(rt.call('setRole', { userId: vol.user.userId, role: 'volunteer' }, vol.token), 'CONFLICT');
+    fails(rt.call('setRole', { userId: leaderId, role: 'volunteer' }, leader), 'CONFLICT'); // not yourself
+    fails(rt.call('setRole', { userId: leaderId, role: 'volunteer' }, vol.token), 'PASSWORD_REQUIRED');
+    fails(rt.call('setRole', { userId: leaderId, role: 'volunteer', adminPassword: 'wrong-password' }, vol.token), 'PASSWORD_REQUIRED');
+    ok(rt.call('setRole', { userId: leaderId, role: 'volunteer', adminPassword: PW }, vol.token));
+    fails(rt.call('setRole', { userId: vol.user.userId, role: 'volunteer', adminPassword: PW }, vol.token), 'CONFLICT');
   });
 
   test('password reset gives a temp password and signs the volunteer out everywhere', () => {
@@ -204,6 +208,14 @@ describe('volunteer guide for new volunteers', () => {
     const s = createSession({ project: 'Weekend outings' });
     assert.equal(s.project, 'Weekend outings');
     fails(rt.call('createSession', { title: 'X', date: TODAY, startTime: '10:00', endTime: '11:00', venue: SCHOOL, project: 'Nope' }, leader), 'VALIDATION_ERROR');
+    fails(rt.call('saveProject', { name: 'A, B' }, leader), 'VALIDATION_ERROR');
+    // A session can be for several projects
+    const both = createSession({ project: ['West End (WE)', 'Regular Service Project for the Intellectually Disabled (RSPID)'] });
+    assert.deepEqual(both.projects, ['West End (WE)', 'Regular Service Project for the Intellectually Disabled (RSPID)']);
+    assert.equal(rt.records(SHEET, 'Sessions').find((r) => r['Session ID'] === both.sessionId).Project,
+      'West End (WE), Regular Service Project for the Intellectually Disabled (RSPID)');
+    const one = ok(rt.call('updateSession', { sessionId: both.sessionId, project: ['West End (WE)'] }, leader));
+    assert.deepEqual(one.detail.session.projects, ['West End (WE)']);
     c = ok(rt.call('saveProject', { projectId: outing.projectId, status: 'archived' }, leader));
     assert.equal(ok(rt.call('guide', {}, vol.token)).projects.some((p) => p.name === 'Weekend outings'), false);
   });
@@ -230,77 +242,211 @@ describe('venues', () => {
   });
 });
 
-describe('booking and automatic trainee pairing', () => {
-  test('confirming pairs a trainee automatically; the volunteer sees the allowed details only', () => {
+describe('signing up and pairing (volunteers, regulars, admins)', () => {
+  const asRegular = (v) => ok(rt.call('setVolunteerType', { userId: v.user.userId, volunteerType: 'regular' }, leader));
+
+  test("saying I'm coming puts a volunteer on the list straight away; an admin pairs them", () => {
     const s = createSession();
-    const bookingId = book(s.sessionId);
-    const res = confirm(bookingId);
-    assert.match(res.message, /paired with/);
-    const row = res.detail.bookings.find((b) => b.bookingId === bookingId);
-    assert.equal(row.pairing, 'auto');
-    const trainee = ok(rt.call('volunteerHome', {}, vol.token)).upcoming[0].trainee;
-    assert.equal(trainee.name, row.trainee.name);
-    const keys = trainee.fields.map((f) => f.key);
-    assert.ok(keys.includes('gender') && keys.includes('communication'));
-    assert.ok(!JSON.stringify(trainee).includes('Epilepsy'), 'medical notes must not reach volunteers');
+    const res = ok(rt.call('bookSession', { sessionId: s.sessionId }, vol.token));
+    assert.match(res.message, /An admin will pair you/);
+    const u = res.home.upcoming[0];
+    assert.equal(u.status, 'confirmed');
+    assert.equal(u.trainee, null);
+    assert.equal(res.home.volunteerType, 'volunteer');
+    const detail = ok(rt.call('sessionDetail', { sessionId: s.sessionId }, leader));
+    assert.equal(detail.stats.booked, 1);
+    assert.equal(detail.stats.unpaired, 1);
+    assert.equal(detail.bookings[0].volunteer.type, 'volunteer');
+    assert.equal(detail.bookings[0].volunteer.emergencyPhone, undefined, 'emergency contacts are not sent to the session page');
+
+    const paired = confirm(u.bookingId, { traineeId: 'T-0001' });
+    assert.equal(paired.detail.bookings[0].pairing, 'manual');
+    const onHome = ok(rt.call('volunteerHome', {}, vol.token)).upcoming[0].trainee;
+    assert.equal(onHome.name, 'Alex Tan');
+    assert.equal(onHome.fields, undefined, 'Home shows the name and photo only; details come on request');
+    const trainee = ok(rt.call('traineeInfo', { traineeId: 'T-0001' }, vol.token));
+    const labels = trainee.sections.flatMap((x) => x.fields.map((f) => f.label));
+    assert.ok(labels.includes('Gender') && labels.includes('Communication'));
+    assert.ok(!JSON.stringify(trainee).includes('Epilepsy'), 'medical notes must not reach ad hoc volunteers');
   });
 
-  test('volunteers in one session get different trainees; inactive trainees are skipped; then it runs out', () => {
+  test('a trainee can have several volunteers; each volunteer has one trainee per session', () => {
     const s = createSession({ capacity: 5 });
-    const ids = ['a', 'b', 'c', 'd'].map((x) => book(s.sessionId, volunteer(`${x}@example.com`, `Vol ${x}`)));
-    const res = ok(rt.call('confirmAll', { sessionId: s.sessionId }, leader));
-    assert.match(res.message, /4 confirmed, 3 paired/);
-    const paired = res.detail.bookings.filter((b) => b.trainee).map((b) => b.trainee.name);
-    assert.equal(new Set(paired).size, 3);
-    assert.ok(!paired.includes('Dana Goh'), 'Active = No keeps a trainee out of auto-pairing');
-    assert.equal(res.detail.stats.unpaired, 1);
-    assert.match(res.message, /1 still needs a trainee/);
-    assert.equal(ids.length, 4);
-    // freeing a trainee lets the same button pair the volunteer left over
-    ok(rt.call('updateBooking', { bookingId: res.detail.bookings.find((b) => b.trainee).bookingId, status: 'cancelled' }, leader));
-    const again = ok(rt.call('confirmAll', { sessionId: s.sessionId }, leader));
-    assert.equal(again.message, '1 paired with a trainee.');
-    assert.equal(again.detail.stats.unpaired, 0);
-  });
-
-  test('a session can limit pairing to the trainees attending it', () => {
-    const s = createSession({ traineeIds: ['T-0003'] });
-    assert.deepEqual(s.traineeIds, ['T-0003']);
-    const res = confirm(book(s.sessionId));
-    assert.equal(res.paired.traineeName, 'Chris Ng');
-    fails(rt.call('createSession', { title: 'X', date: TODAY, startTime: '10:00', endTime: '11:00', venue: SCHOOL, traineeIds: ['T-9999'] }, leader), 'VALIDATION_ERROR');
-  });
-
-  test('a volunteer is paired with the same trainee as last time when that trainee is free', () => {
-    const first = createSession({ date: '2026-10-20' });
-    confirm(book(first.sessionId), { traineeId: 'T-0002' }); // manual: Bea
-    const next = createSession({ date: '2026-10-27' });
-    const res = confirm(book(next.sessionId));
-    assert.equal(res.paired.traineeName, 'Bea Lim');
-    assert.match(res.paired.reason, /before/);
-  });
-
-  test('otherwise the trainee with the fewest pairings is chosen', () => {
-    const earlier = createSession({ date: '2026-10-20' });
-    confirm(book(earlier.sessionId, volunteer('x@example.com', 'Vol X')), { traineeId: 'T-0001' });
-    const s = createSession({ date: '2026-10-27' });
-    const res = confirm(book(s.sessionId));
-    assert.equal(res.paired.traineeName, 'Bea Lim'); // Alex already had a volunteer; Bea and Chris tie, Bea first by name
-  });
-
-  test('leaders can override the pairing; a trainee cannot be double-booked', () => {
-    const s = createSession();
     const b1 = book(s.sessionId);
     const b2 = book(s.sessionId, volunteer('v2@example.com', 'Vol Two'));
     confirm(b1, { traineeId: 'T-0001' });
-    const detail = confirm(b2).detail;
-    assert.notEqual(detail.bookings.find((b) => b.bookingId === b2).trainee.id, 'T-0001');
-    fails(rt.call('updateBooking', { bookingId: b2, traineeId: 'T-0001' }, leader), 'CONFLICT');
-    const swapped = ok(rt.call('updateBooking', { bookingId: b2, traineeId: 'T-0003' }, leader));
-    assert.equal(swapped.detail.bookings.find((b) => b.bookingId === b2).pairing, 'manual');
+    const both = confirm(b2, { traineeId: 'T-0001' }).detail;
+    assert.deepEqual(both.bookings.map((b) => b.trainee.id), ['T-0001', 'T-0001']);
+    const moved = confirm(b2, { traineeId: 'T-0002' }).detail;
+    assert.equal(moved.bookings.find((b) => b.bookingId === b2).trainee.name, 'Bea Lim');
+    const cleared = confirm(b2, { traineeId: '' }).detail;
+    assert.equal(cleared.stats.unpaired, 1);
+    fails(rt.call('updateBooking', { bookingId: b1, traineeId: 'T-9999' }, leader), 'VALIDATION_ERROR');
   });
 
-  test('booking rules: capacity, duplicates, cancelling, closed sessions', () => {
+  test("a regular's fixed trainee is applied every time they come, until an admin changes it", () => {
+    fails(rt.call('setStandingPairing', { userId: vol.user.userId, traineeId: 'T-0002' }, leader), 'CONFLICT'); // not a regular yet
+    asRegular(vol);
+    fails(rt.call('setStandingPairing', { userId: vol.user.userId, traineeId: 'T-0004' }, leader), 'VALIDATION_ERROR'); // Dana: Active = No
+    const board = ok(rt.call('setStandingPairing', { userId: vol.user.userId, traineeId: 'T-0002' }, leader));
+    assert.match(board.message, /Vol One is now Bea Lim's regular volunteer/);
+    assert.deepEqual(board.trainees.find((t) => t.id === 'T-0002').regulars, [vol.user.userId]);
+    assert.equal(board.counts.traineesWithoutRegular, 2); // Alex and Chris (Dana is inactive)
+
+    const s1 = createSession({ date: '2026-10-20' });
+    const s2 = createSession({ date: '2026-10-27' });
+    const first = ok(rt.call('bookSession', { sessionId: s1.sessionId }, vol.token));
+    assert.match(first.message, /You'll be with Bea Lim, your regular trainee/);
+    const b2 = book(s2.sessionId);
+    const home = ok(rt.call('volunteerHome', {}, vol.token));
+    assert.deepEqual(home.upcoming.map((u) => [u.trainee.name, u.pairing]), [['Bea Lim', 'standing'], ['Bea Lim', 'standing']]);
+    assert.equal(home.regularTrainee.name, 'Bea Lim', 'shown once, in full, at the top of Home');
+    assert.equal(home.regularTrainee.id, 'T-0002');
+    assert.equal(home.progress, undefined, 'progress to regular is not shown to volunteers');
+
+    confirm(b2, { traineeId: 'T-0001' }); // an admin's choice for one session...
+    const changed = ok(rt.call('setStandingPairing', { userId: vol.user.userId, traineeId: 'T-0003' }, leader));
+    assert.match(changed.message, /Updated 1 upcoming session/);
+    const after = ok(rt.call('volunteerHome', {}, vol.token)).upcoming.map((u) => u.trainee.name);
+    assert.deepEqual(after, ['Chris Ng', 'Alex Tan'], '...is kept; the fixed pairing follows the change');
+    const ended = rt.records(SHEET, 'Regular Pairings');
+    assert.deepEqual(ended.map((r) => r.Status), ['ended', 'active']);
+  });
+
+  test('regulars without a fixed trainee are paired by an admin; moving back to volunteer ends the pairing', () => {
+    asRegular(vol);
+    const s = createSession();
+    assert.match(ok(rt.call('bookSession', { sessionId: s.sessionId }, vol.token)).message, /An admin will pair you/);
+    ok(rt.call('setStandingPairing', { userId: vol.user.userId, traineeId: 'T-0001' }, leader));
+    assert.equal(ok(rt.call('volunteerHome', {}, vol.token)).upcoming[0].trainee.name, 'Alex Tan', 'unpaired upcoming sessions pick up the new pairing');
+    const res = ok(rt.call('setVolunteerType', { userId: vol.user.userId, volunteerType: 'volunteer' }, leader));
+    assert.match(res.message, /regular pairing with Alex Tan has ended/);
+    assert.equal(ok(rt.call('listStandingPairings', {}, leader)).regulars.length, 0);
+  });
+
+  test('pairs pasted into the Regular Pairings tab as plain names are used', () => {
+    asRegular(vol);
+    rt.fillTab(SHEET, 'Regular Pairings', [
+      ['Pairing ID', 'User ID', 'Volunteer Name', 'Trainee ID', 'Trainee Name', 'Status'],
+      ['', '', 'vol one', '', 'Chris Ng', ''],
+    ]);
+    const s = createSession();
+    ok(rt.call('bookSession', { sessionId: s.sessionId }, vol.token));
+    assert.equal(ok(rt.call('volunteerHome', {}, vol.token)).upcoming[0].trainee.name, 'Chris Ng');
+    assert.equal(ok(rt.call('listStandingPairings', {}, leader)).regulars[0].traineeName, 'Chris Ng');
+  });
+
+  test(`volunteers become regulars after ${10} sessions, unless an admin set their type`, () => {
+    const keepAdHoc = volunteer('adhoc@example.com', 'Ad Hoc');
+    ok(rt.call('setVolunteerType', { userId: keepAdHoc.user.userId, volunteerType: 'regular' }, leader));
+    ok(rt.call('setVolunteerType', { userId: keepAdHoc.user.userId, volunteerType: 'volunteer' }, leader));
+    let last;
+    for (let i = 0; i < 10; i += 1) {
+      const date = `2026-10-${String(14 + i).padStart(2, '0')}`;
+      rt.setNow(at('09:00', date));
+      const s = createSession({ date, capacity: 5 });
+      for (const v of [vol, keepAdHoc]) {
+        const b = book(s.sessionId, v);
+        rt.setNow(at('10:00', date));
+        ok(rt.call('manualClock', { bookingId: b }, leader));
+        rt.setNow(at('12:00', date));
+        last = ok(rt.call('manualClock', { bookingId: b }, leader));
+        rt.setNow(at('09:00', date));
+      }
+      const home = ok(rt.call('volunteerHome', {}, vol.token));
+      assert.equal(home.volunteerType, i < 9 ? 'volunteer' : 'regular', `after ${i + 1} sessions`);
+    }
+    assert.equal(ok(rt.call('volunteerHome', {}, keepAdHoc.token)).volunteerType, 'volunteer', "an admin's choice is kept");
+    assert.ok(last);
+    const row = rt.records(SHEET, 'Volunteers').find((r) => r.Email === 'v1@example.com');
+    assert.equal(row['Volunteer Type'], 'regular');
+    assert.match(row['Type Set By'], /Automatic/);
+  });
+
+  test('history shows the trainee for each past session; ad hoc volunteers can open details for 14 days', () => {
+    const s = createSession();
+    const b = book(s.sessionId);
+    confirm(b, { traineeId: 'T-0002' });
+    rt.setNow(at('10:00'));
+    ok(rt.call('manualClock', { bookingId: b }, leader));
+    rt.setNow(at('12:00'));
+    ok(rt.call('manualClock', { bookingId: b }, leader));
+    assert.deepEqual(ok(rt.call('volunteerHome', {}, vol.token)).history[0].trainee, { id: 'T-0002', name: 'Bea Lim', canView: true });
+    rt.setNow(at('09:00', '2026-11-07')); // three weeks later
+    const later = ok(rt.call('volunteerHome', {}, vol.token)).history[0].trainee;
+    assert.equal(later.name, 'Bea Lim', 'the name is still shown');
+    assert.equal(later.canView, false, '...but an ad hoc volunteer can no longer open the details');
+    fails(rt.call('traineeInfo', { traineeId: 'T-0002' }, vol.token), 'FORBIDDEN');
+    asRegular(vol);
+    assert.equal(ok(rt.call('volunteerHome', {}, vol.token)).history[0].trainee.canView, true, 'regulars can open any trainee');
+  });
+
+  test('admins see pairing history: sessions together, and each regular\'s trainees over time', () => {
+    const attendWith = (date, traineeId) => {
+      rt.setNow(at('09:00', date));
+      const s = createSession({ date });
+      const bk = book(s.sessionId);
+      confirm(bk, { traineeId });
+      rt.setNow(at('10:00', date));
+      ok(rt.call('manualClock', { bookingId: bk }, leader));
+      rt.setNow(at('12:00', date));
+      ok(rt.call('manualClock', { bookingId: bk }, leader));
+      return s;
+    };
+    attendWith('2026-10-14', 'T-0001');
+    attendWith('2026-10-15', 'T-0001');
+    attendWith('2026-10-16', 'T-0002');
+    // a sign-up that didn't happen doesn't count
+    rt.setNow(at('09:00', '2026-10-17'));
+    const missed = createSession({ date: '2026-10-17' });
+    confirm(book(missed.sessionId), { traineeId: 'T-0003' });
+    rt.setNow(at('09:00', '2026-10-18'));
+
+    asRegular(vol);
+    ok(rt.call('setStandingPairing', { userId: vol.user.userId, traineeId: 'T-0001' }, leader));
+    rt.setNow(at('09:00', '2026-10-25'));
+    ok(rt.call('setStandingPairing', { userId: vol.user.userId, traineeId: 'T-0003' }, leader)); // rotate to someone new
+
+    const h = ok(rt.call('pairingHistory', {}, leader));
+    const pairs = h.pairs.map((x) => `${x.traineeName}:${x.sessions}:${x.last}`);
+    assert.deepEqual(pairs, ['Bea Lim:1:2026-10-16', 'Alex Tan:2:2026-10-15']);
+    assert.deepEqual(h.regularPeriods.map((x) => `${x.traineeName}:${x.from}:${x.to || 'now'}`),
+      ['Alex Tan:2026-10-18:2026-10-25', 'Chris Ng:2026-10-25:now']);
+
+    // the boards carry the same history for the pick lists
+    const board = ok(rt.call('listStandingPairings', {}, leader)).history[vol.user.userId];
+    assert.deepEqual(board['T-0001'], { sessions: 2, last: '2026-10-15', regularFrom: '2026-10-18', regularTo: '2026-10-25' });
+    assert.equal(board['T-0003'].regularNow, true);
+    assert.equal(board['T-0004'], undefined, 'never together: "New for them"');
+    const next = createSession({ date: '2026-10-28' });
+    book(next.sessionId);
+    assert.equal(ok(rt.call('sessionDetail', { sessionId: next.sessionId }, leader)).history[vol.user.userId]['T-0002'].sessions, 1);
+    const person = ok(rt.call('personDetail', { userId: vol.user.userId }, leader));
+    assert.deepEqual(person.regularHistory.map((x) => `${x.traineeName}:${x.active}`), ['Chris Ng:true', 'Alex Tan:false']);
+    fails(rt.call('pairingHistory', {}, vol.token), 'FORBIDDEN');
+  });
+
+  test('several sessions at once; each succeeds or fails on its own', () => {
+    const a = createSession({ date: '2026-10-20', capacity: 1 });
+    const b = createSession({ date: '2026-10-21' });
+    const c = createSession({ date: '2026-10-22' });
+    book(a.sessionId, volunteer('v2@example.com', 'Vol Two')); // a is now full
+    const res = ok(rt.call('bookSessions', { sessionIds: [a.sessionId, b.sessionId, c.sessionId] }, vol.token));
+    assert.deepEqual(res.results.map((r) => r.ok), [false, true, true]);
+    assert.match(res.message, /You're coming to 2 sessions\. Sorry, Art & Craft is full\./);
+    assert.equal(res.home.upcoming.length, 2);
+    const fresh = ok(rt.call('register', volunteerPayload({ email: 'new@example.com' })));
+    fails(rt.call('bookSessions', { sessionIds: [b.sessionId] }, fresh.token), 'GUIDE_REQUIRED');
+    fails(rt.call('bookSessions', { sessionIds: [] }, vol.token), 'VALIDATION_ERROR');
+  });
+
+  test('a session can list the trainees attending', () => {
+    const s = createSession({ traineeIds: ['T-0003'] });
+    assert.deepEqual(s.traineeIds, ['T-0003']);
+    fails(rt.call('createSession', { title: 'X', date: TODAY, startTime: '10:00', endTime: '11:00', venue: SCHOOL, traineeIds: ['T-9999'] }, leader), 'VALIDATION_ERROR');
+  });
+
+  test('sign-up rules: capacity, duplicates, cancelling, closed sessions', () => {
     const s = createSession({ capacity: 2 });
     book(s.sessionId);
     fails(rt.call('bookSession', { sessionId: s.sessionId }, vol.token), 'CONFLICT');
@@ -344,6 +490,9 @@ describe('QR clock-in / clock-out', () => {
     const home = ok(rt.call('volunteerHome', {}, vol.token));
     assert.equal(home.totals.hours, 2.25);
     assert.equal(home.pendingFeedback.length, 1);
+    assert.deepEqual(home.history[0].trainee, { id: 'T-0001', name: 'Alex Tan', canView: true }, 'past sessions show who they were with');
+    const person = ok(rt.call('personDetail', { userId: vol.user.userId }, leader));
+    assert.equal(person.recent[0].traineeName, 'Alex Tan');
   });
 
   test('forged, edited and wrong-day QR codes are rejected', () => {
@@ -356,22 +505,32 @@ describe('QR clock-in / clock-out', () => {
     fails(rt.call('scan', { code }, leader), 'VALIDATION_ERROR');
   });
 
-  test('scanning a pending booking confirms and pairs it; a walk-in is paired too', () => {
+  test("scanning someone who isn't paired yet says so; a regular walk-in gets their fixed trainee", () => {
     const s = createSession();
     book(s.sessionId);
     const code = ok(rt.call('volunteerHome', {}, vol.token)).qr[0].code;
     const res = ok(rt.call('scan', { code }, leader));
     assert.equal(res.outcome, 'in');
-    assert.match(res.message, /confirmed\. Paired with/);
-    assert.ok(res.trainee);
+    assert.match(res.message, /Not paired with a trainee yet/);
+    assert.equal(res.trainee, null);
 
     const walker = volunteer('walk@example.com', 'Walk In');
+    ok(rt.call('setVolunteerType', { userId: walker.user.userId, volunteerType: 'regular' }, leader));
+    ok(rt.call('setStandingPairing', { userId: walker.user.userId, traineeId: 'T-0003' }, leader));
     const wcode = ok(rt.call('volunteerHome', {}, walker.token)).qr[0].code;
     assert.equal(ok(rt.call('scan', { code: wcode }, leader)).outcome, 'not-booked');
     const walkIn = ok(rt.call('scan', { code: wcode, sessionId: s.sessionId, walkIn: true }, leader));
     assert.equal(walkIn.outcome, 'in');
-    assert.ok(walkIn.trainee, 'walk-ins are paired with a free trainee');
-    assert.notEqual(walkIn.trainee.name, res.trainee.name);
+    assert.equal(walkIn.trainee.name, 'Chris Ng');
+  });
+
+  test('admins add a walk-in from the clock-in page and clock them in by hand', () => {
+    const s = createSession();
+    const walker = volunteer('walk@example.com', 'Walk In');
+    const res = ok(rt.call('addWalkIn', { sessionId: s.sessionId, userId: walker.user.userId }, leader));
+    assert.match(res.message, /added as a walk-in/);
+    fails(rt.call('addWalkIn', { sessionId: s.sessionId, userId: walker.user.userId }, leader), 'CONFLICT');
+    assert.equal(ok(rt.call('manualClock', { bookingId: res.bookingId }, leader)).outcome, 'in');
   });
 
   test('offline scans are uploaded later with their original times', () => {
@@ -428,7 +587,7 @@ describe('feedback becomes trainee notes for future volunteers', () => {
     const v2 = volunteer('v2@example.com', 'Vol Two');
     const next = createSession({ date: '2026-10-21' });
     confirm(book(next.sessionId, v2), { traineeId: 'T-0001' });
-    assert.equal(ok(rt.call('volunteerHome', {}, v2.token)).upcoming[0].trainee.notes.length, 0);
+    assert.equal(ok(rt.call('traineeInfo', { traineeId: 'T-0001' }, v2.token)).notes.length, 0);
 
     const queue = ok(rt.call('reviewQueue', {}, leader)).items;
     assert.equal(queue.length, 1);
@@ -436,7 +595,7 @@ describe('feedback becomes trainee notes for future volunteers', () => {
     ok(rt.call('reviewObservation', { feedbackId: queue[0].feedbackId, decision: 'share', note: 'Joined the group song by himself. Loves singing.' }, leader));
     fails(rt.call('reviewObservation', { feedbackId: queue[0].feedbackId, decision: 'share' }, leader), 'CONFLICT');
 
-    const notes = ok(rt.call('volunteerHome', {}, v2.token)).upcoming[0].trainee.notes;
+    const notes = ok(rt.call('traineeInfo', { traineeId: 'T-0001' }, v2.token)).notes;
     assert.equal(notes.length, 1);
     assert.equal(notes[0].note, 'Joined the group song by himself. Loves singing.');
     assert.equal(notes[0].author, 'Vol'); // first name only
@@ -463,7 +622,7 @@ describe('feedback becomes trainee notes for future volunteers', () => {
     assert.equal(d.notes[0].status, 'hidden');
     const s = createSession();
     confirm(book(s.sessionId), { traineeId: 'T-0001' });
-    assert.equal(ok(rt.call('volunteerHome', {}, vol.token)).upcoming[0].trainee.notes.length, 0);
+    assert.equal(ok(rt.call('traineeInfo', { traineeId: 'T-0001' }, vol.token)).notes.length, 0);
     const list = ok(rt.call('listTrainees', {}, leader)).trainees;
     assert.equal(list.length, 4);
     assert.equal(list.find((t) => t.name === 'Dana Goh').active, false);
@@ -520,7 +679,7 @@ describe('editing details in the app', () => {
     assert.equal(d.person.emergencyName, 'Parent One');
     assert.equal(d.person.status, 'active');
     const res = ok(rt.call('updatePerson', { userId, phone: '+65 9888 7777', emergencyPhone: '+65 6123 4567', role: 'admin' }, leader));
-    assert.match(res.message, /Updated Vol One's phone and emergency phone\. Vol One is now a volunteer leader\./);
+    assert.match(res.message, /Updated Vol One's phone and emergency phone\. Vol One is now an admin\./);
     assert.equal(rt.records(SHEET, 'Volunteers').find((r) => r['User ID'] === userId)['Details Updated By'], 'Leader Lee');
     ok(rt.call('adminHome', {}, vol.token)); // promotion applies straight away
 
@@ -532,6 +691,8 @@ describe('editing details in the app', () => {
     fails(rt.call('updatePerson', { userId, email: 'leader@example.com' }, leader), 'CONFLICT');
     fails(rt.call('updatePerson', { userId: leaderId, status: 'inactive' }, leader), 'CONFLICT'); // not yourself
     fails(rt.call('updatePerson', { userId: leaderId, role: 'volunteer' }, leader), 'CONFLICT');
+    fails(rt.call('updatePerson', { userId, role: 'volunteer' }, leader), 'PASSWORD_REQUIRED'); // removing an admin
+    assert.match(ok(rt.call('updatePerson', { userId, role: 'volunteer', adminPassword: PW }, leader)).message, /no longer an admin/);
     fails(rt.call('updatePerson', { userId: 'U-nope' }, leader), 'NOT_FOUND');
     fails(rt.call('updatePerson', { userId, notes: 'x' }, leader), 'VALIDATION_ERROR');
   });
@@ -548,8 +709,9 @@ describe('editing details in the app', () => {
     // two leaders: one can deactivate the other, but not the last one left
     ok(rt.call('updatePerson', { userId: vol.user.userId, role: 'admin' }, leader));
     const leaderId = ok(rt.call('me', {}, leader)).user.userId;
-    ok(rt.call('updatePerson', { userId: leaderId, status: 'inactive' }, vol.token));
-    fails(rt.call('updatePerson', { userId: vol.user.userId, status: 'inactive' }, vol.token), 'CONFLICT');
+    fails(rt.call('updatePerson', { userId: leaderId, status: 'inactive' }, vol.token), 'PASSWORD_REQUIRED');
+    ok(rt.call('updatePerson', { userId: leaderId, status: 'inactive', adminPassword: PW }, vol.token));
+    fails(rt.call('updatePerson', { userId: vol.user.userId, status: 'inactive', adminPassword: PW }, vol.token), 'CONFLICT');
     fails(rt.call('updatePerson', { userId: sam.user.userId, phone: '+65 9111 2222' }, sam.token), 'FORBIDDEN');
   });
 });
@@ -565,5 +727,37 @@ describe('request handling', () => {
   test('missing SPREADSHEET_ID gives a clear config error', () => {
     const fresh = createGasRuntime();
     fails(fresh.call('login', { email: 'a@example.com', password: 'whatever1' }), 'CONFIG_ERROR');
+  });
+});
+
+describe('adding sessions', () => {
+  test('the form defaults come from Config.gs: Regular session, 2:30 to 5:30 pm, Woodlands', () => {
+    const o = ok(rt.call('adminHome', {}, leader)).sessionOptions;
+    assert.deepEqual(o.titles, ['Regular session']);
+    assert.deepEqual(o.projects, ['West End (WE)', 'Regular Service Project for the Intellectually Disabled (RSPID)']);
+    assert.deepEqual(o.times[0], { label: '2:30 pm – 5:30 pm', startTime: '14:30', endTime: '17:30' });
+    assert.equal(o.venue, SCHOOL);
+  });
+
+  test('setup adds the default projects to an existing Projects tab, keeping what is there', () => {
+    rt.fillTab(SHEET, 'Projects', [['Project ID', 'Project', 'Status'], ['P-OLD', 'School activity support', 'active']]);
+    const report = rt.run('setup');
+    assert.match(report, /Added project\(s\): West End \(WE\)/);
+    const names = rt.records(SHEET, 'Projects').map((p) => p.Project);
+    assert.deepEqual(names.sort(), ['Regular Service Project for the Intellectually Disabled (RSPID)', 'School activity support', 'West End (WE)']);
+  });
+
+  test('the same session on several dates at once; past and duplicate dates are skipped', () => {
+    const base = { title: 'Regular session', startTime: '14:30', endTime: '17:30', venue: SCHOOL };
+    const res = ok(rt.call('createSessions', { ...base, dates: ['2026-10-17', '2026-10-24', '2026-10-24', '2026-10-01'] }, leader));
+    assert.deepEqual(res.created.map((s) => s.date), ['2026-10-17', '2026-10-24']);
+    assert.match(res.message, /Added 2 sessions.*Skipped 2026-10-01 \(in the past\)/);
+    const again = ok(rt.call('createSessions', { ...base, dates: ['2026-10-17', '2026-10-31'] }, leader));
+    assert.deepEqual(again.created.map((s) => s.date), ['2026-10-31']);
+    assert.match(again.message, /2026-10-17 \(already has this session\)/);
+    assert.equal(rt.records(SHEET, 'Sessions').filter((s) => s.Title === 'Regular session').length, 3);
+    fails(rt.call('createSessions', { ...base, dates: [] }, leader), 'VALIDATION_ERROR');
+    fails(rt.call('createSessions', { ...base, endTime: '14:00', dates: ['2026-10-17'] }, leader), 'VALIDATION_ERROR');
+    fails(rt.call('createSessions', { ...base, dates: ['2026-10-17'] }, vol.token), 'FORBIDDEN');
   });
 });
