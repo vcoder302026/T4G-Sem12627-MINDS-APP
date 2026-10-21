@@ -19,6 +19,7 @@ const LATENCY_MS = Number(process.env.MOCK_LATENCY_MS ?? 400); // Apps Script is
 
 export const DEMO = {
   admin: { email: 'admin@example.com', password: 'AdminDemo123' },
+  adminPassword: 'admin-demo-2026', // the shared admin password (to make or remove an admin)
   regular: { email: 'regular@example.com', password: 'RegularDemo123' },
   volunteer: { email: 'volunteer@example.com', password: 'VolunteerDemo123' },
 };
@@ -37,6 +38,7 @@ export function createDemoRuntime() {
   rt.props.set('SPREADSHEET_ID', 'demo-sheet');
   rt.props.set('TRAINEE_SPREADSHEET_ID', `https://docs.google.com/spreadsheets/d/house-visit-sheet/edit#gid=${form.getSheetId()}`);
   rt.run('setup'); // adds Trainee IDs (T-0001 = Mock Trainee 1, …), the starter venue, guide and project
+  rt.evaluate(`setAdminActionPassword_('${DEMO.adminPassword}')`); // a known one for the demo (setup() made a random one)
   // Guide infographics live in Google Drive in production. Locally, the in-memory
   // "Drive" serves them at /__drive/<id> (see the server below).
   rt.evaluate("guideFileLinks_ = function (fileId) { const u = '/__drive/' + encodeURIComponent(fileId); return { imageUrl: u, previewUrl: u, openUrl: u }; };");
@@ -246,6 +248,7 @@ export function startMockServer({ port = PORT, latency = LATENCY_MS, quiet = fal
     console.log(`  Admin:     ${DEMO.admin.email} / ${DEMO.admin.password}`);
     console.log(`  Regular:   ${DEMO.regular.email} / ${DEMO.regular.password}`);
     console.log(`  Volunteer: ${DEMO.volunteer.email} / ${DEMO.volunteer.password}`);
+    console.log(`  Admin password (to make or remove an admin): ${DEMO.adminPassword}`);
     console.log(`  Sheet view: http://localhost:${port}/__sheet`);
   });
   return { server, rt };

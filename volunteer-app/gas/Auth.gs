@@ -160,14 +160,6 @@ function changePassword_(p, user) {
 /* ---------- admin actions on people ---------- */
 
 /** Checks the signed-in admin's own password (needed before removing an admin). */
-function checkOwnPassword_(user, password) {
-  const authRow = table_('auth').find((a) => a.userId === user.userId);
-  if (typeof password !== 'string' || !password || !authRow
-    || !safeEqual_(hashPassword_(password, authRow.salt), authRow.passwordHash)) {
-    throw new AppError('PASSWORD_REQUIRED', 'Enter your own password to remove an admin.');
-  }
-}
-
 /** Sign-ups for past sessions with no attendance, per volunteer. */
 function noShowsByUser_() {
   const today = todayStr_();
@@ -217,9 +209,13 @@ function setRole_(p, admin) {
     if (target.userId === admin.userId) throw err_.conflict('You cannot remove your own admin access. Ask another admin.');
     const admins = users.filter((u) => u.role === 'admin' && u.status !== 'inactive');
     if (admins.length <= 1) throw err_.conflict('There must be at least one admin.');
-    checkOwnPassword_(admin, p.adminPassword);
+  }
+  // Giving or removing admin access both need the shared admin password (AdminPassword.gs).
+  if (role !== (target.role === 'admin' ? 'admin' : 'volunteer')) {
+    checkAdminPassword_(admin, p.adminPassword, role === 'admin' ? 'Enter the admin password to make someone an admin.' : 'Enter the admin password to remove an admin.');
   }
   users.update(target, { role });
+  if (role === 'admin') makeRegularAsAdmin_(target); // admins are regular volunteers by default
   return { person: publicUser_(target) };
 }
 

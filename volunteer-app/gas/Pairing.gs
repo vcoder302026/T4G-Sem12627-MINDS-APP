@@ -19,6 +19,16 @@ function volunteerType_(u) {
   return u && u.volunteerType === 'regular' ? 'regular' : 'volunteer';
 }
 
+/**
+ * Admins are regular volunteers by default: called whenever someone becomes an
+ * admin. Returns true if it changed them. An admin can still move them back by hand.
+ */
+function makeRegularAsAdmin_(u) {
+  if (!u || volunteerType_(u) === 'regular') return false;
+  table_('users').update(u, { volunteerType: 'regular', typeSetBy: 'Made an admin', typeSetAt: fmtDateTime_(now_()) });
+  return true;
+}
+
 /** Distinct sessions a volunteer has finished (clocked out of). */
 function sessionsAttended_(userId, attendanceRows) {
   const seen = {};

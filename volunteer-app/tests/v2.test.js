@@ -50,6 +50,7 @@ beforeEach(() => {
   rt.props.set('TRAINEE_SPREADSHEET_ID', `https://docs.google.com/spreadsheets/d/${TRAINEE_FILE}/edit#gid=${form.getSheetId()}`);
   rt.setNow(`${TODAY}T09:00:00+08:00`);
   setupReport = rt.run('setup');
+  rt.evaluate("setAdminActionPassword_('admin-test-pass')");
   person('admin@example.com', 'Ada Admin');
   rt.props.set('FIRST_ADMIN_EMAIL', 'admin@example.com');
   rt.run('makeFirstAdmin');
@@ -164,12 +165,12 @@ describe('admin activity log', () => {
   test('every admin change is recorded in plain English; passwords never are', () => {
     const v = person('vol@example.com', 'Val Volunteer');
     const second = person('second@example.com', 'Sam Second');
-    ok(call('setRole', { userId: second.user.userId, role: 'admin' }));
+    ok(call('setRole', { userId: second.user.userId, role: 'admin', adminPassword: 'admin-test-pass' }));
     const second2 = ok(rt.call('login', { email: 'second@example.com', password: PW })).token;
     ok(call('setVolunteerType', { userId: v.user.userId, volunteerType: 'regular' }));
     ok(call('setStandingPairing', { userId: v.user.userId, traineeId: 'T-0003' }));
     const s = ok(call('createSession', { title: 'Outing prep', date: TODAY, startTime: '10:00', endTime: '11:00', venue: SCHOOL })).session;
-    ok(call('setRole', { userId: second.user.userId, role: 'volunteer', adminPassword: PW }, admin));
+    ok(call('setRole', { userId: second.user.userId, role: 'volunteer', adminPassword: 'admin-test-pass' }, admin));
     ok(call('listAdminLog', {}, admin));
     fails(rt.call('listAdminLog', {}, v.token), 'FORBIDDEN');
     fails(rt.call('listAdminLog', {}, second2), 'FORBIDDEN'); // no longer an admin

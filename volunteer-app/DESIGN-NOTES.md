@@ -59,8 +59,13 @@ Mode" or the separate staff dashboard; those are replaced as follows.
 - **A short admin menu.** Six sections plus More (`ADMIN_SECTIONS` in `web/js/app.js`);
   pages that belong together are tabs drawn by the shell above the page, so the page code
   doesn't change when the grouping does.
-- **Removing an admin needs a password.** The server checks the acting admin's own password
-  (error code `PASSWORD_REQUIRED`); the app asks for it and retries.
+- **Every change to who is an admin needs the admin password**: making, removing, deactivating
+  or reactivating an admin, or adding someone as an admin. It's a shared password separate from
+  sign-in passwords (`AdminPassword.gs`), so one admin can't change admins on their own. `setup()`
+  generates it and shows it once; admins change it in the app with the current one;
+  `resetAdminPassword()` in the editor makes a new one. Only a salted hash is kept, in a script
+  property. 5 wrong tries lock it for that admin for 15 minutes. The app asks for it on
+  `PASSWORD_REQUIRED` and retries.
 
 ## Why not bolt Sheets and QR onto the existing Node app?
 

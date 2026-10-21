@@ -506,16 +506,17 @@ export function typeBadges(p) {
   ];
 }
 
-/** Asks for the signed-in admin's own password. Resolves to the text, or null if cancelled. */
+/** Asks for the admin password (the shared one, not a sign-in password). Resolves to the text, or null if cancelled. */
 export function passwordPrompt(title, text) {
   return new Promise((resolve) => {
     let done = false;
-    const input = el('input', { type: 'password', name: 'adminPassword', class: 'input', autocomplete: 'current-password', 'aria-label': 'Your password' });
+    const input = el('input', { type: 'password', name: 'adminPassword', class: 'input', autocomplete: 'off', 'aria-label': 'Admin password' });
     const submit = el('button', { type: 'submit', class: 'btn btn-danger' }, 'Confirm');
     const cancel = el('button', { type: 'button', class: 'btn btn-secondary' }, 'Cancel');
     const form = el('form', { class: 'space-y-4' },
       el('p', { class: 'text-sm' }, text),
-      el('label', { class: 'label', for: 'pw-confirm' }, 'Your password'), input,
+      el('label', { class: 'label', for: 'pw-confirm' }, 'Admin password'), input,
+      el('p', { class: 'hint' }, 'The shared admin password, not your sign-in password. Admins can change it under Settings → Admin password.'),
       el('div', { class: 'flex justify-end gap-2' }, cancel, submit));
     input.id = 'pw-confirm';
     const m = modal(title, form, () => { if (!done) resolve(null); });

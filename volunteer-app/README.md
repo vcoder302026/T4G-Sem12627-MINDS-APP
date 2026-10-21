@@ -58,7 +58,7 @@ gives an overview of both apps.
 | --- | --- | --- | --- |
 | **Volunteer** | Everyone starts here (new / ad hoc) | Only the trainee they're paired with, and only the details admins allow | An admin pairs them for each session |
 | **Regular** | After **10 attended sessions** (automatic), or promoted by an admin | Any trainee, with the details admins allow (everything by default) | An admin can give them a **fixed trainee**; it's applied every time they say they're coming, until an admin changes it |
-| **Admin** | A volunteer or regular with admin access | Everything | As above, plus they pair everyone else |
+| **Admin** | A regular volunteer with admin access: becoming an admin makes them a regular (an admin can change that by hand) | Everything | As above, plus they pair everyone else |
 
 A volunteer has **one trainee** per session. A trainee can have **several volunteers**,
 ideally at least one regular; the app flags trainees without one.
@@ -88,9 +88,9 @@ press have a dotted underline.
 | **Dashboard** | Overview · Activity log | New and regular volunteers, trainees without a regular, who's coming and who still needs pairing. The **activity log** lists every change an admin makes (also kept in the sheet). |
 | **Sessions** | | Who's coming to each session (no-shows after the day). Each session has **Pair**, **Scan** and **Clock in** (by hand, with walk-ins) on its row. **New session**: just pick the date (or several dates): it's a "Regular session", 2:30–5:30 pm at Woodlands, for both projects (**West End (WE)** and **Regular Service Project for the Intellectually Disabled (RSPID)**) unless you change the dropdowns or untick a project. Edit, close or cancel sessions. |
 | **Pairing** | Sessions to pair · Regular pairings · History | The WERONE-style board for each session (volunteers beside trainees, search, **Unpaired** filter, tap to pair, **Pairing list** to screenshot), and each regular's fixed trainee. When choosing, each trainee shows the pair's history ("Together 3× · last 13 Oct", "Was their regular trainee …", or "New for them"); for a regular's fixed trainee, new-for-them trainees come first, to rotate regulars through different trainees. **History**: every pair that has been at a session together, and each regular's fixed trainees over time. |
-| **Volunteers** | People · Attendance · Hours | Profiles, sessions (with the trainee each was paired with), no-shows and hours; promote to regular, make or remove admins (**your password** to remove one), reset passwords, **Deactivate** from the list. Every clock-in and out, fixing missed scans, and hours exported as CSV. |
+| **Volunteers** | People · Attendance · Hours | Profiles, sessions (with the trainee each was paired with), no-shows and hours; promote to regular, make or remove admins (both need the **admin password**), reset passwords, **Deactivate** from the list. Every clock-in and out, fixing missed scans, and hours exported as CSV. |
 | **Trainees** | Trainees · Notes to review · What volunteers see | Every trainee's details grouped like the House Visit form, their **photo** (add, change, remove), regular volunteers and notes. Volunteer notes waiting to be shared. Which details volunteers and regulars see (a default, per trainee, "Set as default"). The form's list of attached volunteers is hidden. |
-| **Settings** | Guide & projects · Venues | The Volunteer Guide: text sections and **infographics** (a picture or PDF, uploaded or from Google Drive), projects and venues. |
+| **Settings** | Guide & projects · Venues · Admin password | The Volunteer Guide: text sections and **infographics** (a picture or PDF, uploaded or from Google Drive), projects and venues. The **admin password**: a shared password, separate from sign-in passwords, needed to make or remove an admin (including deactivating or reactivating one); change it here with the current one. |
 | **More** | Fundraising · Outings · Overseas trips · House visits | Version 1 placeholders, parked until MINDS decides how they fit. |
 
 ### Behind the scenes
@@ -200,6 +200,8 @@ Open **<http://localhost:5173>** and sign in with a demo account:
 | Volunteer | `volunteer@example.com` | `VolunteerDemo123` | Vera: paired by an admin |
 | Volunteer | `sam@example.com` | `VolunteerDemo123` | Sam: 9 sessions done; clocking him out today makes him a regular |
 
+The demo's **admin password** (to make or remove an admin) is `admin-demo-2026`.
+
 The trainees are the **100 fictional trainees** from MINDS's mock House Visit form
 responses (`tests/fixtures/house-visit-mock.json`), loaded as a separate trainee file
 linked by URL, as it would be in production.
@@ -226,7 +228,7 @@ admin, so you can be signed in as both at once.
 | 7 | Regular | Trainees → any trainee → **Send update** | It waits under Admin → Notes to review |
 | 8 | Volunteer (Vera) | Home → your trainee → **See all details** | Only the allowed details appear; another trainee's page is refused |
 | 9 | Admin | Trainees → a trainee → **What volunteers see**; untick a detail; save | Vera no longer sees it for that trainee |
-| 10 | Admin | Volunteers → make Vera an admin, then remove admin access | You're asked for your own password |
+| 10 | Admin | Volunteers → make Vera an admin, then remove admin access | You're asked for the **admin password**, `admin-demo-2026` (your sign-in password won't work). Change it under Settings → Admin password |
 | 11 | Admin | Dashboard → **Activity log** | Every change above is listed with who did it |
 | 12 | Any | Resize the browser from phone width to full width | The tabs become a sidebar; tables become cards on a phone |
 
@@ -296,7 +298,7 @@ A simple trainee tab still works too: `Name`, `Preferred Name`, `Gender`, `Commu
 
 1. In the sheet, open **Extensions → Apps Script**.
 2. For each file in [`gas/`](gas), create a script file with the
-   same name (**+ → Script**) and paste in its contents: `Admin`, `AdminLog`, `Attendance`,
+   same name (**+ → Script**) and paste in its contents: `Admin`, `AdminLog`, `AdminPassword`, `Attendance`,
    `Auth`, `Config`, `Content`, `Dashboard`, `Db`, `Fundraising`, `Main`, `Outings`, `Pairing`,
    `Profile`, `Setup`, `TraineeInfo`, `Trainees`, `Trips`, `Util`, `Visits`, `Volunteer`.
    (Or paste them all into one file: `cat gas/*.gs | pbcopy` on a Mac.)
@@ -345,12 +347,17 @@ Sheet IDs are kept here rather than in the code, so they never end up on GitHub.
      Settings, Trainee Visibility and the hidden `_Auth`) and the placeholder tabs from
      Version 1 (Fundraisers, Products, Orders, Order Items, Outings, Outing Assignments,
      Trips, Trip Participants, Trip Logistics, Trip Expenses, House Visits);
-   - gives every volunteer a Volunteer Type, and makes anyone with 10+ attended sessions a regular;
+   - gives every volunteer a Volunteer Type, makes anyone with 10+ attended sessions a regular,
+     and makes admins regulars (admins are regular volunteers by default);
    - adds any missing columns to existing tabs;
    - gives every trainee a Trainee ID;
    - adds a starter venue, guide and project;
    - creates the `APP_SECRET` property, which signs logins and QR passes. **Never share or
      delete it.**
+   - creates the **admin password** (needed to make or remove an admin, including deactivating or reactivating one) and shows it
+     **once** in the Execution log: a line starting "Created the ADMIN PASSWORD". Write it down
+     and give it to the admins; they can change it in the app (Settings → Admin password). If it's
+     lost, run **`resetAdminPassword()`** for a new one. Only a hash is stored.
 
    It never deletes or overwrites data, and it's safe to run again. **Run it again after
    every code update.**
@@ -600,6 +607,7 @@ variables instead.
 | Live site: "Couldn't reach the server" | Check that `GAS_EXP_URL` ends in `/exec`, web app access is **Anyone**, and you reran the web deploy. |
 | `SPREADSHEET_ID is not set` or "tab was not found" | Add the script property and run `setup()`. |
 | Code change isn't live | Publish a **New version** of the existing deployment, or set up Stage 8. |
+| Admin password forgotten, or "There is no admin password yet" | In Apps Script, run `resetAdminPassword()` (or `setup()` the first time) and read the new password in the Execution log. |
 | Camera doesn't start | Use the HTTPS GitHub Pages site and allow camera access in the browser. |
 
 How each screen works: [docs/USER-GUIDE.md](docs/USER-GUIDE.md).

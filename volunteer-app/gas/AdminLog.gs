@@ -32,6 +32,8 @@ const ADMIN_ACTION_LABELS = {
   moveContent: 'Reordered the guide or projects',
   saveVisibility: 'Changed what volunteers see about trainees',
   setTraineePhoto: 'Changed a trainee photo',
+  changeAdminPassword: 'Changed the admin password',
+  resetAdminPassword: 'Reset the admin password',
   addAttendance: 'Added attendance',
   updateAttendance: 'Corrected attendance',
   createVolunteer: 'Added a volunteer',
@@ -79,6 +81,8 @@ function describeAdminAction_(action, p, out) {
     case 'setVolunteerType': return `${person(p.userId)} → ${p.volunteerType}`;
     case 'setStandingPairing': return p.traineeId ? `${person(p.userId)} ↔ ${trainee(p.traineeId)}` : `${person(p.userId)}: regular pairing removed`;
     case 'addTraineeNote': return trainee(p.traineeId);
+    case 'changeAdminPassword': return ''; // never log passwords
+    case 'resetAdminPassword': return 'from the Apps Script editor';
     case 'setTraineePhoto': return `${trainee(p.traineeId)}: ${p.remove ? 'photo removed' : p.driveUrl ? 'photo from Google Drive' : 'photo uploaded'}`;
     case 'setNoteStatus': return `${p.noteId} → ${p.status}`;
     case 'reviewObservation': return `${p.feedbackId}: ${p.decision}`;

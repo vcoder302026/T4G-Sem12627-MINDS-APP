@@ -179,17 +179,25 @@ function updatePerson_(p, admin) {
   if (losesAdmin) {
     const others = users.filter((u) => u.userId !== target.userId && u.role === 'admin' && u.status !== 'inactive');
     if (!others.length) throw err_.conflict('There must be at least one active admin.');
-    checkOwnPassword_(admin, p.adminPassword); // removing an admin needs your own password
+  }
+  // Any change to who is an active admin needs the shared admin password (AdminPassword.gs):
+  // making someone an admin, removing admin access, deactivating or reactivating an admin.
+  const wasAdmin = current.role === 'admin' && current.status === 'active';
+  const willBeAdmin = (changes.role || current.role) === 'admin' && (changes.status || current.status) === 'active';
+  if (wasAdmin !== willBeAdmin) {
+    checkAdminPassword_(admin, p.adminPassword, willBeAdmin ? 'Enter the admin password to make someone an admin.' : 'Enter the admin password to remove an admin.');
   }
   if (changes.email) assertEmailFree_(users, changes.email, target.userId);
 
   const oldName = target.name;
   applyProfileChanges_(users, target, changes, admin);
+  const madeRegular = !wasAdmin && willBeAdmin && makeRegularAsAdmin_(target); // admins are regular volunteers by default
   const profileChanges = {};
   Object.keys(changes).filter((k) => PROFILE_FIELDS.indexOf(k) >= 0).forEach((k) => { profileChanges[k] = changes[k]; });
   const parts = [];
   if (Object.keys(profileChanges).length) parts.push(changedMessage_(profileChanges, `Updated ${oldName}'s`));
   if (changes.role) parts.push(changes.role === 'admin' ? `${target.name} is now an admin.` : `${target.name} is no longer an admin.`);
+  if (madeRegular) parts.push('Admins are regular volunteers, so they are now a regular too.');
   if (changes.status) parts.push(changes.status === 'inactive' ? `${target.name} is deactivated and can no longer sign in.` : `${target.name} is active again.`);
   if (changes.email) parts.push(`They now sign in with ${changes.email}.`);
   const message = parts.join(' ') || 'No changes to save.';
