@@ -268,8 +268,65 @@ function createFakeDrive() {
   return { service, files, folders, addFile };
 }
 
+/**
+ * In-memory Google Contacts (the People API advanced service), enough for
+ * Contacts.gs. `failWith` makes the next calls throw, like an API error.
+ */
+function createFakeContacts() {
+  const people = new Map();
+  const groups = new Map([['contactGroups/myContacts', { resourceName: 'contactGroups/myContacts', name: 'myContacts', formattedName: 'My Contacts' }]]);
+  const state = { n: 0, failWith: '', calls: [] };
+  const clone = (x) => JSON.parse(JSON.stringify(x));
+  const maybeFail = (what) => {
+    state.calls.push(what);
+    if (state.failWith) throw new Error(state.failWith);
+  };
+  const notFound = () => new Error('API call to people.people.get failed with error: Requested entity was not found.');
+  const service = {
+    People: {
+      createContact(body) {
+        maybeFail('create');
+        state.n += 1;
+        const p = { ...clone(body), resourceName: `people/c${1000 + state.n}`, etag: `etag-${state.n}` };
+        people.set(p.resourceName, p);
+        return clone(p);
+      },
+      get(resourceName) {
+        maybeFail('get');
+        if (!people.has(resourceName)) throw notFound();
+        return clone(people.get(resourceName));
+      },
+      updateContact(body, resourceName, opts) {
+        maybeFail('update');
+        const cur = people.get(resourceName);
+        if (!cur) throw notFound();
+        if (body.etag !== cur.etag) throw new Error('etag mismatch: get the contact again before updating it');
+        String(opts.updatePersonFields).split(',').forEach((f) => { cur[f] = clone(body[f] || []); });
+        state.n += 1;
+        cur.etag = `etag-${state.n}`;
+        return clone(cur);
+      },
+    },
+    ContactGroups: {
+      list() {
+        maybeFail('groups.list');
+        return { contactGroups: [...groups.values()].map(clone) };
+      },
+      create({ contactGroup }) {
+        maybeFail('groups.create');
+        state.n += 1;
+        const g = { resourceName: `contactGroups/${state.n.toString(16)}`, name: contactGroup.name, formattedName: contactGroup.name };
+        groups.set(g.resourceName, g);
+        return clone(g);
+      },
+    },
+  };
+  return { service, people, groups, state };
+}
+
 export function createGasRuntime() {
   const drive = createFakeDrive();
+  const contacts = createFakeContacts();
   const books = new Map();
   const props = new Map();
   const cache = new Map();
@@ -302,6 +359,7 @@ export function createGasRuntime() {
       },
     },
     DriveApp: drive.service,
+    People: contacts.service,
     PropertiesService: {
       getScriptProperties: () => ({
         getProperty: (k) => (props.has(k) ? props.get(k) : null),
@@ -341,6 +399,7 @@ export function createGasRuntime() {
     context,
     props,
     drive, // tests: rt.drive.addFile(name, mime) puts a file in the admin's Google Drive
+    contacts, // tests: rt.contacts.people (saved contacts), rt.contacts.state.failWith = 'error' to make calls fail
     createSpreadsheet(id, name = id) {
       const book = new FakeSpreadsheet(id, name);
       books.set(id, book);

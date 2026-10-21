@@ -35,10 +35,10 @@ function profilePatch_(p) {
     if (patch.birthday > todayStr_()) throw err_.validation('Birthday cannot be in the future.');
   }
   if (has('email')) patch.email = email_(p.email);
-  if (has('phone')) patch.phone = phone_(p.phone, 'Phone');
+  if (has('phone')) patch.phone = sgPhone_(p.phone, 'Phone');
   if (has('telegram')) patch.telegram = telegram_(p.telegram);
   if (has('emergencyName')) patch.emergencyName = str_(p.emergencyName, 'Emergency contact name', { required: true, max: LIMITS.SHORT });
-  if (has('emergencyPhone')) patch.emergencyPhone = phone_(p.emergencyPhone, 'Emergency contact phone');
+  if (has('emergencyPhone')) patch.emergencyPhone = sgPhone_(p.emergencyPhone, 'Emergency contact phone');
   if (has('emergencyRelation')) patch.emergencyRelation = str_(p.emergencyRelation, 'Relationship', { max: 50 });
   return patch;
 }
@@ -147,6 +147,7 @@ function personDetail_(p) {
     person: personOut_(target, hasAccount),
     stats: { hours, sessions: done.length, upcoming: upcoming.length, noShows: noShowsByUser_()[target.userId] || 0, attended: sessionsAttended_(target.userId) },
     regularAfter: CONFIG.REGULAR_AFTER_SESSIONS,
+    contact: contactInfo_(target), // Google Contacts sync (Contacts.gs)
     regularTrainee: fixed ? { id: String(fixed.traineeId), name: fixed.traineeName } : null,
     regularHistory: sortBy_(allPairingRows_().filter((x) => x.userId === target.userId), (x) => x.from).reverse()
       .map((x) => ({ traineeId: x.traineeId, traineeName: x.traineeName, from: x.from, to: x.active ? '' : x.to, active: x.active })),

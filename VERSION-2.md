@@ -59,7 +59,7 @@ record in the demo is fictional.
 | Outings and fundraising as placeholders; trips separate | **Done** (Admin → Later) |
 | Infographic or PDF above the guide, changeable by admins, from Google Drive or a device | **Done** (Admin → Settings → Guide & projects → Add infographic) |
 | Trainee photo database | **Done** (admins add or change a photo on the trainee page; a placeholder shows until then). Caregiver consent still to confirm |
-| New registrations added to Google Contacts (Telegram in notes) | Not yet: needs the People API enabled on the vcoder302026 account |
+| New registrations added to Google Contacts (Telegram in notes) | **Done**, off until switched on: new and admin-added volunteers are saved to the app's Google account, with Telegram in the notes and a label (volunteer-app/README.md → Google Contacts sync). Phones are checked as +65 and 8 digits |
 | Attendance for special events and committee roles | Not yet |
 | Registration fields from MINDS's Google Form; drop emergency contact | Waiting for the form |
 | Revisit adding/editing sessions; merging session and outing attendance | Adding is now just picking dates (Regular session, 2:30–5:30 pm, Woodlands, from dropdowns). Editing and merging with outings: waiting for Mr Sadil |
@@ -104,7 +104,7 @@ The full walkthrough is in [volunteer-app/README.md](volunteer-app/README.md), P
 ## 4. Upgrading an existing setup from Version 1
 
 1. **Backend:** paste every file in `volunteer-app/gas/` into the Apps Script project. There
-   are four new ones: `AdminLog`, `AdminPassword`, `Pairing` and `TraineeInfo`. (On a Mac:
+   are five new ones: `AdminLog`, `AdminPassword`, `Contacts`, `Pairing` and `TraineeInfo`. (On a Mac:
    `cat volunteer-app/gas/*.gs | pbcopy`, then replace everything in one `Code.gs`.)
    Also replace **`appsscript.json`**: it now asks for Google Drive access, for the guide's
    infographics.
@@ -133,4 +133,4 @@ The full walkthrough is in [volunteer-app/README.md](volunteer-app/README.md), P
 2. **Registration form fields** (the Google Form), including dropping the emergency contact.
 3. **Sessions vs outings:** whether admins keep creating sessions here, and how outing
    attendance relates (with Mr Sadil).
-4. **Google Contacts sync:** which admin account receives new volunteers as contacts.
+4. **Google Contacts sync:** contacts go to the Google account the app runs as. Confirm that's the account MINDS wants (for testing: vcoder302026@gmail.com), and add a line about it to the registration consent notice.

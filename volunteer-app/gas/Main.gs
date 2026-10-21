@@ -51,6 +51,7 @@ function routes_() {
     listStandingPairings: { auth: 'admin', fn: listStandingPairings_ },
     setStandingPairing: { auth: 'admin', write: true, fn: setStandingPairing_ },
     changeAdminPassword: { auth: 'admin', write: true, fn: changeAdminPassword_ },
+    syncContact: { auth: 'admin', write: true, fn: syncContactNow_ }, // save one volunteer to Google Contacts now
     pairingHistory: { auth: 'admin', fn: pairingHistory_ },
     // What volunteers see about trainees (TraineeInfo.gs) and the activity log (AdminLog.gs)
     visibilitySettings: { auth: 'admin', fn: visibilitySettings_ },
@@ -156,6 +157,12 @@ function handle_(e) {
     }
     const run = () => {
       const out = route.fn(payload, user);
+      // New or edited volunteers go to Google Contacts when CONTACTS_SYNC is on (Contacts.gs). Never fails the request.
+      const contactUserId = contactSyncTarget_(body.action, payload, user, out);
+      if (contactUserId) {
+        const contact = syncContactSafe_(contactUserId);
+        if (contact && out && typeof out === 'object') out.contact = contact;
+      }
       // Every change an admin makes goes in the Admin Activity Log (AdminLog.gs), in the same lock.
       if (route.auth === 'admin' && route.write) logAdminAction_(user, body.action, payload, out);
       return out;

@@ -4,7 +4,9 @@
 // Trainee House Visit (coloured sections, fixed Submit bar at the bottom).
 
 import { call } from '../api.js';
-import { backLink, busy, el, field, formData, icon, mount, section, todaySG } from '../ui.js';
+import {
+  backLink, busy, el, field, formData, icon, isEmail, mount, PHONE_HINT, section, sgPhone, todaySG,
+} from '../ui.js';
 
 export function renderLogin(root, app) {
   const error = el('div', { class: 'alert alert-error', role: 'alert', hidden: true });
@@ -63,11 +65,11 @@ export function renderRegister(root, app) {
       field('name', 'Full name', { autocomplete: 'name' }),
       field('birthday', 'Birthday', { type: 'date', max: todaySG(), autocomplete: 'bday' }),
       field('email', 'Email', { type: 'email', autocomplete: 'email', inputmode: 'email', hint: "You'll use this to sign in." }),
-      field('phone', 'Phone', { type: 'tel', autocomplete: 'tel', placeholder: '+65 9123 4567' }),
+      field('phone', 'Phone', { type: 'tel', autocomplete: 'tel', inputmode: 'tel', placeholder: '+65 91234567', hint: PHONE_HINT }),
       field('telegram', 'Telegram handle', { optional: true, autocapitalize: 'none', placeholder: '@yourhandle' })),
     section('Emergency contact', 'red',
       field('emergencyName', 'Name'),
-      field('emergencyPhone', 'Phone', { type: 'tel', placeholder: '+65 9123 4567' }),
+      field('emergencyPhone', 'Phone', { type: 'tel', inputmode: 'tel', placeholder: '+65 91234567', hint: PHONE_HINT }),
       field('emergencyRelation', 'Relationship to you', { optional: true, placeholder: 'e.g. Mother' })),
     section('Account', 'indigo',
       field('password', 'Password', { type: 'password', autocomplete: 'new-password', hint: 'At least 8 characters.' }),
@@ -84,9 +86,12 @@ export function renderRegister(root, app) {
       (!d.name && 'Enter your full name.') ||
       (!d.birthday && 'Enter your birthday.') ||
       (!d.email && 'Enter your email.') ||
+      (!isEmail(d.email) && 'Check your email address: it should look like name@example.com.') ||
       (!d.phone && 'Enter your phone number.') ||
+      (!sgPhone(d.phone) && `Phone: ${PHONE_HINT}`) ||
       (!d.emergencyName && 'Enter an emergency contact name.') ||
       (!d.emergencyPhone && 'Enter an emergency contact phone number.') ||
+      (!sgPhone(d.emergencyPhone) && `Emergency contact phone: ${PHONE_HINT}`) ||
       (form.password.value.length < 8 && 'Choose a password with at least 8 characters.') ||
       (form.password.value !== form.password2.value && "The two passwords don't match.") ||
       (!consent.checked && 'Tick the box to agree to the personal data notice.');
