@@ -70,21 +70,32 @@ const looseName_ = (s) => normHeader_(s).replace(/[^a-z0-9 ]/g, '');
  * a blank User ID / Trainee ID is matched by name, and a blank Status counts
  * as active. Each item keeps `row`, the sheet row, for updates.
  */
-function standingRows_() {
-  if (DB_.cache.standingRows) return DB_.cache.standingRows;
+/** Every Regular Pairings row (active and ended), with IDs filled in from names where needed. */
+function allPairingRows_() {
+  if (DB_.cache.allPairingRows) return DB_.cache.allPairingRows;
   const users = table_('users').rows().filter((u) => u.userId);
   const trainees = traineeTable_().rows().filter((t) => t.id && t.name);
   const out = [];
   table_('pairings').rows().forEach((x) => {
-    if ((x.status || 'active') !== 'active') return;
     const u = x.userId ? users.find((y) => y.userId === x.userId)
       : users.find((y) => x.volunteerName && looseName_(y.name) === looseName_(x.volunteerName));
     const t = x.traineeId ? trainees.find((y) => String(y.id) === String(x.traineeId))
       : trainees.find((y) => x.traineeName && (looseName_(y.name) === looseName_(x.traineeName)
         || (y.preferredName && looseName_(y.preferredName) === looseName_(x.traineeName))));
     if (!u || !t) return;
-    out.push({ userId: u.userId, volunteerName: u.name, traineeId: String(t.id), traineeName: t.name, row: x });
+    out.push({
+      userId: u.userId, volunteerName: u.name, traineeId: String(t.id), traineeName: t.name,
+      active: (x.status || 'active') === 'active',
+      from: String(x.createdAt || '').slice(0, 10), to: String(x.endedAt || '').slice(0, 10), row: x,
+    });
   });
+  DB_.cache.allPairingRows = out;
+  return out;
+}
+
+function standingRows_() {
+  if (DB_.cache.standingRows) return DB_.cache.standingRows;
+  const out = allPairingRows_().filter((x) => x.active);
   DB_.cache.standingRows = out;
   return out;
 }
@@ -98,6 +109,7 @@ function endStandingPairing_(userId, admin) {
   if (!current) return null;
   table_('pairings').update(current.row, { status: 'ended', endedBy: admin.name, endedAt: fmtDateTime_(now_()) });
   delete DB_.cache.standingRows;
+  delete DB_.cache.allPairingRows;
   return current;
 }
 
@@ -126,6 +138,7 @@ function setStandingPairing_(p, admin) {
   if (current) endStandingPairing_(user.userId, admin);
   if (trainee) {
     delete DB_.cache.standingRows;
+    delete DB_.cache.allPairingRows;
     table_('pairings').insert({
       pairingId: newId_('P'),
       userId: user.userId,
@@ -157,6 +170,7 @@ function setStandingPairing_(p, admin) {
 /** Everything the "Regular pairings" board needs. */
 function standingBoard_() {
   delete DB_.cache.standingRows;
+  delete DB_.cache.allPairingRows;
   const active = standingRows_();
   const byUser = byKey_(active, 'userId');
   const regulars = table_('users').rows()
@@ -171,9 +185,11 @@ function standingBoard_() {
   const regularsByTrainee = {};
   active.forEach((x) => { (regularsByTrainee[String(x.traineeId)] = regularsByTrainee[String(x.traineeId)] || []).push(x.userId); });
   const trainees = traineeList_().map((t) => Object.assign({}, t, { regulars: regularsByTrainee[t.id] || [] }));
+  const ids = regulars.map((r) => r.userId);
   return {
     regulars: sortBy_(regulars, (r) => String(r.name).toLowerCase()),
     trainees,
+    history: pairHistoryFor_(ids), // for choosing someone new, or someone they know
     counts: {
       regulars: regulars.length,
       unpairedRegulars: regulars.filter((r) => !r.traineeId).length,
@@ -291,5 +307,78 @@ function addWalkIn_(p, admin) {
     detail: sessionDetail_({ sessionId: session.sessionId }),
     bookingId: booking.bookingId,
     message: `${user.name} added as a walk-in${trainee ? `, with ${trainee.name}` : ''}.`,
+  };
+}
+
+/* ---------------- pairing history (admins) ---------------- */
+
+/**
+ * Who has been with whom: sessions a volunteer attended (clocked in) paired
+ * with a trainee, counted per pair. Sign-ups that didn't happen don't count.
+ */
+function pairStats_() {
+  if (DB_.cache.pairStats) return DB_.cache.pairStats;
+  const attended = {};
+  table_('attendance').rows().forEach((a) => { if (a.bookingId && a.clockIn) attended[a.bookingId] = true; });
+  const map = {};
+  table_('bookings').rows().forEach((b) => {
+    if (b.status === 'cancelled' || !b.traineeId || !attended[b.bookingId]) return;
+    const key = `${b.userId}|${b.traineeId}`;
+    const s = map[key] || (map[key] = { userId: b.userId, traineeId: String(b.traineeId), traineeName: b.traineeName, volunteerName: b.volunteerName, sessions: 0, first: '', last: '' });
+    s.sessions += 1;
+    const d = String(b.sessionDate);
+    if (!s.first || d < s.first) s.first = d;
+    if (d > s.last) { s.last = d; s.traineeName = b.traineeName; }
+  });
+  DB_.cache.pairStats = map;
+  return map;
+}
+
+/**
+ * For pairing screens: { userId: { traineeId: { sessions, last, regularFrom, regularTo, regularNow } } }
+ * for the given volunteers: sessions together and any time as their regular trainee.
+ */
+function pairHistoryFor_(userIds) {
+  const want = {};
+  userIds.forEach((id) => { want[id] = {}; });
+  const stats = pairStats_();
+  Object.keys(stats).forEach((k) => {
+    const s = stats[k];
+    if (want[s.userId]) want[s.userId][s.traineeId] = { sessions: s.sessions, last: s.last };
+  });
+  allPairingRows_().forEach((x) => {
+    if (!want[x.userId]) return;
+    const h = want[x.userId][x.traineeId] || (want[x.userId][x.traineeId] = { sessions: 0, last: '' });
+    h.regularFrom = h.regularFrom && h.regularFrom < x.from ? h.regularFrom : x.from;
+    h.regularTo = x.active ? '' : (x.to > (h.regularTo || '') ? x.to : h.regularTo || '');
+    if (x.active) h.regularNow = true;
+  });
+  return want;
+}
+
+/** Admin → Pairing → History: every pair that has worked together, and each regular's trainees over time. */
+function pairingHistory_(p) {
+  onlyFields_(p, []);
+  const names = nameMaps_();
+  const users = byKey_(table_('users').rows().filter((u) => u.userId), 'userId');
+  const stats = pairStats_();
+  const regularNow = {};
+  standingRows_().forEach((x) => { regularNow[`${x.userId}|${x.traineeId}`] = true; });
+  const pairs = Object.keys(stats).map((k) => {
+    const s = stats[k];
+    return {
+      userId: s.userId, volunteerName: names.users[s.userId] || s.volunteerName, type: volunteerType_(users[s.userId]),
+      traineeId: s.traineeId, traineeName: names.trainees[s.traineeId] || s.traineeName,
+      sessions: s.sessions, first: s.first, last: s.last, regularNow: Boolean(regularNow[k]),
+    };
+  });
+  const periods = allPairingRows_().map((x) => ({
+    userId: x.userId, volunteerName: x.volunteerName, traineeId: x.traineeId, traineeName: x.traineeName,
+    from: x.from, to: x.active ? '' : x.to, active: x.active,
+    sessions: (stats[`${x.userId}|${x.traineeId}`] || {}).sessions || 0,
+  }));
+  return {
+    pairs: sortBy_(pairs, (x) => `${x.last}`).reverse(),
+    regularPeriods: sortBy_(periods, (x) => `${String(x.volunteerName).toLowerCase()}|${x.from}`),
   };
 }

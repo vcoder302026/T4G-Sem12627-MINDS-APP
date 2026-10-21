@@ -130,11 +130,17 @@ function personDetail_(p) {
   const done = attendance.filter((a) => a.clockOut);
   const hours = Math.round(done.reduce((sum, a) => sum + (Number(a.hours) || 0), 0) * 100) / 100;
   const sessionsById = byKey_(table_('sessions').rows(), 'sessionId');
-  const recent = sortBy_(done, (a) => `${a.date} ${a.clockIn}`).reverse().slice(0, 5).map((a) => ({
-    date: a.date,
-    title: (sessionsById[a.sessionId] || {}).title || 'Session',
-    hours: Number(a.hours) || 0,
-  }));
+  const bookingById = byKey_(table_('bookings').filter((b) => b.userId === target.userId), 'bookingId');
+  const recent = sortBy_(done, (a) => `${a.date} ${a.clockIn}`).reverse().slice(0, 10).map((a) => {
+    const b = bookingById[a.bookingId] || {};
+    return {
+      date: a.date,
+      title: (sessionsById[a.sessionId] || {}).title || 'Session',
+      hours: Number(a.hours) || 0,
+      traineeId: b.traineeId ? String(b.traineeId) : '',
+      traineeName: b.traineeName || '',
+    };
+  });
   const upcoming = table_('bookings').filter((b) => b.userId === target.userId && b.status !== 'cancelled' && String(b.sessionDate) >= todayStr_());
   const fixed = activeStanding_(target.userId);
   return {
@@ -142,6 +148,8 @@ function personDetail_(p) {
     stats: { hours, sessions: done.length, upcoming: upcoming.length, noShows: noShowsByUser_()[target.userId] || 0, attended: sessionsAttended_(target.userId) },
     regularAfter: CONFIG.REGULAR_AFTER_SESSIONS,
     regularTrainee: fixed ? { id: String(fixed.traineeId), name: fixed.traineeName } : null,
+    regularHistory: sortBy_(allPairingRows_().filter((x) => x.userId === target.userId), (x) => x.from).reverse()
+      .map((x) => ({ traineeId: x.traineeId, traineeName: x.traineeName, from: x.from, to: x.active ? '' : x.to, active: x.active })),
     typeSetBy: target.typeSetBy || '',
     recent,
   };

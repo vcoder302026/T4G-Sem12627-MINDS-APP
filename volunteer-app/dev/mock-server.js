@@ -74,7 +74,7 @@ export function createDemoRuntime() {
   [rex, rina, vera, sam].forEach((v) => rt.call('acknowledgeGuide', {}, v.token));
 
   const SCHOOL = 'MINDS Woodlands Gardens School';
-  const PROJECT = 'School activity support';
+  const PROJECT = ['West End (WE)', 'Regular Service Project for the Intellectually Disabled (RSPID)'];
   const today = rt.context.todayStr_();
   const day = (n) => rt.context.addDays_(today, n);
   const mk = (title, date, startTime, endTime, capacity, notes = '', extra = {}) =>
@@ -82,15 +82,15 @@ export function createDemoRuntime() {
   const come = (v, sessionId) => rt.call('bookSession', { sessionId }, v.token).data.home.upcoming.find((u) => u.session.sessionId === sessionId).bookingId;
   const attend = (date, title, people) => {
     rt.setNow(`${date}T09:00:00+08:00`);
-    const s = mk(title, date, '10:00', '12:00', 10);
+    const s = mk(title, date, '14:30', '17:30', 10);
     const ids = people.map(([v, traineeId]) => {
       const b = come(v, s.sessionId);
       if (traineeId) call('updateBooking', { bookingId: b, traineeId });
       return b;
     });
-    rt.setNow(`${date}T10:00:00+08:00`);
+    rt.setNow(`${date}T14:30:00+08:00`);
     ids.forEach((b) => call('manualClock', { bookingId: b }));
-    rt.setNow(`${date}T12:00:00+08:00`);
+    rt.setNow(`${date}T17:30:00+08:00`);
     ids.forEach((b) => call('manualClock', { bookingId: b }));
     rt.setNow(null);
     return { s, ids };
@@ -98,14 +98,22 @@ export function createDemoRuntime() {
 
   // Regulars: Rex and Rina were promoted by an admin and each has a fixed trainee.
   [rex, rina].forEach((v) => call('setVolunteerType', { userId: v.user.userId, volunteerType: 'regular' }));
-  call('setStandingPairing', { userId: rex.user.userId, traineeId: 'T-0001' });
+  // Rex was with Mock Trainee 5 for a few weeks, then an admin rotated him (see Pairing → History).
+  rt.setNow(`${day(-40)}T09:00:00+08:00`);
+  call('setStandingPairing', { userId: rex.user.userId, traineeId: 'T-0005' });
+  rt.setNow(null);
   call('setStandingPairing', { userId: rina.user.userId, traineeId: 'T-0002' });
 
   // History: Sam has attended 8 sessions plus yesterday's (9), so clocking him out today makes him a regular automatically.
-  for (let i = 8; i >= 1; i -= 1) attend(day(-7 * i - 1), i % 2 ? 'Music & movement' : 'Art & Craft', [[sam, 'T-0004'], ...(i <= 2 ? [[vera, 'T-0003']] : [])]);
+  for (let i = 8; i >= 1; i -= 1) {
+    attend(day(-7 * i - 1), 'Regular session', [[sam, 'T-0004'], ...(i <= 2 ? [[vera, 'T-0003']] : []), ...(i >= 3 && i <= 5 ? [[rex, null]] : [])]);
+  }
+  rt.setNow(`${day(-12)}T09:00:00+08:00`);
+  call('setStandingPairing', { userId: rex.user.userId, traineeId: 'T-0001' }); // rotated to a new trainee
+  rt.setNow(null);
 
   // Yesterday: everyone gave feedback; Vera's note waits for an admin.
-  const { ids: [samB, veraB] } = attend(day(-1), 'Music & movement', [[sam, 'T-0004'], [vera, 'T-0003'], [rex, null]]);
+  const { ids: [samB, veraB] } = attend(day(-1), 'Regular session', [[sam, 'T-0004'], [vera, 'T-0003'], [rex, null]]);
   rt.call('submitFeedback', {
     bookingId: veraB, rating: 4, sessionFeedback: 'Good session, the playlist worked well.',
     traineeObservation: 'Was calmer when I showed the picture card for the next activity before we moved on. Loved the drumming.',
@@ -117,9 +125,10 @@ export function createDemoRuntime() {
   rt.call('submitTraineeUpdate', { traineeId: 'T-0010', note: 'Met at the void deck on Saturday: has started a part-time job and is proud of it.' }, rex.token);
 
   // Today and coming up. Regulars are paired with their fixed trainee as soon as they say they're coming.
-  const art = mk('Art & Craft', today, '10:00', '12:00', 8, 'Aprons provided. Wear covered shoes.');
-  mk('Sports & games', today, '14:00', '16:00', 6, 'Meet at the school hall.');
-  const baking = mk('Baking: banana muffins', day(3), '09:30', '11:30', 6);
+  // Sessions are "Regular session", 2:30 to 5:30 pm at Woodlands (Config.gs → SESSION_OPTIONS).
+  const art = mk('Regular session', today, '14:30', '17:30', 8, 'Wear covered shoes.');
+  const baking = mk('Regular session', day(3), '14:30', '17:30', 8);
+  mk('Regular session', day(10), '14:30', '17:30', 8);
   const carnival = mk('Sports carnival helpers', day(7), '08:00', '13:00', 20, 'Bring a water bottle and cap.', { traineeIds: ['T-0001', 'T-0002', 'T-0003', 'T-0004', 'T-0005'] });
   come(rex, art.sessionId);
   const veraArt = come(vera, art.sessionId);

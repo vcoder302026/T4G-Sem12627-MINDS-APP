@@ -29,11 +29,18 @@ const DEFAULT_GUIDE = [
   },
 ];
 
+// The projects at MINDS Woodlands Gardens School. Descriptions are a starting point for admins to edit.
 const DEFAULT_PROJECTS = [
   {
-    name: 'School activity support',
-    description: 'Help trainees during classroom and recreational activities: crafts, games, music and life-skills practice.',
-    schedule: 'See the open sessions in the app',
+    name: 'West End (WE)',
+    description: 'Volunteer with trainees at the West End project: activities, games and life-skills practice.',
+    schedule: 'Regular sessions, 2:30 pm to 5:30 pm',
+    venue: 'MINDS Woodlands Gardens School',
+  },
+  {
+    name: 'Regular Service Project for the Intellectually Disabled (RSPID)',
+    description: 'Regular sessions with trainees: building friendships, confidence and everyday skills.',
+    schedule: 'Regular sessions, 2:30 pm to 5:30 pm',
     venue: 'MINDS Woodlands Gardens School',
   },
 ];
@@ -143,11 +150,30 @@ function requireProject_(name) {
   return pr.name;
 }
 
+/** A session's projects, stored as one cell: "Project A, Project B". */
+function parseProjects_(value) {
+  return String(value || '').split(',').map((x) => x.trim()).filter(Boolean);
+}
+
+/** One or several projects (a list, or text separated by commas), each from the Projects tab. */
+function requireProjects_(value) {
+  const list = Array.isArray(value) ? value.map((x) => str_(x, 'Project')) : parseProjects_(str_(value, 'Project', { max: 1000 }));
+  const out = [];
+  list.forEach((name) => {
+    const ok = requireProject_(name);
+    if (ok && out.indexOf(ok) === -1) out.push(ok);
+  });
+  return out.join(', ');
+}
+
 function saveProject_(p, admin) {
   onlyFields_(p, ['projectId', 'name', 'description', 'schedule', 'venue', 'status']);
   const projects = table_('projects');
   const fields = { updatedBy: admin.name, updatedAt: fmtDateTime_(now_()) };
-  if (p.name !== undefined) fields.name = str_(p.name, 'Project name', { required: true });
+  if (p.name !== undefined) {
+    fields.name = str_(p.name, 'Project name', { required: true });
+    if (fields.name.indexOf(',') >= 0) throw err_.validation('A project name can\'t contain a comma (sessions list their projects separated by commas).');
+  }
   if (p.description !== undefined) fields.description = str_(p.description, 'Description', { max: LIMITS.NOTES });
   if (p.schedule !== undefined) fields.schedule = str_(p.schedule, 'When', { max: 300 });
   if (p.venue !== undefined) fields.venue = p.venue ? requireVenue_(p.venue) : '';
@@ -401,5 +427,16 @@ function seedContent_() {
     }));
     added.push(`Added ${DEFAULT_PROJECTS.length} starter project(s)`);
   }
+  // The projects new sessions tick by default (Config.gs → SESSION_OPTIONS.projects) must exist.
+  const missing = (CONFIG.SESSION_OPTIONS.projects || []).filter((name) => !projectRows_().some((x) => x.name.toLowerCase() === name.toLowerCase()));
+  missing.forEach((name) => {
+    const known = DEFAULT_PROJECTS.find((pr) => pr.name === name) || { description: '', schedule: '', venue: '' };
+    const order = projectRows_().reduce((m, x) => Math.max(m, Number(x.order) || 0), 0) + 1;
+    table_('projects').insert({
+      projectId: newId_('P'), order, name, description: known.description, schedule: known.schedule,
+      venue: venueByName_(known.venue) ? known.venue : '', status: 'active', updatedBy: 'setup', updatedAt: fmtDateTime_(now_()),
+    });
+  });
+  if (missing.length) added.push(`Added project(s): ${missing.join(', ')}`);
   return added;
 }

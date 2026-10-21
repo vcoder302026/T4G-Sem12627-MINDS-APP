@@ -36,6 +36,7 @@ function adminHome_() {
     today,
     sessions,
     unpairedTotal: sessions.filter((s) => s.date >= today).reduce((n, s) => n + s.stats.unpaired, 0),
+    sessionOptions: CONFIG.SESSION_OPTIONS,
     reviewCount: table_('feedback').filter((f) => f.noteStatus === 'pending' && f.traineeObservation).length,
     venues: activeVenues_(),
     projects: activeProjects_(),
@@ -60,7 +61,7 @@ function sessionFields_(p, partial) {
   if (has('startTime')) out.startTime = time_(p.startTime, 'Start time');
   if (has('endTime')) out.endTime = time_(p.endTime, 'End time');
   if (has('venue')) out.venue = requireVenue_(str_(p.venue, 'Venue', { required: true }));
-  if (has('project')) out.project = requireProject_(str_(p.project, 'Project'));
+  if (has('project')) out.project = requireProjects_(p.project); // one or several
   if (has('capacity')) out.capacity = p.capacity === '' || p.capacity === null || p.capacity === undefined ? 0 : int_(p.capacity, 'Capacity', 0, 500);
   if (has('notes')) out.notes = str_(p.notes, 'Notes', { max: LIMITS.NOTES });
   if (has('traineeIds')) out.traineeIds = traineeIdsField_(p.traineeIds);
@@ -84,6 +85,41 @@ function createSession_(p, admin) {
   return { session: sessionOut_(s), home: adminHome_() };
 }
 
+/**
+ * Adds the same session on several dates at once (e.g. every Saturday this
+ * month). Each date succeeds or is skipped on its own: a date in the past, or
+ * one that already has a session with the same name and start time.
+ */
+function createSessions_(p, admin) {
+  onlyFields_(p, ['dates'].concat(SESSION_FIELDS.filter((k) => k !== 'date')));
+  if (!Array.isArray(p.dates) || !p.dates.length || p.dates.length > 31) throw err_.validation('Choose between 1 and 31 dates.');
+  const fields = sessionFields_(Object.assign({}, p, { date: p.dates[0] }), false);
+  delete fields.date;
+  if (fields.endTime <= fields.startTime) throw err_.validation('End time must be after start time.');
+  const sessions = table_('sessions');
+  const earliest = addDays_(todayStr_(), -1);
+  const created = [];
+  const skipped = [];
+  const seen = {};
+  p.dates.forEach((raw) => {
+    const date = date_(raw, 'Date');
+    if (seen[date]) return;
+    seen[date] = true;
+    if (date < earliest) { skipped.push({ date, reason: 'in the past' }); return; }
+    if (sessions.find((s) => s.date === date && s.title === fields.title && s.startTime === fields.startTime && s.status !== 'cancelled')) {
+      skipped.push({ date, reason: 'already has this session' });
+      return;
+    }
+    const s = sessions.insert(Object.assign({}, fields, {
+      sessionId: newId_('S'), date, status: 'open', createdBy: admin.name, createdAt: fmtDateTime_(now_()),
+    }));
+    created.push(sessionOut_(s));
+  });
+  let message = created.length ? `Added ${created.length} session${created.length === 1 ? '' : 's'}. Volunteers can sign up now.` : 'No sessions were added.';
+  if (skipped.length) message += ` Skipped ${skipped.map((x) => `${x.date} (${x.reason})`).join(', ')}.`;
+  return { created, skipped, message, home: adminHome_() };
+}
+
 function updateSession_(p) {
   onlyFields_(p, ['sessionId', 'status'].concat(SESSION_FIELDS));
   const sessions = table_('sessions');
@@ -93,6 +129,9 @@ function updateSession_(p) {
   delete rest.sessionId;
   if (!Object.keys(rest).length) throw err_.validation('Nothing to update.');
   if (rest.venue === s.venue) delete rest.venue; // an archived venue can stay on an existing session
+  if (rest.project !== undefined && parseProjects_(Array.isArray(rest.project) ? rest.project.join(',') : rest.project).join(', ') === parseProjects_(s.project).join(', ')) {
+    delete rest.project; // unchanged: archived projects can stay on an existing session
+  }
   const patch = sessionFields_(rest, true);
   const start = patch.startTime || s.startTime;
   const end = patch.endTime || s.endTime;
@@ -156,6 +195,7 @@ function sessionDetail_(p) {
     stats: sessionStats_(sessionId, allBookings, attendance, today),
     bookings,
     trainees: traineeList_().map((t) => Object.assign({}, t, { regulars: (regulars[t.id] || []).map((r) => r.userId) })),
+    history: pairHistoryFor_(bookings.map((b) => b.volunteer.userId)), // who has been with whom before
     venues: activeVenues_(),
     projects: activeProjects_(),
   };

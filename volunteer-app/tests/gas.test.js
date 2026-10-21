@@ -95,7 +95,7 @@ describe('linking to an existing sheet', () => {
     rt.run('setup');
     assert.deepEqual(rt.records(SHEET, 'Venues').map((v) => v.Venue), [SCHOOL]);
     assert.equal(rt.records(SHEET, 'Volunteer Guide').length, 5);
-    assert.equal(rt.records(SHEET, 'Projects').length, 1);
+    assert.deepEqual(rt.records(SHEET, 'Projects').map((p) => p.Project), ['West End (WE)', 'Regular Service Project for the Intellectually Disabled (RSPID)']);
     const before = JSON.stringify(rt.tab(SHEET, 'Trainees').dump());
     assert.match(rt.run('checkConfig'), /"Trainees" is ready/);
     assert.equal(JSON.stringify(rt.tab(SHEET, 'Trainees').dump()), before);
@@ -208,6 +208,14 @@ describe('volunteer guide for new volunteers', () => {
     const s = createSession({ project: 'Weekend outings' });
     assert.equal(s.project, 'Weekend outings');
     fails(rt.call('createSession', { title: 'X', date: TODAY, startTime: '10:00', endTime: '11:00', venue: SCHOOL, project: 'Nope' }, leader), 'VALIDATION_ERROR');
+    fails(rt.call('saveProject', { name: 'A, B' }, leader), 'VALIDATION_ERROR');
+    // A session can be for several projects
+    const both = createSession({ project: ['West End (WE)', 'Regular Service Project for the Intellectually Disabled (RSPID)'] });
+    assert.deepEqual(both.projects, ['West End (WE)', 'Regular Service Project for the Intellectually Disabled (RSPID)']);
+    assert.equal(rt.records(SHEET, 'Sessions').find((r) => r['Session ID'] === both.sessionId).Project,
+      'West End (WE), Regular Service Project for the Intellectually Disabled (RSPID)');
+    const one = ok(rt.call('updateSession', { sessionId: both.sessionId, project: ['West End (WE)'] }, leader));
+    assert.deepEqual(one.detail.session.projects, ['West End (WE)']);
     c = ok(rt.call('saveProject', { projectId: outing.projectId, status: 'archived' }, leader));
     assert.equal(ok(rt.call('guide', {}, vol.token)).projects.some((p) => p.name === 'Weekend outings'), false);
   });
@@ -253,9 +261,11 @@ describe('signing up and pairing (volunteers, regulars, admins)', () => {
 
     const paired = confirm(u.bookingId, { traineeId: 'T-0001' });
     assert.equal(paired.detail.bookings[0].pairing, 'manual');
-    const trainee = ok(rt.call('volunteerHome', {}, vol.token)).upcoming[0].trainee;
-    assert.equal(trainee.name, 'Alex Tan');
-    const labels = trainee.fields.map((f) => f.label);
+    const onHome = ok(rt.call('volunteerHome', {}, vol.token)).upcoming[0].trainee;
+    assert.equal(onHome.name, 'Alex Tan');
+    assert.equal(onHome.fields, undefined, 'Home shows the name and photo only; details come on request');
+    const trainee = ok(rt.call('traineeInfo', { traineeId: 'T-0001' }, vol.token));
+    const labels = trainee.sections.flatMap((x) => x.fields.map((f) => f.label));
     assert.ok(labels.includes('Gender') && labels.includes('Communication'));
     assert.ok(!JSON.stringify(trainee).includes('Epilepsy'), 'medical notes must not reach ad hoc volunteers');
   });
@@ -291,7 +301,7 @@ describe('signing up and pairing (volunteers, regulars, admins)', () => {
     const home = ok(rt.call('volunteerHome', {}, vol.token));
     assert.deepEqual(home.upcoming.map((u) => [u.trainee.name, u.pairing]), [['Bea Lim', 'standing'], ['Bea Lim', 'standing']]);
     assert.equal(home.regularTrainee.name, 'Bea Lim', 'shown once, in full, at the top of Home');
-    assert.ok(home.regularTrainee.fields.length);
+    assert.equal(home.regularTrainee.id, 'T-0002');
     assert.equal(home.progress, undefined, 'progress to regular is not shown to volunteers');
 
     confirm(b2, { traineeId: 'T-0001' }); // an admin's choice for one session...
@@ -351,6 +361,69 @@ describe('signing up and pairing (volunteers, regulars, admins)', () => {
     const row = rt.records(SHEET, 'Volunteers').find((r) => r.Email === 'v1@example.com');
     assert.equal(row['Volunteer Type'], 'regular');
     assert.match(row['Type Set By'], /Automatic/);
+  });
+
+  test('history shows the trainee for each past session; ad hoc volunteers can open details for 14 days', () => {
+    const s = createSession();
+    const b = book(s.sessionId);
+    confirm(b, { traineeId: 'T-0002' });
+    rt.setNow(at('10:00'));
+    ok(rt.call('manualClock', { bookingId: b }, leader));
+    rt.setNow(at('12:00'));
+    ok(rt.call('manualClock', { bookingId: b }, leader));
+    assert.deepEqual(ok(rt.call('volunteerHome', {}, vol.token)).history[0].trainee, { id: 'T-0002', name: 'Bea Lim', canView: true });
+    rt.setNow(at('09:00', '2026-11-07')); // three weeks later
+    const later = ok(rt.call('volunteerHome', {}, vol.token)).history[0].trainee;
+    assert.equal(later.name, 'Bea Lim', 'the name is still shown');
+    assert.equal(later.canView, false, '...but an ad hoc volunteer can no longer open the details');
+    fails(rt.call('traineeInfo', { traineeId: 'T-0002' }, vol.token), 'FORBIDDEN');
+    asRegular(vol);
+    assert.equal(ok(rt.call('volunteerHome', {}, vol.token)).history[0].trainee.canView, true, 'regulars can open any trainee');
+  });
+
+  test('admins see pairing history: sessions together, and each regular\'s trainees over time', () => {
+    const attendWith = (date, traineeId) => {
+      rt.setNow(at('09:00', date));
+      const s = createSession({ date });
+      const bk = book(s.sessionId);
+      confirm(bk, { traineeId });
+      rt.setNow(at('10:00', date));
+      ok(rt.call('manualClock', { bookingId: bk }, leader));
+      rt.setNow(at('12:00', date));
+      ok(rt.call('manualClock', { bookingId: bk }, leader));
+      return s;
+    };
+    attendWith('2026-10-14', 'T-0001');
+    attendWith('2026-10-15', 'T-0001');
+    attendWith('2026-10-16', 'T-0002');
+    // a sign-up that didn't happen doesn't count
+    rt.setNow(at('09:00', '2026-10-17'));
+    const missed = createSession({ date: '2026-10-17' });
+    confirm(book(missed.sessionId), { traineeId: 'T-0003' });
+    rt.setNow(at('09:00', '2026-10-18'));
+
+    asRegular(vol);
+    ok(rt.call('setStandingPairing', { userId: vol.user.userId, traineeId: 'T-0001' }, leader));
+    rt.setNow(at('09:00', '2026-10-25'));
+    ok(rt.call('setStandingPairing', { userId: vol.user.userId, traineeId: 'T-0003' }, leader)); // rotate to someone new
+
+    const h = ok(rt.call('pairingHistory', {}, leader));
+    const pairs = h.pairs.map((x) => `${x.traineeName}:${x.sessions}:${x.last}`);
+    assert.deepEqual(pairs, ['Bea Lim:1:2026-10-16', 'Alex Tan:2:2026-10-15']);
+    assert.deepEqual(h.regularPeriods.map((x) => `${x.traineeName}:${x.from}:${x.to || 'now'}`),
+      ['Alex Tan:2026-10-18:2026-10-25', 'Chris Ng:2026-10-25:now']);
+
+    // the boards carry the same history for the pick lists
+    const board = ok(rt.call('listStandingPairings', {}, leader)).history[vol.user.userId];
+    assert.deepEqual(board['T-0001'], { sessions: 2, last: '2026-10-15', regularFrom: '2026-10-18', regularTo: '2026-10-25' });
+    assert.equal(board['T-0003'].regularNow, true);
+    assert.equal(board['T-0004'], undefined, 'never together: "New for them"');
+    const next = createSession({ date: '2026-10-28' });
+    book(next.sessionId);
+    assert.equal(ok(rt.call('sessionDetail', { sessionId: next.sessionId }, leader)).history[vol.user.userId]['T-0002'].sessions, 1);
+    const person = ok(rt.call('personDetail', { userId: vol.user.userId }, leader));
+    assert.deepEqual(person.regularHistory.map((x) => `${x.traineeName}:${x.active}`), ['Chris Ng:true', 'Alex Tan:false']);
+    fails(rt.call('pairingHistory', {}, vol.token), 'FORBIDDEN');
   });
 
   test('several sessions at once; each succeeds or fails on its own', () => {
@@ -417,6 +490,9 @@ describe('QR clock-in / clock-out', () => {
     const home = ok(rt.call('volunteerHome', {}, vol.token));
     assert.equal(home.totals.hours, 2.25);
     assert.equal(home.pendingFeedback.length, 1);
+    assert.deepEqual(home.history[0].trainee, { id: 'T-0001', name: 'Alex Tan', canView: true }, 'past sessions show who they were with');
+    const person = ok(rt.call('personDetail', { userId: vol.user.userId }, leader));
+    assert.equal(person.recent[0].traineeName, 'Alex Tan');
   });
 
   test('forged, edited and wrong-day QR codes are rejected', () => {
@@ -511,7 +587,7 @@ describe('feedback becomes trainee notes for future volunteers', () => {
     const v2 = volunteer('v2@example.com', 'Vol Two');
     const next = createSession({ date: '2026-10-21' });
     confirm(book(next.sessionId, v2), { traineeId: 'T-0001' });
-    assert.equal(ok(rt.call('volunteerHome', {}, v2.token)).upcoming[0].trainee.notes.length, 0);
+    assert.equal(ok(rt.call('traineeInfo', { traineeId: 'T-0001' }, v2.token)).notes.length, 0);
 
     const queue = ok(rt.call('reviewQueue', {}, leader)).items;
     assert.equal(queue.length, 1);
@@ -519,7 +595,7 @@ describe('feedback becomes trainee notes for future volunteers', () => {
     ok(rt.call('reviewObservation', { feedbackId: queue[0].feedbackId, decision: 'share', note: 'Joined the group song by himself. Loves singing.' }, leader));
     fails(rt.call('reviewObservation', { feedbackId: queue[0].feedbackId, decision: 'share' }, leader), 'CONFLICT');
 
-    const notes = ok(rt.call('volunteerHome', {}, v2.token)).upcoming[0].trainee.notes;
+    const notes = ok(rt.call('traineeInfo', { traineeId: 'T-0001' }, v2.token)).notes;
     assert.equal(notes.length, 1);
     assert.equal(notes[0].note, 'Joined the group song by himself. Loves singing.');
     assert.equal(notes[0].author, 'Vol'); // first name only
@@ -546,7 +622,7 @@ describe('feedback becomes trainee notes for future volunteers', () => {
     assert.equal(d.notes[0].status, 'hidden');
     const s = createSession();
     confirm(book(s.sessionId), { traineeId: 'T-0001' });
-    assert.equal(ok(rt.call('volunteerHome', {}, vol.token)).upcoming[0].trainee.notes.length, 0);
+    assert.equal(ok(rt.call('traineeInfo', { traineeId: 'T-0001' }, vol.token)).notes.length, 0);
     const list = ok(rt.call('listTrainees', {}, leader)).trainees;
     assert.equal(list.length, 4);
     assert.equal(list.find((t) => t.name === 'Dana Goh').active, false);
@@ -651,5 +727,37 @@ describe('request handling', () => {
   test('missing SPREADSHEET_ID gives a clear config error', () => {
     const fresh = createGasRuntime();
     fails(fresh.call('login', { email: 'a@example.com', password: 'whatever1' }), 'CONFIG_ERROR');
+  });
+});
+
+describe('adding sessions', () => {
+  test('the form defaults come from Config.gs: Regular session, 2:30 to 5:30 pm, Woodlands', () => {
+    const o = ok(rt.call('adminHome', {}, leader)).sessionOptions;
+    assert.deepEqual(o.titles, ['Regular session']);
+    assert.deepEqual(o.projects, ['West End (WE)', 'Regular Service Project for the Intellectually Disabled (RSPID)']);
+    assert.deepEqual(o.times[0], { label: '2:30 pm – 5:30 pm', startTime: '14:30', endTime: '17:30' });
+    assert.equal(o.venue, SCHOOL);
+  });
+
+  test('setup adds the default projects to an existing Projects tab, keeping what is there', () => {
+    rt.fillTab(SHEET, 'Projects', [['Project ID', 'Project', 'Status'], ['P-OLD', 'School activity support', 'active']]);
+    const report = rt.run('setup');
+    assert.match(report, /Added project\(s\): West End \(WE\)/);
+    const names = rt.records(SHEET, 'Projects').map((p) => p.Project);
+    assert.deepEqual(names.sort(), ['Regular Service Project for the Intellectually Disabled (RSPID)', 'School activity support', 'West End (WE)']);
+  });
+
+  test('the same session on several dates at once; past and duplicate dates are skipped', () => {
+    const base = { title: 'Regular session', startTime: '14:30', endTime: '17:30', venue: SCHOOL };
+    const res = ok(rt.call('createSessions', { ...base, dates: ['2026-10-17', '2026-10-24', '2026-10-24', '2026-10-01'] }, leader));
+    assert.deepEqual(res.created.map((s) => s.date), ['2026-10-17', '2026-10-24']);
+    assert.match(res.message, /Added 2 sessions.*Skipped 2026-10-01 \(in the past\)/);
+    const again = ok(rt.call('createSessions', { ...base, dates: ['2026-10-17', '2026-10-31'] }, leader));
+    assert.deepEqual(again.created.map((s) => s.date), ['2026-10-31']);
+    assert.match(again.message, /2026-10-17 \(already has this session\)/);
+    assert.equal(rt.records(SHEET, 'Sessions').filter((s) => s.Title === 'Regular session').length, 3);
+    fails(rt.call('createSessions', { ...base, dates: [] }, leader), 'VALIDATION_ERROR');
+    fails(rt.call('createSessions', { ...base, endTime: '14:00', dates: ['2026-10-17'] }, leader), 'VALIDATION_ERROR');
+    fails(rt.call('createSessions', { ...base, dates: ['2026-10-17'] }, vol.token), 'FORBIDDEN');
   });
 });

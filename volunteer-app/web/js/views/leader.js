@@ -5,11 +5,11 @@
 import { call, isNetworkError } from '../api.js';
 import { startScanner } from '../qr.js';
 import {
-  backLink, badge, busy, clockTime, combobox, el, errorBlock, field, fmtDay, fmtHours, fmtTimes, formData, fuzzyFilter,
+  backLink, badge, busy, clockTime, combobox, el, errorBlock, field, fmtDay, fmtHours, fmtTimes, formData, fuzzyFilter, projectBadges, projectShort,
   icon, initials, labelled, loading, mapsLink, mount, multiPick, searchBox, section, toast, todaySG, typeBadges,
 } from '../ui.js';
 import { personName, traineeName as traineeLabel } from '../quickview.js';
-import { projectPicker, venuePicker } from './content.js';
+import { projectChecks, venuePicker } from './content.js';
 
 function list(...rows) {
   return el('div', { class: 'card divide-y divide-slate-100 overflow-hidden dark:divide-neutral-900' }, ...rows);
@@ -37,7 +37,7 @@ const traineeHint = (t) => [t.preferredName ? `Goes by ${t.preferredName}` : '',
  */
 function sessionFormFields(app, s, ref) {
   const venue = venuePicker(app, ref.venues || [], s.venue);
-  const project = projectPicker(ref.projects || [], s.project || '');
+  const project = projectChecks(ref.projects || [], s.projects || []);
   const trainees = multiPick({
     name: 'traineeIds',
     options: (ref.trainees || []).map((t) => ({ value: t.id, label: t.name, hint: traineeHint(t) })),
@@ -46,7 +46,8 @@ function sessionFormFields(app, s, ref) {
   });
   return {
     venue: labelled('Venue', venue.el, { hint: "Not in the list? Type the name and choose “Add a new venue”." }),
-    project: labelled('Project', project.el, { optional: true }),
+    project: labelled('Projects', project.el, { hint: 'Tick every project this session is for.' }),
+    projectValues: project.values,
     trainees: labelled('Trainees attending', trainees.el, {
       optional: true,
       hint: 'Shown first on the pairing board. Leave empty to choose from all active trainees.',
@@ -55,7 +56,7 @@ function sessionFormFields(app, s, ref) {
 }
 
 /** Form values → createSession/updateSession payload. Returns null (and warns) if something is missing. */
-function sessionPayload(form) {
+function sessionPayload(form, parts) {
   const f = formData(form);
   if (!f.title) {
     toast('Give the session a title.', 'warn');
@@ -72,7 +73,7 @@ function sessionPayload(form) {
     startTime: f.startTime,
     endTime: f.endTime,
     venue: f.venue,
-    project: f.project || '',
+    project: parts.projectValues(),
     capacity: f.capacity === '' ? 0 : Number(f.capacity),
     notes: f.notes || '',
     traineeIds: f.traineeIds ? f.traineeIds.split(',').filter(Boolean) : [],
@@ -91,7 +92,7 @@ export function renderToday(root, app, ctx) {
       el('a', { href: `#/session/${s.sessionId}`, class: 'min-w-0 flex-1' },
         el('p', { class: 'text-sm font-bold text-indigo-600 dark:text-indigo-400' }, s.date === today ? fmtTimes(s) : `${fmtDay(s.date, today)}, ${fmtTimes(s)}`),
         el('h3', { class: 'font-bold leading-snug text-slate-900 dark:text-white' }, s.title),
-        el('p', { class: 'truncate text-sm muted' }, [s.venue, s.project].filter(Boolean).join(' · ')),
+        el('p', { class: 'truncate text-sm muted' }, [s.venue, (s.projects || []).map(projectShort).join(' + ')].filter(Boolean).join(' · ')),
         el('div', { class: 'mt-2 flex flex-wrap items-center gap-1.5' },
           badge(`${st.booked}${s.capacity ? `/${s.capacity}` : ''} coming`, 'slate'),
           st.unpaired && s.date >= today ? badge(`${st.unpaired} to pair`, 'amber') : null,
@@ -210,7 +211,7 @@ export function renderSession(root, app, ctx, sessionId) {
       el('button', { type: 'submit', class: 'btn btn-primary w-full' }, 'Save changes'));
     edit.addEventListener('submit', (e) => {
       e.preventDefault();
-      const payload = sessionPayload(edit);
+      const payload = sessionPayload(edit, parts);
       if (!payload) return;
       busy(edit.querySelector('button[type=submit]'), 'Saving…', async () => {
         apply(await call('updateSession', { sessionId, ...payload }));
@@ -238,7 +239,7 @@ export function renderSession(root, app, ctx, sessionId) {
           el('p', { class: 'mt-1 font-bold text-indigo-600 dark:text-indigo-400' }, `${fmtDay(s.date, d.today)}, ${fmtTimes(s)}`),
           el('p', { class: 'flex items-center gap-1 text-sm muted' }, icon('pin', 'size-4'),
             s.venue ? el('a', { href: mapsLink(venueAddress || s.venue), target: '_blank', rel: 'noopener', class: 'hover:underline' }, s.venue) : 'No venue set'),
-          s.project ? el('div', { class: 'mt-1.5' }, badge(s.project, 'emerald')) : null),
+          s.projects && s.projects.length ? el('div', { class: 'mt-1.5 flex flex-wrap gap-1' }, projectBadges(s.projects)) : null),
         s.status !== 'open' ? badge(s.status === 'closed' ? 'Sign-ups closed' : 'Cancelled', 'red') : null),
       attending.size ? el('p', { class: 'mt-2 text-sm muted' },
         el('span', { class: 'font-bold text-slate-700 dark:text-neutral-200' }, 'Trainees attending: '),
@@ -288,38 +289,104 @@ export function renderSession(root, app, ctx, sessionId) {
 
 export function renderNewSession(root, app, ctx) {
   const draw = (home) => {
-    const submit = el('button', { type: 'submit', class: 'btn btn-primary w-full' }, 'Create session');
-    const parts = sessionFormFields(app, { traineeIds: [] }, home);
+    const opts = home.sessionOptions || { titles: ['Regular session'], times: [{ label: '2:30 pm – 5:30 pm', startTime: '14:30', endTime: '17:30' }], venue: '' };
+    const OTHER = '__other__';
+    const defaultProjects = (opts.projects || []).filter((n) => (home.projects || []).some((p) => p.name === n));
+    const parts = sessionFormFields(app, { traineeIds: [], projects: defaultProjects }, home);
+
+    // Session name: a dropdown (Config.gs → SESSION_OPTIONS.titles), or type another.
+    const titleSelect = el('select', { id: 'f-titleChoice', class: 'input' },
+      opts.titles.map((t) => el('option', { value: t }, t)), el('option', { value: OTHER }, 'Other…'));
+    const titleOther = el('input', { class: 'input mt-2', name: 'titleOther', placeholder: 'Session name', maxlength: 120, hidden: true, 'aria-label': 'Session name' });
+    titleSelect.addEventListener('change', () => { titleOther.hidden = titleSelect.value !== OTHER; if (!titleOther.hidden) titleOther.focus(); });
+
+    // Time: a dropdown of fixed slots, or set your own.
+    const timeSelect = el('select', { id: 'f-timeChoice', class: 'input' },
+      opts.times.map((t, i) => el('option', { value: String(i) }, t.label)), el('option', { value: OTHER }, 'Other…'));
+    const timeOther = el('div', { class: 'mt-2 grid grid-cols-2 gap-4', hidden: true },
+      field('startTime', 'Starts', { type: 'time', value: opts.times[0] ? opts.times[0].startTime : '14:30' }),
+      field('endTime', 'Ends', { type: 'time', value: opts.times[0] ? opts.times[0].endTime : '17:30' }));
+    timeSelect.addEventListener('change', () => { timeOther.hidden = timeSelect.value !== OTHER; });
+
+    // Venue: a dropdown of the venue list (Settings → Venues).
+    const venues = home.venues || [];
+    const defaultVenue = venues.some((v) => v.name === opts.venue) ? opts.venue : (venues[0] || {}).name;
+    const venueSelect = el('select', { id: 'f-venueChoice', class: 'input' },
+      venues.map((v) => el('option', { value: v.name, selected: v.name === defaultVenue }, v.name)));
+
+    // Dates: the only thing to fill in. Several dates add the same session on each.
+    const dateList = el('div', { class: 'space-y-2' });
+    const submit = el('button', { type: 'submit', class: 'btn btn-primary w-full' });
+    const dateInputs = () => [...dateList.querySelectorAll('input[type=date]')];
+    const relabel = () => {
+      const n = dateInputs().filter((d) => d.value).length;
+      submit.textContent = n > 1 ? `Add ${n} sessions` : 'Add session';
+    };
+    const addDate = (value = '') => {
+      const input = el('input', { type: 'date', class: 'input', min: todaySG(), value, 'aria-label': 'Date', required: true });
+      input.addEventListener('change', relabel);
+      const remove = el('button', { type: 'button', class: 'icon-btn', 'aria-label': 'Remove this date' }, icon('x', 'size-5'));
+      remove.addEventListener('click', () => { if (dateInputs().length > 1) { rowEl.remove(); relabel(); } else input.value = ''; });
+      const rowEl = el('div', { class: 'flex items-center gap-2' }, input, remove);
+      dateList.append(rowEl);
+      relabel();
+      return input;
+    };
+    addDate();
+    const another = el('button', { type: 'button', class: 'btn btn-secondary btn-sm' }, icon('plus', 'size-4'), 'Add another date');
+    another.addEventListener('click', () => addDate().focus());
+
     const form = el('form', { novalidate: true, class: 'space-y-6' },
-      section('Session details', 'indigo',
-        field('title', 'Title', { placeholder: 'e.g. Art & Craft' }),
-        field('date', 'Date', { type: 'date', value: todaySG(), min: todaySG() }),
-        el('div', { class: 'grid grid-cols-2 gap-4' },
-          field('startTime', 'Starts', { type: 'time', value: '10:00' }),
-          field('endTime', 'Ends', { type: 'time', value: '12:00' })),
-        parts.venue,
+      section('Session', 'indigo',
+        el('div', {}, el('p', { class: 'label' }, 'Date'), dateList,
+          el('div', { class: 'mt-2' }, another),
+          el('p', { class: 'hint' }, 'Add several dates to put the same session on each, e.g. every Saturday this month.')),
+        el('div', {}, el('label', { class: 'label', for: 'f-titleChoice' }, 'Session'), titleSelect, titleOther),
+        el('div', {}, el('label', { class: 'label', for: 'f-timeChoice' }, 'Time'), timeSelect, timeOther),
+        el('div', {}, el('label', { class: 'label', for: 'f-venueChoice' }, 'Venue'), venueSelect,
+          el('p', { class: 'hint' }, 'Add or rename venues under Settings → Venues.')),
         parts.project),
-      section('For volunteers', 'green',
-        field('capacity', 'Volunteer slots', { type: 'number', min: 0, max: 500, inputmode: 'numeric', optional: true, placeholder: 'Leave empty for no limit' }),
-        field('notes', 'Notes', { type: 'textarea', optional: true, placeholder: 'What to wear or bring, where to meet' })),
-      section('Trainee pairing', 'purple', parts.trainees),
+      el('details', { class: 'card group overflow-hidden' },
+        el('summary', { class: 'section-head section-green cursor-pointer list-none select-none' }, 'More options (optional)',
+          icon('down', 'size-5 transition-transform duration-200 group-open:rotate-180')),
+        el('div', { class: 'space-y-4 p-4' },
+          field('capacity', 'Volunteer slots', { type: 'number', min: 0, max: 500, inputmode: 'numeric', optional: true, placeholder: 'Leave empty for no limit' }),
+          field('notes', 'Notes for volunteers', { type: 'textarea', optional: true, placeholder: 'What to wear or bring, where to meet' }),
+          parts.trainees)),
       el('div', { class: 'h-20' }),
       el('div', { class: 'action-bar' }, el('div', { class: 'mx-auto max-w-2xl' }, submit)));
     form.addEventListener('submit', (e) => {
       e.preventDefault();
-      const payload = sessionPayload(form);
-      if (!payload) return;
-      busy(submit, 'Creating…', async () => {
-        const res = await call('createSession', payload);
+      const dates = dateInputs().map((d) => d.value).filter(Boolean);
+      if (!dates.length) { toast('Pick a date.', 'warn'); dateInputs()[0].focus(); return; }
+      const title = titleSelect.value === OTHER ? titleOther.value.trim() : titleSelect.value;
+      if (!title) { toast('Give the session a name.', 'warn'); titleOther.focus(); return; }
+      const slot = timeSelect.value === OTHER ? null : opts.times[Number(timeSelect.value)];
+      const f = formData(form);
+      const payload = {
+        dates,
+        title,
+        startTime: slot ? slot.startTime : f.startTime,
+        endTime: slot ? slot.endTime : f.endTime,
+        venue: venueSelect.value,
+        project: parts.projectValues(),
+        capacity: f.capacity === '' || f.capacity === undefined ? 0 : Number(f.capacity),
+        notes: f.notes || '',
+        traineeIds: f.traineeIds ? f.traineeIds.split(',').filter(Boolean) : [],
+      };
+      if (!payload.venue) { toast('Add a venue first, under Settings → Venues.', 'warn'); return; }
+      busy(submit, 'Adding…', async () => {
+        const res = await call('createSessions', payload);
         app.saveAdminHome(res.home);
-        toast('Session created. Volunteers can book it now.');
-        app.go(`#/session/${res.session.sessionId}`);
+        toast(res.message, res.skipped.length ? 'warn' : 'ok');
+        if (res.created.length === 1) app.go(`#/session/${res.created[0].sessionId}`);
+        else if (res.created.length) app.go('#/today');
       });
     });
     mount(root, backLink('#/today', 'Sessions'), el('h1', { class: 'page-title mb-6' }, 'New session'), form);
   };
   const home = app.cachedAdminHome();
-  if (home && home.venues) {
+  if (home && home.venues && home.sessionOptions) {
     draw(home);
     return Promise.resolve();
   }

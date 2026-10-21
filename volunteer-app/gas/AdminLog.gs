@@ -9,6 +9,7 @@
 
 const ADMIN_ACTION_LABELS = {
   createSession: 'Created a session',
+  createSessions: 'Added sessions',
   updateSession: 'Edited a session',
   updateBooking: 'Changed a sign-up or pairing',
   addWalkIn: 'Added a walk-in',
@@ -52,6 +53,7 @@ function describeAdminAction_(action, p, out) {
   const list = (o) => Object.keys(o).filter((k) => ['userId', 'adminPassword', 'currentPassword', 'password'].indexOf(k) === -1).join(', ');
   switch (action) {
     case 'createSession': return `${p.title || ''} on ${p.date || ''}`;
+    case 'createSessions': return `${p.title || ''}, ${p.startTime || ''}–${p.endTime || ''}: ${out && out.created ? out.created.map((s) => s.date).join(', ') : ''}`;
     case 'updateSession': return `${session(p.sessionId)}: ${p.status ? `status → ${p.status}` : `changed ${list(p).replace('sessionId', '').replace(/^, |, $/g, '')}`}`;
     case 'updateBooking': {
       const b = booking(p.bookingId);

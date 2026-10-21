@@ -5,6 +5,7 @@
 //
 //   #/pairings            upcoming sessions that need pairing
 //   #/pairings/regular    each regular volunteer's fixed trainee
+//   #/pairings/history    who has been with whom, and each regular's trainees over time
 //   #/pair/<sessionId>    who is with whom at one session
 //
 // Rules (Pairing.gs): a volunteer has one trainee; a trainee can have several
@@ -14,10 +15,24 @@ import { call } from '../api.js';
 import {
   backLink, badge, el, errorBlock, fmtDay, fmtTimes, fuzzyFilter, loading, modal, mount, searchBox, toast, traineeAvatar, typeBadges,
 } from '../ui.js';
-import { icon } from '../../admin/js/kit.js';
+import { icon, panel, table } from '../../admin/js/kit.js';
 import { asPerson, asTrainee, personName, traineeName } from '../quickview.js';
 
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+
+/** "Together 3× · last Tue, 13 Oct", "Was their regular trainee …", or "New for them". */
+function historyText(h) {
+  if (!h) return 'New for them';
+  const parts = [];
+  if (h.regularNow) parts.push('Their regular trainee now');
+  else if (h.regularFrom) parts.push(`Was their regular trainee ${fmtDay(h.regularFrom)} – ${h.regularTo ? fmtDay(h.regularTo) : 'now'}`);
+  if (h.sessions) parts.push(`Together ${h.sessions}× · last ${fmtDay(h.last)}`);
+  return parts.join(' · ') || 'New for them';
+}
+const historyOf = (o, userId, traineeId) => ((o.history || {})[userId] || {})[traineeId];
+const historyLine = (o, userId, traineeId) => el('span', {
+  class: `pb-sub ${historyOf(o, userId, traineeId) ? 'font-bold text-indigo-700 dark:text-indigo-300' : 'text-emerald-700 dark:text-emerald-400'}`,
+}, historyText(historyOf(o, userId, traineeId)));
 
 /**
  * The two-column board. All data comes in `o`; it redraws itself when filters
@@ -39,14 +54,27 @@ function pairBoard(o) {
     const listHost = el('div', { class: 'mt-3 space-y-1' });
     const byTrainee = pairedTo();
     const draw = () => {
-      const shown = fuzzyFilter(o.trainees, q, (t) => [t.name, t.preferredName, t.id]);
+      let shown = fuzzyFilter(o.trainees, q, (t) => [t.name, t.preferredName, t.id]);
+      if (o.newFirst && !q) {
+        // Regular pairings: trainees this regular hasn't been with come first, to encourage variety.
+        const seen = (t) => { const h = historyOf(o, v.userId, t.id); return h ? 1 + (h.sessions || 0) : 0; };
+        shown = [...shown].sort((a, b) => seen(a) - seen(b));
+      }
+      // Who they've been with, most recent first: so past trainees are visible even when "new first" pushes them down the list.
+      const past = Object.keys((o.history || {})[v.userId] || {}).map((id) => ({ id, h: o.history[v.userId][id], t: o.trainees.find((x) => x.id === id) }))
+        .filter((x) => x.t).sort((a, b) => String(b.h.regularFrom || b.h.last).localeCompare(String(a.h.regularFrom || a.h.last)));
       mount(listHost,
+        past.length && !q ? el('div', { class: 'well mb-2 p-3 text-xs' },
+          el('p', { class: 'font-bold uppercase tracking-wider muted' }, 'Been with before'),
+          el('ul', { class: 'mt-1 space-y-0.5' }, past.slice(0, 6).map((x) => el('li', {}, el('span', { class: 'font-bold' }, x.t.name), ` · ${historyText(x.h)}`)))) : null,
+        el('p', { class: 'px-1 pb-1 text-xs muted' }, o.newFirst ? 'Trainees new for them are listed first.' : 'Each trainee shows whether they have been together before.'),
         v.traineeId ? el('button', { type: 'button', class: 'pick-row font-bold text-red-600 dark:text-red-400', onclick: () => save(null) }, icon('x', 'size-5'), `Unpair from ${v.traineeName}`) : null,
         shown.slice(0, 60).map((t) => {
           const others = (byTrainee[t.id] || []).filter((x) => x.key !== v.key);
           return asTrainee(el('button', { type: 'button', class: `pick-row ${t.id === v.traineeId ? 'select-ring' : ''}`, onclick: () => save(t) },
             el('span', { class: 'min-w-0 flex-1' },
               el('span', { class: 'pb-name' }, t.name),
+              historyLine(o, v.userId, t.id),
               el('span', { class: 'pb-sub' }, [t.note, others.length ? `With ${others.map((x) => x.name).join(', ')}` : 'No one yet'].filter(Boolean).join(' · '))),
             t.id === v.traineeId ? icon('tick', 'size-5 text-indigo-600') : null), t.id);
         }),
@@ -72,7 +100,8 @@ function pairBoard(o) {
         return asPerson(el('button', { type: 'button', class: `pick-row ${here ? 'select-ring' : ''}`, onclick: () => save(v, here) },
           el('span', { class: 'min-w-0 flex-1' },
             el('span', { class: 'pb-name' }, v.name),
-            el('span', { class: 'pb-sub' }, here ? 'Paired here: tap to unpair' : v.traineeId ? `Now with ${v.traineeName}: tap to move here` : 'Unpaired')),
+            el('span', { class: 'pb-sub' }, here ? 'Paired here: tap to unpair' : v.traineeId ? `Now with ${v.traineeName}: tap to move here` : 'Unpaired'),
+            historyLine(o, v.userId, t.id)),
           el('span', { class: 'flex shrink-0 flex-wrap gap-1' }, typeBadges(v))), v.userId);
       }), !sorted.length ? el('p', { class: 'p-3 text-sm muted' }, o.emptyVolunteers || 'No volunteers.') : null);
     };
@@ -188,6 +217,7 @@ export function renderSessionPairing(root, app, ctx, sessionId) {
     return {
       volunteers,
       trainees,
+      history: d.history || {},
       volunteerLabel: 'Volunteers',
       warnLabel: 'Needs someone',
       emptyVolunteers: 'No one has said they\'re coming yet.',
@@ -237,9 +267,57 @@ export function renderSessionPairing(root, app, ctx, sessionId) {
 
 /* ---------------- the Pairing menu: sessions, and regulars' fixed trainees ---------------- */
 
+/* ---------------- history ---------------- */
+
+function renderHistory(host, app, ctx) {
+  let data = null;
+  let query = '';
+  const listHost = el('div', {});
+  const draw = () => {
+    if (!data) return;
+    const match = (x) => [x.volunteerName, x.traineeName];
+    const periods = fuzzyFilter(data.regularPeriods, query, match);
+    const pairs = fuzzyFilter(data.pairs, query, match);
+    mount(listHost,
+      el('div', { class: 'mt-4' }, panel(`Regular pairing changes (${periods.length})`, null,
+        el('p', { class: 'px-4 pt-3 text-xs muted' }, 'Each regular volunteer\'s fixed trainees over time, newest last. Change one under Regular pairings.'),
+        table([
+          { label: 'Regular', cell: (x) => personName(x.volunteerName, x.userId, 'font-bold') },
+          { label: 'Trainee', cell: (x) => traineeName(x.traineeName, x.traineeId) },
+          { label: 'From', cell: (x) => (x.from ? fmtDay(x.from) : ''), class: 'whitespace-nowrap' },
+          { label: 'To', cell: (x) => (x.active ? badge('Now', 'emerald') : x.to ? fmtDay(x.to) : ''), class: 'whitespace-nowrap' },
+          { label: 'Sessions together', cell: (x) => String(x.sessions), class: 'text-right' },
+        ], periods, { empty: query ? 'No match.' : 'No regular pairings yet.' }))),
+      el('div', { class: 'mt-6' }, panel(`Sessions together (${pairs.length} pairs)`, null,
+        el('p', { class: 'px-4 pt-3 text-xs muted' }, 'Every volunteer and trainee who have been at a session together (clocked in), most recent first.'),
+        table([
+          { label: 'Volunteer', cell: (x) => el('span', { class: 'flex flex-wrap items-center gap-1' }, personName(x.volunteerName, x.userId, 'font-bold'),
+            x.type === 'regular' ? badge('Regular', 'emerald') : null) },
+          { label: 'Trainee', cell: (x) => el('span', { class: 'flex flex-wrap items-center gap-1' }, traineeName(x.traineeName, x.traineeId),
+            x.regularNow ? badge('Regular pair', 'purple') : null) },
+          { label: 'Sessions', cell: (x) => String(x.sessions), class: 'text-right' },
+          { label: 'Last together', cell: (x) => fmtDay(x.last), class: 'whitespace-nowrap' },
+          { label: 'First', cell: (x) => fmtDay(x.first), class: 'whitespace-nowrap' },
+        ], pairs, { empty: query ? 'No match.' : 'No sessions together yet.' }))));
+  };
+  mount(host,
+    searchBox('Search a volunteer or trainee', (q) => { query = q; draw(); }, 'Search pairing history'),
+    listHost);
+  mount(listHost, loading());
+  return call('pairingHistory').then((d) => { data = d; if (ctx.alive()) draw(); })
+    .catch((err) => { if (ctx.alive()) mount(listHost, errorBlock(err, () => app.rerender())); });
+}
+
 export function renderStandingPairings(root, app, ctx, tab) {
   const regular = tab === 'regular';
   const host = el('div', {});
+  if (tab === 'history') {
+    mount(root,
+      el('h1', { class: 'page-title mb-1' }, 'Pairing history'),
+      el('p', { class: 'mb-4 text-sm muted' }, 'Who has been with whom. Use it to pair someone familiar, or to give a regular a trainee they haven\'t been with yet.'),
+      host);
+    return renderHistory(host, app, ctx);
+  }
   mount(root,
     el('h1', { class: 'page-title mb-1' }, 'Pairing'),
     el('p', { class: 'mb-4 text-sm muted' }, regular
@@ -273,6 +351,8 @@ export function renderStandingPairings(root, app, ctx, tab) {
       note: t.preferredName && t.preferredName !== t.name ? t.preferredName : '',
       warn: (vols) => !vols.length,
     })),
+    history: d.history || {},
+    newFirst: true,
     volunteerLabel: 'Regulars',
     warnLabel: 'No regular',
     emptyVolunteers: 'No regular volunteers yet. Volunteers become regulars after 10 sessions, or promote them under Volunteers.',

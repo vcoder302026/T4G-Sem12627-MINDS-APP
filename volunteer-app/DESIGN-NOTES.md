@@ -52,6 +52,10 @@ Mode" or the separate staff dashboard; those are replaced as follows.
   `web/js/quickview.js`, which set `data-person` / `data-trainee`); one document-level
   listener opens the quick card, so a new page gets the behaviour just by using the helpers.
   Volunteer contact details are fetched on demand and only for admins.
+- **Pairing history** counts sessions a pair actually attended (a clock-in on the booking), not
+  sign-ups, and keeps every Regular Pairings row (ended ones too) as each regular's trainees over
+  time. Pairing screens get it per volunteer (`pairHistoryFor_` in `Pairing.gs`); the full list is
+  `pairingHistory_` (admins only).
 - **A short admin menu.** Six sections plus More (`ADMIN_SECTIONS` in `web/js/app.js`);
   pages that belong together are tabs drawn by the shell above the page, so the page code
   doesn't change when the grouping does.

@@ -541,3 +541,18 @@ export function traineeAvatar(t, size = 'md') {
   img.addEventListener('error', () => img.replaceWith(placeholder()));
   return img;
 }
+
+/** A project's short name for badges: the code in brackets, e.g. "RSPID", else the name. */
+export function projectShort(name) {
+  const m = /\(([^()]{1,12})\)\s*$/.exec(String(name || ''));
+  return m ? m[1] : String(name || '');
+}
+
+/** One badge per project, with the full name on hover. */
+export function projectBadges(projects) {
+  return (projects || []).map((p) => {
+    const b = badge(projectShort(p), 'emerald');
+    b.title = p;
+    return b;
+  });
+}

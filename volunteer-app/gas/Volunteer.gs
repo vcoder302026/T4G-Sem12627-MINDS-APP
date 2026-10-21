@@ -17,6 +17,7 @@ function sessionOut_(s) {
     venue: s.venue,
     venueAddress: venue ? venue.address : '',
     project: s.project || '',
+    projects: parseProjects_(s.project),
     capacity: Number(s.capacity) || 0,
     notes: s.notes,
     traineeIds: parseIds_(s.traineeIds),
@@ -35,6 +36,23 @@ function attendanceOut_(a) {
     hours: a.clockOut ? Number(a.hours) || 0 : null,
     method: a.method,
   };
+}
+
+/**
+ * A finished session for the volunteer's history, with the trainee they were
+ * paired with. `canView`: whether they may still open that trainee's details
+ * (regulars and admins always; ad hoc volunteers for FEEDBACK_WINDOW_DAYS).
+ */
+function historyOut_(a, bookings, user, today) {
+  const b = a.bookingId ? bookings.find((x) => x.bookingId === a.bookingId) : null;
+  const out = attendanceOut_(a);
+  if (b && b.traineeId) {
+    const canView = user.role === 'admin' || volunteerType_(user) === 'regular' || String(a.date) >= addDays_(today, -CONFIG.FEEDBACK_WINDOW_DAYS);
+    out.trainee = { id: String(b.traineeId), name: b.traineeName, canView };
+  } else {
+    out.trainee = null;
+  }
+  return out;
 }
 
 function qrCode_(userId, dateStr) {
@@ -69,7 +87,7 @@ function volunteerHome_(p, user) {
       status: 'confirmed', // "coming" (older rows may still say pending)
       walkIn: b.walkIn === 'Yes',
       session: sessionOut_(sessionById[b.sessionId]),
-      trainee: b.traineeId ? traineeForVolunteer_(b.traineeId, user) : null,
+      trainee: b.traineeId ? traineeOnHome_(b.traineeId) : null, // name and photo; details on request (traineeInfo)
       pairing: b.traineeId ? (b.pairing === 'standing' ? 'standing' : 'manual') : '',
       attendance: a ? attendanceOut_(a) : null,
       canCancel: !a,
@@ -114,13 +132,13 @@ function volunteerHome_(p, user) {
     today,
     guideRead: Boolean(user.guideReadAt),
     volunteerType: type,
-    // A regular's fixed trainee, in full, shown once at the top of Home. (Promotion
-    // to regular is automatic and not shown to volunteers.)
-    regularTrainee: fixed ? traineeForVolunteer_(fixed.traineeId, user) : null,
+    // A regular's fixed trainee, shown once at the top of Home. (Promotion to
+    // regular is automatic and not shown to volunteers.)
+    regularTrainee: fixed ? traineeOnHome_(fixed.traineeId) : null,
     upcoming,
     openSessions,
     pendingFeedback,
-    history: sortBy_(completed, (a) => a.clockIn).reverse().slice(0, 30).map(attendanceOut_),
+    history: sortBy_(completed, (a) => a.clockIn).reverse().slice(0, 30).map((a) => historyOut_(a, allBookings, user, today)),
     totals: { hours: Math.round(totalHours * 100) / 100, sessions: completed.length },
     qr: qrDates.map((d) => ({ date: d, code: qrCode_(user.userId, d) })),
   };

@@ -36,11 +36,18 @@ Sources: the October meeting minutes with MINDS, `VERSION-2.md` §2 and §5, and
   the volunteer edit form in `web/admin/js/views/people.js`.
 
 ### 1.3 Sessions and outings
-- [ ] Mr Sadil to confirm whether admins keep creating and editing sessions in the app (the
-  edit form shows "MINDS is reviewing how sessions are set up")
+- [x] Adding a session is just picking dates: "Regular session", 2:30–5:30 pm, Woodlands are
+  pre-filled dropdowns (`SESSION_OPTIONS` in `gas/Config.gs`; add more names or time slots there)
+- [ ] Mr Sadil to confirm the editing side (the edit form still shows every field, with "MINDS is
+  reviewing how sessions are set up"), and whether other session names or time slots are needed
 - [ ] Decide how session attendance and outing attendance relate (discuss in person)
 - [ ] Decide whether outings, fundraising and house visits stay in this app or are removed
   (they're kept under Admin → "Later (placeholders)"). Overseas trip attendance stays separate.
+
+### 1.3b Project descriptions
+- [ ] MINDS to check the short descriptions of **West End (WE)** and **Regular Service Project for
+  the Intellectually Disabled (RSPID)** shown in the Volunteer Guide (written as placeholders;
+  admins can edit them under Settings → Guide & projects)
 
 ### 1.4 More than one trainee per regular?
 - [ ] Confirm. The minutes say a regular may be paired with more than one trainee; we built
@@ -149,8 +156,7 @@ Sources: the October meeting minutes with MINDS, `VERSION-2.md` §2 and §5, and
 
 ## 5. Left out on purpose
 
-- **History of each trainee's previous partners** (first point in the minutes): skipped, as
-  agreed. The admin trainee page still lists recent sessions and who they were with.
+- (Now built, for admins: Pairing → History. See PROGRESS.md session 17.)
 - **Automatic pairing of ad hoc volunteers** (Version 1's "fewest pairings" rule): replaced, at
   MINDS's request, by regulars' fixed trainees and admins pairing everyone else.
 - **Separate admin login:** the minutes suggested a separate admin profile; later guidance was

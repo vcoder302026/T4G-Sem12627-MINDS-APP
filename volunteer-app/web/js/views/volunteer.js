@@ -6,9 +6,10 @@ import { call, isNetworkError } from '../api.js';
 import { drawQr } from '../qr.js';
 import {
   backLink, badge, busy, clockTime, el, errorBlock, field, fmtDay, fmtHours, fmtTimes, formData, fuzzyFilter, icon,
-  initials, likert, loading, mapsLink, mount, searchBox, section, statusBadge, toast, todaySG, typeBadges,
+  initials, likert, loading, mapsLink, mount, projectBadges, searchBox, section, statusBadge, toast, todaySG, typeBadges,
 } from '../ui.js';
-import { traineeCard, traineeLine } from './trainees.js';
+import { traineeLine } from './trainees.js';
+import { traineeName } from '../quickview.js';
 
 /** Draw from cache, then from the server. `draw` gets the volunteerHome payload. */
 async function withHome(root, app, ctx, draw) {
@@ -97,7 +98,6 @@ export function renderHome(root, app, ctx) {
     const later = h.upcoming.filter((u) => u.session.date !== today);
 
     const admin = app.cachedAdminHome();
-    const regular = h.volunteerType === 'regular';
     mount(root,
       el('div', { class: 'flex flex-wrap items-center gap-2' },
         el('h1', { class: 'page-title' }, `Welcome, ${firstName(h.user.name)}!`),
@@ -112,8 +112,8 @@ export function renderHome(root, app, ctx) {
           el('span', { class: 'block font-bold text-slate-900 dark:text-white' }, 'Admin'),
           el('span', { class: 'block muted' }, [admin.unpairedTotal ? `${admin.unpairedTotal} to pair` : '', admin.reviewCount ? `${admin.reviewCount} note${admin.reviewCount === 1 ? '' : 's'} to review` : ''].filter(Boolean).join(' · '))),
         icon('chevron', 'size-5 text-slate-400')) : null,
-      // Regulars: their trainee's details once, here, instead of on every session.
-      h.regularTrainee ? traineeCard(h.regularTrainee, 'standing') : null,
+      // Regulars: their fixed trainee, once. Details: press and hold, or tap.
+      h.regularTrainee ? traineeLine(h.regularTrainee, 'standing', 'Your regular trainee') : null,
 
       h.pendingFeedback.map((f) => el('div', { class: 'card mt-4 border-l-4 border-l-amber-400 p-4' },
         badge('Feedback needed', 'amber', 'message'),
@@ -131,7 +131,7 @@ export function renderHome(root, app, ctx) {
             sessionMeta(u.session)),
           u.attendance ? null : statusBadge(u.status)),
         attendanceBox(u.attendance),
-        regular ? traineeLine(u.trainee, u.pairing) : traineeCard(u.trainee, u.pairing),
+        traineeLine(u.trainee, u.pairing),
         !u.trainee && !u.attendance ? el('p', { class: 'alert alert-info mt-4' }, UNPAIRED_HINT) : null,
         u.attendance && u.attendance.clockOut ? null
           : el('a', { href: '#/pass', class: 'btn btn-primary mt-4 w-full' }, icon('qr'), 'Show my QR pass'))),
@@ -146,7 +146,7 @@ export function renderHome(root, app, ctx) {
               el('p', { class: 'text-sm muted' }, `${fmtTimes(u.session)}, `, venueLink(u.session))),
             statusBadge(u.status)),
           u.trainee ? null : el('p', { class: 'mt-2 text-xs muted' }, UNPAIRED_HINT),
-          regular ? traineeLine(u.trainee, u.pairing) : traineeCard(u.trainee, u.pairing),
+          traineeLine(u.trainee, u.pairing),
           el('div', { class: 'mt-2' }, cancelButton(app, u, draw)))))
         : emptyState('calendar', "You haven't signed up for any sessions", "Find sessions that suit you and say you're coming.",
           el('a', { href: h.guideRead === false ? '#/guide' : '#/sessions', class: 'btn btn-primary mt-5' }, h.guideRead === false ? 'Read the guide first' : 'Find a session')));
@@ -271,7 +271,7 @@ export function renderSessions(root, app, ctx) {
         el('h3', { class: 'font-bold text-slate-900 dark:text-white' }, s.title),
         el('p', { class: 'text-sm text-slate-700 dark:text-neutral-300' }, `${fmtTimes(s)}, `, venueLink(s)),
         s.notes ? el('p', { class: 'mt-1 text-sm muted' }, s.notes) : null,
-        spots || s.project ? el('div', { class: 'mt-2 flex flex-wrap gap-1.5' }, s.project ? badge(s.project, 'emerald') : null, spots) : null),
+        spots || (s.projects && s.projects.length) ? el('div', { class: 'mt-2 flex flex-wrap gap-1.5' }, projectBadges(s.projects), spots) : null),
       el('span', { class: 'shrink-0' }, action));
     return rowEl;
   };
@@ -354,7 +354,11 @@ export function renderMe(root, app, ctx) {
         ? list(h.history.map((a) => el('div', { class: 'flex items-center justify-between gap-3 p-4' },
           el('div', { class: 'min-w-0' },
             el('p', { class: 'font-bold text-slate-900 dark:text-white' }, a.sessionTitle),
-            el('p', { class: 'text-sm muted' }, `${fmtDay(a.date, h.today)}, ${clockTime(a.clockIn)}–${clockTime(a.clockOut)}`)),
+            el('p', { class: 'text-sm muted' }, `${fmtDay(a.date, h.today)}, ${clockTime(a.clockIn)}–${clockTime(a.clockOut)}`),
+            // Who they were with. The name opens the trainee's details while they may still see them.
+            el('p', { class: 'mt-0.5 text-sm' }, a.trainee
+              ? ['With ', a.trainee.canView ? traineeName(a.trainee.name, a.trainee.id, 'font-bold') : el('span', { class: 'font-bold' }, a.trainee.name)]
+              : el('span', { class: 'muted' }, 'No trainee paired'))),
           badge(fmtHours(a.hours), 'indigo'))))
         : emptyState('clock', 'No completed sessions yet', 'Sessions you finish will be listed here with your hours.'),
       app.isAdmin ? el('a', { href: '#/admin', class: 'btn btn-secondary mt-6 w-full' }, icon('shield'), 'Admin menu') : null,

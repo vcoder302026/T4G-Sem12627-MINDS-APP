@@ -1,4 +1,4 @@
-// Trainees for volunteers: the card on an upcoming session, a trainee's page
+// Trainees for volunteers: the one-line trainee on Home, a trainee's page
 // (#/info/<id>: regulars can open any trainee, volunteers only their paired
 // one, each seeing what admins allow), the regulars' trainee list
 // (#/directory), and the admins' review queue for volunteer notes.
@@ -21,45 +21,21 @@ function notesList(notes) {
     el('p', { class: 'mt-0.5 text-xs muted' }, `${n.author || sourceLabel(n.source)}, ${fmtDay(n.date)}`))));
 }
 
-/* ---------------- "Your trainee" on a session ---------------- */
-
-/** What a paired volunteer sees about their trainee on Home (only the details admins allow). */
-export function traineeCard(trainee, pairing) {
-  if (!trainee) return null;
-  const notes = trainee.notes || [];
-  return el('div', { class: 'well mt-4 overflow-hidden' },
-    el('div', { class: 'p-4' },
-      el('div', { class: 'flex items-center gap-3' },
-        traineeAvatar(trainee, 'md'),
-        el('div', { class: 'min-w-0 flex-1' },
-          el('p', { class: 'text-xs font-bold uppercase tracking-wider muted' }, pairing === 'standing' ? 'Your regular trainee' : 'Your trainee'),
-          el('p', { class: 'mt-0.5 text-lg font-bold text-slate-900 dark:text-white' }, traineeName(trainee.name, trainee.id),
-            trainee.preferredName && trainee.preferredName !== trainee.name ? el('span', { class: 'text-sm font-medium muted' }, ` (goes by ${trainee.preferredName})`) : null)),
-        trainee.gender ? badge(trainee.gender, 'slate', 'user') : null),
-      trainee.fields.length ? el('dl', { class: 'mt-3 space-y-2 text-sm' }, trainee.fields.map((f) => el('div', {},
-        el('dt', { class: 'font-bold text-slate-700 dark:text-neutral-200' }, f.label),
-        el('dd', { class: 'whitespace-pre-line text-slate-600 dark:text-neutral-400' }, f.value)))) : null,
-      el('a', { href: `#/info/${encodeURIComponent(trainee.id)}`, class: 'btn btn-secondary btn-sm mt-3' }, icon('eye', 'size-4'),
-        trainee.moreDetails ? 'See all details and notes' : 'Open profile')),
-    notes.length ? el('details', { class: 'group border-t border-slate-200 dark:border-neutral-800' },
-      el('summary', { class: 'flex cursor-pointer list-none items-center justify-between gap-2 px-4 py-3 text-sm font-bold text-indigo-700 dark:text-indigo-300' },
-        el('span', { class: 'flex items-center gap-2' }, icon('book', 'size-4'), `Notes from previous volunteers (${notes.length})`),
-        icon('down', 'size-4 transition-transform group-open:rotate-180')),
-      el('div', { class: 'px-4 pb-4' }, notesList(notes))) : null);
-}
+/* ---------------- "Your trainee" on Home ---------------- */
 
 /**
- * One line instead of the full card: for regulars, whose trainee's details are
- * shown once at the top of Home rather than on every session.
+ * One line on Home: photo, name and a hint. Details stay out of the way:
+ * press and hold for the quick card (quickview.js), or tap for the full page.
  */
-export function traineeLine(trainee, pairing) {
+export function traineeLine(trainee, pairing, label) {
   if (!trainee) return null;
-  return el('a', { href: `#/info/${encodeURIComponent(trainee.id)}`, class: 'well mt-3 flex items-center gap-3 p-3 hover:shadow-sm' },
+  return asTrainee(el('a', { href: `#/info/${encodeURIComponent(trainee.id)}`, class: 'well mt-3 flex items-center gap-3 p-3 hover:shadow-sm' },
     traineeAvatar(trainee, 'sm'),
     el('span', { class: 'min-w-0 flex-1' },
-      el('span', { class: 'block text-xs font-bold uppercase tracking-wider muted' }, pairing === 'standing' ? 'With your regular trainee' : 'With'),
-      traineeName(trainee.name, trainee.id, 'block truncate font-bold text-slate-900 dark:text-white')),
-    icon('chevron', 'size-5 text-slate-400'));
+      el('span', { class: 'block text-xs font-bold uppercase tracking-wider muted' }, label || (pairing === 'standing' ? 'With your regular trainee' : 'Your trainee')),
+      traineeName(trainee.name, trainee.id, 'block truncate font-bold text-slate-900 dark:text-white'),
+      el('span', { class: 'block text-xs muted' }, 'Press and hold for details')),
+    icon('chevron', 'size-5 text-slate-400')), trainee.id);
 }
 
 /* ---------------- a trainee's page (volunteers and regulars) ---------------- */

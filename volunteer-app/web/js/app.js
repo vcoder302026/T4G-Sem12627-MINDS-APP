@@ -207,7 +207,7 @@ const VOLUNTEER_ITEMS = [
 const ADMIN_SECTIONS = [
   { key: 'overview', label: 'Dashboard', icon: 'dashboard', pages: [['overview', 'Overview'], ['log', 'Activity log']] },
   { key: 'today', label: 'Sessions', icon: 'calendar', also: ['session', 'new-session', 'scan', 'clock'] },
-  { key: 'pairings', label: 'Pairing', icon: 'sparkle', pages: [['pairings', 'Sessions to pair'], ['pairings/regular', 'Regular pairings']], also: ['pair'] },
+  { key: 'pairings', label: 'Pairing', icon: 'sparkle', pages: [['pairings', 'Sessions to pair'], ['pairings/regular', 'Regular pairings'], ['pairings/history', 'History']], also: ['pair'] },
   { key: 'volunteers', label: 'Volunteers', icon: 'users', pages: [['volunteers', 'People'], ['attendance', 'Attendance'], ['hours', 'Hours']], also: ['volunteer'] },
   { key: 'trainees', label: 'Trainees', icon: 'heart', pages: [['trainees', 'Trainees'], ['review', 'Notes to review'], ['visibility', 'What volunteers see']], also: ['trainee'] },
   { key: 'guide-edit', label: 'Settings', icon: 'pencil', pages: [['guide-edit', 'Guide & projects'], ['venues', 'Venues']] },
@@ -358,7 +358,7 @@ function renderChrome(name, full = name) {
   if (onTabbedPage) {
     mount(pagetabs, el('div', { class: 'seg', role: 'tablist' }, section.pages.map(([r, label]) => el('a', {
       href: `#/${r}`, class: 'seg-item', role: 'tab', 'aria-current': r === full ? 'page' : null,
-    }, label, count(r) ? el('span', { class: 'ml-1 rounded-full bg-amber-500 px-1.5 text-[10px] font-bold leading-4 text-white' }, String(count(r))) : null))));
+    }, label, count(r) ? el('span', { class: 'tab-count' }, String(count(r))) : null))));
   }
 
   // Computers: the same items in a sidebar.
@@ -397,6 +397,8 @@ function go(hash, force = false) {
 }
 
 function route() {
+  // A pop-up belongs to the page it was opened on.
+  document.querySelectorAll('dialog[open]').forEach((d) => { try { d.close(); } catch { /* ignore */ } });
   leaving.forEach((fn) => { try { fn(); } catch { /* ignore */ } });
   leaving = [];
   events = {};

@@ -194,7 +194,17 @@ function cardFields_(sections, max) {
   return fields;
 }
 
-/** The trainee card on a volunteer's upcoming session (Volunteer.gs → volunteerHome). */
+/**
+ * What Home shows about a trainee: name and photo only. The details come when
+ * the volunteer presses and holds the name, or opens the trainee's page
+ * (traineeInfo_), so less personal data sits on volunteers' phones.
+ */
+function traineeOnHome_(id) {
+  const row = traineeById_(id);
+  return row ? traineeBasics_(row) : null;
+}
+
+/** A short trainee card with up to 8 allowed details and shared notes (kept for other screens). */
 function traineeForVolunteer_(id, user) {
   const row = traineeById_(id);
   if (!row) return null;

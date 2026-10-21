@@ -201,8 +201,15 @@ export function renderVolunteer(root, app, ctx, userId) {
             table([
               { label: 'Date', cell: (r) => day(r.date), class: 'whitespace-nowrap' },
               { label: 'Session', cell: (r) => r.title },
+              { label: 'Trainee', cell: (r) => (r.traineeName ? traineeName(r.traineeName, r.traineeId) : '') },
               { label: 'Hours', cell: (r) => hours(r.hours), class: 'text-right' },
             ], d.recent, { empty: 'No completed sessions yet.' })),
+          d.regularHistory && d.regularHistory.length ? panel('Regular trainees over time', el('a', { href: '#/pairings/history', class: 'link text-sm' }, 'Pairing history'),
+            table([
+              { label: 'Trainee', cell: (x) => traineeName(x.traineeName, x.traineeId) },
+              { label: 'From', cell: (x) => (x.from ? day(x.from) : ''), class: 'whitespace-nowrap' },
+              { label: 'To', cell: (x) => (x.active ? badge('Now', 'emerald') : x.to ? day(x.to) : ''), class: 'whitespace-nowrap' },
+            ], d.regularHistory)) : null,
           panel('Profile and access', null, el('div', { class: 'flex flex-wrap gap-2 p-4' }, typeBtn, roleBtn, resetBtn, statusBtn),
             el('p', { class: 'px-4 pb-4 text-xs muted' }, 'Removing an admin, or deactivating one, asks for your password. Every change is in the Activity log.')))));
   };

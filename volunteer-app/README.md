@@ -70,10 +70,10 @@ ideally at least one regular; the app flags trainees without one.
 | **1. Register and profile** | Sign up with name, birthday, email, phone, Telegram and emergency contact. Edit details later under **Me**. (The fields will follow MINDS's registration form once it's shared.) |
 | **2. Volunteer Guide** | New volunteers read a short guide (text, plus any infographics: pictures or PDFs) and tap **I've read the guide** before their first sign-up. |
 | **3. Upcoming sessions** | Every volunteer sees the upcoming sessions. Tick every one you can come to and tap **I'm coming**: no waiting for a confirmation. **Can't make it** takes you off a session. |
-| **4. Your trainee** | Once paired, see your trainee's photo, allowed details and notes from earlier volunteers, and open their full page. Regulars see their fixed trainee's details once, at the top of Home; each session then just says who they're with. |
+| **4. Your trainee** | Once paired, Home shows one line per session: your trainee's photo and name. **Press and hold** it for a quick card (key details and the latest note from earlier volunteers), or tap it for their full page. Regulars also see their fixed trainee once, at the top of Home. |
 | **5. QR pass** | Show a QR code to clock in and out. Passes are stored on the phone, so they work without signal. |
 | **6. Feedback and updates** | Rate a session and leave an observation, or send an update about your trainee any time. An admin reviews it before other volunteers see it. |
-| **7. Hours** | Hours and sessions volunteered. (Becoming a regular after 10 sessions happens automatically and isn't shown to volunteers.) |
+| **7. Hours and history** | Hours and sessions volunteered, and each past session with the trainee they were paired with (press and hold the name for details; ad hoc volunteers can for 14 days after the session). Becoming a regular after 10 sessions happens automatically and isn't shown to volunteers. |
 | **8. Trainees (regulars)** | Browse every trainee, read their details and send updates about any of them. |
 
 ### For admins (Admin menu)
@@ -86,9 +86,9 @@ press have a dotted underline.
 | Section | Tabs | What admins do there |
 | --- | --- | --- |
 | **Dashboard** | Overview · Activity log | New and regular volunteers, trainees without a regular, who's coming and who still needs pairing. The **activity log** lists every change an admin makes (also kept in the sheet). |
-| **Sessions** | | Who's coming to each session (no-shows after the day). Each session has **Pair**, **Scan** and **Clock in** (by hand, with walk-ins) on its row. Create, edit, close or cancel sessions. |
-| **Pairing** | Sessions to pair · Regular pairings | The WERONE-style board for each session (volunteers beside trainees, search, **Unpaired** filter, tap to pair, **Pairing list** to screenshot), and each regular's fixed trainee. |
-| **Volunteers** | People · Attendance · Hours | Profiles, sessions, no-shows and hours; promote to regular, make or remove admins (**your password** to remove one), reset passwords, **Deactivate** from the list. Every clock-in and out, fixing missed scans, and hours exported as CSV. |
+| **Sessions** | | Who's coming to each session (no-shows after the day). Each session has **Pair**, **Scan** and **Clock in** (by hand, with walk-ins) on its row. **New session**: just pick the date (or several dates): it's a "Regular session", 2:30–5:30 pm at Woodlands, for both projects (**West End (WE)** and **Regular Service Project for the Intellectually Disabled (RSPID)**) unless you change the dropdowns or untick a project. Edit, close or cancel sessions. |
+| **Pairing** | Sessions to pair · Regular pairings · History | The WERONE-style board for each session (volunteers beside trainees, search, **Unpaired** filter, tap to pair, **Pairing list** to screenshot), and each regular's fixed trainee. When choosing, each trainee shows the pair's history ("Together 3× · last 13 Oct", "Was their regular trainee …", or "New for them"); for a regular's fixed trainee, new-for-them trainees come first, to rotate regulars through different trainees. **History**: every pair that has been at a session together, and each regular's fixed trainees over time. |
+| **Volunteers** | People · Attendance · Hours | Profiles, sessions (with the trainee each was paired with), no-shows and hours; promote to regular, make or remove admins (**your password** to remove one), reset passwords, **Deactivate** from the list. Every clock-in and out, fixing missed scans, and hours exported as CSV. |
 | **Trainees** | Trainees · Notes to review · What volunteers see | Every trainee's details grouped like the House Visit form, their **photo** (add, change, remove), regular volunteers and notes. Volunteer notes waiting to be shared. Which details volunteers and regulars see (a default, per trainee, "Set as default"). The form's list of attached volunteers is hidden. |
 | **Settings** | Guide & projects · Venues | The Volunteer Guide: text sections and **infographics** (a picture or PDF, uploaded or from Google Drive), projects and venues. |
 | **More** | Fundraising · Outings · Overseas trips · House visits | Version 1 placeholders, parked until MINDS decides how they fit. |
@@ -222,7 +222,7 @@ admin, so you can be signed in as both at once.
 | 3 | Regular (Rex) | Sign up for a session | You're paired with Mock Trainee 1 at once ("your regular trainee") |
 | 4 | Admin | Admin → Sessions → **Pair** on a session; tap Sam, pick a trainee; press and hold any name | The unpaired count drops; the quick card shows Telegram, or a trainee's photo and details |
 | 5 | Admin | Pairing → **Regular pairings**: give Rina a different trainee | Rina's upcoming sessions move to the new trainee |
-| 6 | Admin | Sessions → **Clock in** on today's Art & Craft → clock Sam in, then out | Sam becomes a **Regular** (10 sessions) |
+| 6 | Admin | Sessions → **Clock in** on today's Regular session → clock Sam in, then out | Sam becomes a **Regular** (10 sessions) |
 | 7 | Regular | Trainees → any trainee → **Send update** | It waits under Admin → Notes to review |
 | 8 | Volunteer (Vera) | Home → your trainee → **See all details** | Only the allowed details appear; another trainee's page is refused |
 | 9 | Admin | Trainees → a trainee → **What volunteers see**; untick a detail; save | Vera no longer sees it for that trainee |
@@ -520,6 +520,7 @@ Only start this after the Exp test rounds (Stage 9) are finished and MINDS has a
 | `TRAINEES.hiddenSections` | `Volunteers' Details` | Form sections never shown in the app |
 | `TRAINEES.cardSections` | For volunteers, Behaviour, Medical & Health, Abilities / Skills, Trainee's Details | Which details lead the short trainee card on Home |
 | `DEFAULT_VENUES` | MINDS Woodlands Gardens School | Venues `setup()` adds when the Venues tab is empty |
+| `SESSION_OPTIONS` | Regular session; 2:30 pm – 5:30 pm; MINDS Woodlands Gardens School; WE and RSPID ticked | The dropdowns and project tick boxes on **New session**, so admins only pick the date. Add names or time slots here; `setup()` adds any listed project missing from the Projects tab |
 
 ---
 
@@ -531,7 +532,7 @@ Only start this after the Exp test rounds (Stage 9) are finished and MINDS has a
 | --- | --- | --- |
 | Volunteers | person | Profile, emergency contact, Role (`admin` = Admin menu), Volunteer Type (`volunteer`/`regular`) and who set it, Status (`inactive` blocks sign-in) |
 | _Auth (hidden) | person | Salted password hashes. Never shown in the app |
-| Sessions | session | Venue, project, trainees attending; status `open` / `closed` / `cancelled` |
+| Sessions | session | Venue, project(s) (several separated by commas), trainees attending; status `open` / `closed` / `cancelled` |
 | Bookings | sign-up | `confirmed` ("coming") or `cancelled`; paired trainee and how (`standing` = regular's fixed trainee, `manual` = an admin); walk-in flag |
 | Attendance | clock record | Clock in, clock out, hours, who scanned, method (`QR`, `QR (offline)`, `Manual`, `Dashboard`), who edited it on the dashboard |
 | Feedback | submission | Rating 1–5, comments, trainee observation, review status |

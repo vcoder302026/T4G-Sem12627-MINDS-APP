@@ -81,6 +81,10 @@ function traineeCard(traineeId, isAdmin) {
       d.summary && d.summary.length ? el('dl', { class: 'space-y-2 text-sm' }, d.summary.map((f) => el('div', {},
         el('dt', { class: 'font-bold text-slate-700 dark:text-neutral-200' }, f.label),
         el('dd', { class: 'whitespace-pre-line text-slate-600 dark:text-neutral-400' }, f.value)))) : null,
+      d.notes && d.notes.length ? el('div', { class: 'well p-3 text-sm' },
+        el('p', { class: 'text-xs font-bold uppercase tracking-wider muted' }, `Latest note${d.notes.length > 1 ? ` (of ${d.notes.length})` : ''}`),
+        el('p', { class: 'mt-1 whitespace-pre-line' }, d.notes[0].note),
+        el('p', { class: 'mt-1 text-xs muted' }, d.notes[0].author || '')) : null,
       openLink(isAdmin ? `#/trainee/${encodeURIComponent(traineeId)}` : `#/info/${encodeURIComponent(traineeId)}`, 'Open full profile', m.close)));
   }).catch((err) => mount(body, errorBlock(err)));
 }

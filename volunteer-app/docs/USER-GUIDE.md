@@ -25,10 +25,10 @@ newest version of the app and 🌗 switches dark mode.
 | Get started | Read the Volunteer Guide that opens, then **I've read the guide** (needed once, before your first sign-up) |
 | Say I'm coming | **Sessions** → tick every session you can come to → **I'm coming**. No need to wait for a confirmation |
 | Can't make it | **Home** → Coming up → **Can't make it** (on the day, tell an admin instead) |
-| See my trainee | **Home**, once an admin has paired you: their details, notes from previous volunteers, and **See all details** |
+| See my trainee | **Home**, once an admin has paired you: their photo and name. **Press and hold** for key details and the latest note; tap for their full page |
 | Tell the next volunteer something | Your trainee's page → **Send update**, or **Give feedback** after a session. An admin reads it first |
 | Clock in and out | **QR pass** → show it to an admin at the start, and again at the end |
-| See my hours | **Me**: hours and sessions volunteered |
+| See my hours and past sessions | **Me** → History: each session, your hours, and the trainee you were with |
 | Update my details or password | **Me** → My details → **Edit**; **Me** → Change password |
 | Forgot my password | Ask an admin to reset it |
 
@@ -36,7 +36,7 @@ newest version of the app and 🌗 switches dark mode.
 
 | I want to… | Tap |
 | --- | --- |
-| See my fixed trainee | **Home**: their details are shown once at the top; each session then just says who you're with |
+| See my fixed trainee | **Home**, at the top: press and hold for details, tap for their full page |
 | Read about any trainee | **Trainees** → search → tap a name |
 | Send an update about any trainee | Their page → **Send update** |
 
@@ -55,10 +55,12 @@ computer) to see a volunteer's Telegram and phone, or a trainee's photo and key 
 | I want to… | Go to |
 | --- | --- |
 | See what needs attention | **Dashboard**: new and regular volunteers, trainees without a regular, who still needs pairing |
+| Add sessions | **Sessions** → **New session** → pick the date. It's a Regular session, 2:30–5:30 pm at Woodlands, for both projects, WE and RSPID (change the dropdowns or untick a project if needed). **Add another date** adds the same session on several days at once |
 | See who's coming | **Sessions** → a session: everyone coming, their trainee, and no-shows after the day |
 | Pair volunteers for a session | **Sessions** → **Pair** on the session's row (or **Pairing**). Tap a volunteer, pick a trainee. Tap a trainee to add or move volunteers. The red **Unpaired** button shows only those still unpaired |
 | Share the pairings | Pairing board → **Pairing list**: a Volunteer → Trainee table to screenshot |
-| Give a regular their fixed trainee | **Pairing** → **Regular pairings** → tap the regular → pick the trainee. Their upcoming sessions follow the change |
+| Give a regular their fixed trainee | **Pairing** → **Regular pairings** → tap the regular → pick the trainee. The pop-up shows who they've been with before, then trainees new for them. Their upcoming sessions follow the change |
+| Check who has been with whom | **Pairing** → **History**: sessions together for every pair, and each regular's fixed trainees over time (with dates). Also on a volunteer's page: Recent sessions and Regular trainees over time |
 | Clock people in | **Sessions** → **Scan** on today's session (or **Scan passes** at the top). If a phone is flat: **Clock in** on the session's row, then **Clock in** / **Clock out**, or add a walk-in |
 | Promote someone to regular | **Volunteers** → their name → **Promote to regular** (or **Move back to volunteer**) |
 | Make or remove an admin | **Volunteers** → their name → **Make an admin** / **Remove admin access**. Removing an admin, or deactivating one, asks for **your own password** |

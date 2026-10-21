@@ -71,6 +71,16 @@ const CONFIG = {
     types: ['image/jpeg', 'image/png', 'image/webp', 'image/heic'],
   },
   DEFAULT_VENUES: ['MINDS Woodlands Gardens School'], // added to the Venues tab by setup() when it is empty
+
+  // Adding a session: the dropdowns are filled in with the first option, so an
+  // admin only picks the date. Add options here (e.g. a morning slot) as needed.
+  SESSION_OPTIONS: {
+    titles: ['Regular session'],
+    times: [{ label: '2:30 pm – 5:30 pm', startTime: '14:30', endTime: '17:30' }],
+    venue: 'MINDS Woodlands Gardens School', // the venue chosen by default (must be on the Venues tab)
+    // Projects ticked by default. setup() adds any that aren't on the Projects tab yet.
+    projects: ['West End (WE)', 'Regular Service Project for the Intellectually Disabled (RSPID)'],
+  },
   ADD_MISSING_TRAINEE_COLUMNS: true,  // setup() adds empty columns for volunteer-visible fields the trainee tab lacks
 
   /* App-owned tabs. setup() creates any that are missing and appends any
@@ -120,7 +130,7 @@ const CONFIG = {
         startTime: 'Start Time',
         endTime: 'End Time',
         venue: 'Venue',
-        project: 'Project',
+        project: 'Project',      // one or more projects, e.g. "West End (WE), Regular Service Project for the Intellectually Disabled (RSPID)"
         capacity: 'Capacity',
         notes: 'Notes',
         traineeIds: 'Trainees Attending', // optional "T-0001, T-0004": auto-pairing picks only from these

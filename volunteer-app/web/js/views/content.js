@@ -163,6 +163,19 @@ export function venuePicker(app, venues, value, { optional = false, label = 'Ven
   return picker;
 }
 
+/**
+ * Tick boxes for a session's projects (several allowed). `selected`: names to tick.
+ * Returns { el, values() }. An archived project already on the session stays listed.
+ */
+export function projectChecks(projects, selected = []) {
+  const names = projects.map((p) => p.name);
+  selected.forEach((n) => { if (!names.includes(n)) names.push(n); });
+  const boxes = names.map((n) => el('input', { type: 'checkbox', value: n, checked: selected.includes(n) }));
+  const wrap = el('div', { class: 'space-y-1' }, boxes.map((box, i) => el('label', { class: 'check-row' }, box,
+    el('span', {}, names[i], projects.some((p) => p.name === names[i]) ? null : el('span', { class: 'muted' }, ' (archived)')))));
+  return { el: wrap, values: () => boxes.filter((b) => b.checked).map((b) => b.value) };
+}
+
 export function projectPicker(projects, value) {
   const opts = projects.map((p) => ({ value: p.name, label: p.name, hint: p.schedule }));
   if (value && !opts.some((o) => o.value === value)) opts.push({ value, label: value, hint: 'Archived project' });

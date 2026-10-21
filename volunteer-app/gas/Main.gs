@@ -33,6 +33,7 @@ function routes_() {
 
     adminHome: { auth: 'admin', fn: adminHome_ },
     createSession: { auth: 'admin', write: true, fn: createSession_ },
+    createSessions: { auth: 'admin', write: true, fn: createSessions_ }, // the same session on several dates
     updateSession: { auth: 'admin', write: true, fn: updateSession_ },
     sessionDetail: { auth: 'admin', fn: sessionDetail_ },
     updateBooking: { auth: 'admin', write: true, fn: updateBooking_ },
@@ -49,6 +50,7 @@ function routes_() {
     setVolunteerType: { auth: 'admin', write: true, fn: setVolunteerType_ },
     listStandingPairings: { auth: 'admin', fn: listStandingPairings_ },
     setStandingPairing: { auth: 'admin', write: true, fn: setStandingPairing_ },
+    pairingHistory: { auth: 'admin', fn: pairingHistory_ },
     // What volunteers see about trainees (TraineeInfo.gs) and the activity log (AdminLog.gs)
     visibilitySettings: { auth: 'admin', fn: visibilitySettings_ },
     saveVisibility: { auth: 'admin', write: true, fn: saveVisibility_ },

@@ -48,7 +48,7 @@ record in the demo is fictional.
 | No-shows visible per volunteer | **Done** (sessions, volunteer list and profile) |
 | Clock in by hand separate from the scan page; details on long press; Telegram only | **Done** (Clock in on each session's row; press and hold works on every volunteer and trainee name) |
 | Volunteer and trainee data in separate sheets; key in a URL for each, a specific tab | **Done** (`SPREADSHEET_ID`, `TRAINEE_SPREADSHEET_ID`; URL with `#gid=`) |
-| Regulars: info dump on any trainee, can update any trainee, auto-paired when they sign up | **Done** (their regular trainee's details are shown once at the top of Home, not on every session) |
+| Regulars: info dump on any trainee, can update any trainee, auto-paired when they sign up | **Done** (Home shows each trainee as one line, photo and name; details on press and hold or on the trainee's page) |
 | Ad hoc volunteers: only their trainee, controlled details, can send updates | **Done** |
 | Admin controls what ad hoc and regular volunteers see; per trainee; "set as default" | **Done** (defaults are a starting point until MINDS confirms) |
 | Admin sees unpaired volunteers | **Done** (Unpaired count and filter) |
@@ -63,8 +63,8 @@ record in the demo is fictional.
 | Attendance for special events and committee roles | Not yet |
 | Registration fields from MINDS's Google Form; drop emergency contact | Waiting for the form |
 | "By Thursday, update who's coming on Saturday" | Not yet (the dashboard shows who's coming; a reminder could follow) |
-| Revisit adding/editing sessions; merging session and outing attendance | Waiting for Mr Sadil (in person) |
-| Note the history of trainees' previous partners | Left out, as agreed |
+| Revisit adding/editing sessions; merging session and outing attendance | Adding is now just picking dates (Regular session, 2:30–5:30 pm, Woodlands, from dropdowns). Editing and merging with outings: waiting for Mr Sadil |
+| Note the history of trainees' previous partners | **Done**, for admins: Pairing → History, history hints when pairing, and each regular's trainees over time |
 
 ## 3. Demo in 10 minutes
 
@@ -85,11 +85,12 @@ The trainees are MINDS's 100 mock House Visit trainees, loaded as a separate fil
 1. **Sam (volunteer):** Sessions → tick two → **I'm coming**. Home shows them, not paired yet.
 2. **Rex (regular):** Home shows his regular trainee; signing up pairs him at once. Trainees →
    any trainee → read everything → **Send update**.
-3. **Ada (admin), on a phone-sized window:** Admin → Sessions → **Pair** on Art & Craft. Tap
+3. **Ada (admin), on a phone-sized window:** Admin → Sessions → **Pair** on today's Regular session. Tap
    Sam, pick a trainee. Press and hold any name for their details. **Pairing list** for a
    screenshot.
 4. Pairing → **Regular pairings**: give Rina a new trainee; her upcoming sessions follow.
-5. Sessions → **Clock in** on Art & Craft → clock Sam in and out: he becomes a **Regular**.
+5. Sessions → **Clock in** on today's Regular session → clock Sam in and out: he becomes a **Regular**.
+   Then **New session**: pick two dates and tap **Add 2 sessions**.
 6. Trainees → Mock Trainee 3 → **What volunteers see**: untick a detail, save. Sign in as Vera:
    it's gone. Add a photo on the same page.
 7. Volunteers → make Vera an admin, then **Remove admin access**: your password is needed.
