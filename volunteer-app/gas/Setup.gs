@@ -31,6 +31,8 @@ function setupInternal_(dryRun) {
   }
 
   const ss = spreadsheet_();
+  const adminPasswordLine = ensureAdminPassword_(dryRun);
+  if (adminPasswordLine) report.push(adminPasswordLine);
   report.push(`Main sheet: "${ss.getName()}"`);
   Object.keys(CONFIG.TABLES).forEach((key) => {
     const def = CONFIG.TABLES[key];

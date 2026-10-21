@@ -37,19 +37,22 @@ function showTempPassword(name, email, password) {
 }
 
 /**
- * Saves a change to a person. Removing an admin (role or deactivating them)
- * needs the signed-in admin's own password: ask for it, then try again.
+ * Calls the server; if the change affects who is an admin (making, removing,
+ * deactivating or reactivating an admin, or adding someone as an admin), the
+ * server asks for the shared admin password: ask for it, then try again.
  */
-async function updatePerson(payload, name) {
+async function withAdminPassword(action, payload) {
   try {
-    return await call('updatePerson', payload);
+    return await call(action, payload);
   } catch (err) {
     if (err.code !== 'PASSWORD_REQUIRED') throw err;
-    const pw = await passwordPrompt('Confirm with your password', `${name} is an admin. To ${payload.status === 'inactive' ? 'deactivate them' : 'remove their admin access'}, enter your own password.`);
+    const pw = await passwordPrompt('Admin password needed', err.message);
     if (!pw) throw new Error('Not changed.');
-    return call('updatePerson', { ...payload, adminPassword: pw });
+    return call(action, { ...payload, adminPassword: pw });
   }
 }
+
+const updatePerson = (payload) => withAdminPassword('updatePerson', payload);
 
 export function renderVolunteers(root, app, ctx) {
   let people = null;
@@ -69,7 +72,7 @@ export function renderVolunteers(root, app, ctx) {
   ], 'Add volunteer', async (d) => {
     const payload = { ...d, createLogin: d.createLogin === 'yes' };
     Object.keys(payload).forEach((k) => { if (payload[k] === '') delete payload[k]; });
-    const res = await call('createVolunteer', payload);
+    const res = await withAdminPassword('createVolunteer', payload);
     toast(res.message);
     if (res.tempPassword) showTempPassword(res.person.name, res.person.email, res.tempPassword);
     refresh();
@@ -211,7 +214,7 @@ export function renderVolunteer(root, app, ctx, userId) {
               { label: 'To', cell: (x) => (x.active ? badge('Now', 'emerald') : x.to ? day(x.to) : ''), class: 'whitespace-nowrap' },
             ], d.regularHistory)) : null,
           panel('Profile and access', null, el('div', { class: 'flex flex-wrap gap-2 p-4' }, typeBtn, roleBtn, resetBtn, statusBtn),
-            el('p', { class: 'px-4 pb-4 text-xs muted' }, 'Removing an admin, or deactivating one, asks for your password. Every change is in the Activity log.')))));
+            el('p', { class: 'px-4 pb-4 text-xs muted' }, 'Making, removing, deactivating or reactivating an admin asks for the admin password (Settings → Admin password). Every change is in the Activity log.')))));
   };
   mount(root, host);
   return refresh();

@@ -179,7 +179,13 @@ function updatePerson_(p, admin) {
   if (losesAdmin) {
     const others = users.filter((u) => u.userId !== target.userId && u.role === 'admin' && u.status !== 'inactive');
     if (!others.length) throw err_.conflict('There must be at least one active admin.');
-    checkOwnPassword_(admin, p.adminPassword); // removing an admin needs your own password
+  }
+  // Any change to who is an active admin needs the shared admin password (AdminPassword.gs):
+  // making someone an admin, removing admin access, deactivating or reactivating an admin.
+  const wasAdmin = current.role === 'admin' && current.status === 'active';
+  const willBeAdmin = (changes.role || current.role) === 'admin' && (changes.status || current.status) === 'active';
+  if (wasAdmin !== willBeAdmin) {
+    checkAdminPassword_(admin, p.adminPassword, willBeAdmin ? 'Enter the admin password to make someone an admin.' : 'Enter the admin password to remove an admin.');
   }
   if (changes.email) assertEmailFree_(users, changes.email, target.userId);
 

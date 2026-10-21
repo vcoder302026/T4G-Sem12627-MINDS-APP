@@ -63,7 +63,7 @@ computer) to see a volunteer's Telegram and phone, or a trainee's photo and key 
 | Check who has been with whom | **Pairing** → **History**: sessions together for every pair, and each regular's fixed trainees over time (with dates). Also on a volunteer's page: Recent sessions and Regular trainees over time |
 | Clock people in | **Sessions** → **Scan** on today's session (or **Scan passes** at the top). If a phone is flat: **Clock in** on the session's row, then **Clock in** / **Clock out**, or add a walk-in |
 | Promote someone to regular | **Volunteers** → their name → **Promote to regular** (or **Move back to volunteer**) |
-| Make or remove an admin | **Volunteers** → their name → **Make an admin** / **Remove admin access**. Removing an admin, or deactivating one, asks for **your own password** |
+| Make or remove an admin | **Volunteers** → their name → **Make an admin** / **Remove admin access**. Making or removing an admin (and deactivating or reactivating one) asks for the **admin password** (a shared password, not your sign-in password) |
 | Deactivate someone | **Volunteers** → **Deactivate** next to their name (they can't sign in; their hours stay) |
 | Fix attendance, export hours | **Volunteers** → **Attendance** (fix a missed scan) and **Hours** (export CSV) |
 | Add or change a trainee's photo | **Trainees** → the trainee → **Add photo** / **Change photo** (from this device, or a Google Drive link) or **Remove** |
@@ -72,6 +72,7 @@ computer) to see a volunteer's Telegram and phone, or a trainee's photo and key 
 | Check who changed what | **Dashboard** → **Activity log**: filter by admin, date or words like "pairing" |
 | Change the guide | **Settings** → **Guide & projects**: **Edit** any section, **Add text**, or **Add infographic** (a picture or PDF from this device, or a Google Drive link). Use the arrows to move items; the ↻ button replaces an infographic's file. **Preview as a volunteer** shows the result |
 | Edit projects and venues | **Settings** → **Guide & projects** (projects), **Venues** |
+| Change the admin password | **Settings** → **Admin password**: type the current one and the new one twice. Tell the other admins. Forgotten? Whoever looks after Apps Script runs `resetAdminPassword()` |
 
 Fundraising, outings, overseas trips and house visits are kept from Version 1 under
 **More** (placeholders) until MINDS decides how they fit.

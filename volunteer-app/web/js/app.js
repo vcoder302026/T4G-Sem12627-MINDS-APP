@@ -210,7 +210,7 @@ const ADMIN_SECTIONS = [
   { key: 'pairings', label: 'Pairing', icon: 'sparkle', pages: [['pairings', 'Sessions to pair'], ['pairings/regular', 'Regular pairings'], ['pairings/history', 'History']], also: ['pair'] },
   { key: 'volunteers', label: 'Volunteers', icon: 'users', pages: [['volunteers', 'People'], ['attendance', 'Attendance'], ['hours', 'Hours']], also: ['volunteer'] },
   { key: 'trainees', label: 'Trainees', icon: 'heart', pages: [['trainees', 'Trainees'], ['review', 'Notes to review'], ['visibility', 'What volunteers see']], also: ['trainee'] },
-  { key: 'guide-edit', label: 'Settings', icon: 'pencil', pages: [['guide-edit', 'Guide & projects'], ['venues', 'Venues']] },
+  { key: 'guide-edit', label: 'Settings', icon: 'pencil', pages: [['guide-edit', 'Guide & projects'], ['venues', 'Venues'], ['admin-password', 'Admin password']] },
   { key: 'fundraising', label: 'More', icon: 'list', note: 'Placeholders', pages: [['fundraising', 'Fundraising'], ['outings', 'Outings'], ['trips', 'Overseas trips'], ['visits', 'House visits']], also: ['fundraiser', 'outing', 'trip'] },
 ];
 const sectionRoutes = (sec) => [sec.key, ...(sec.pages || []).map(([r]) => r.split('/')[0]), ...(sec.also || [])];
@@ -249,6 +249,7 @@ const ROUTES = {
   log: { fn: Ad.renderActivityLog, admin: true },
   'guide-edit': { fn: C.renderGuideEdit, admin: true, narrow: true },
   venues: { fn: C.renderVenues, admin: true, narrow: true },
+  'admin-password': { fn: Ad.renderAdminPassword, admin: true, narrow: true },
   fundraising: { fn: DF.renderFundraisers, admin: true },
   fundraiser: { fn: DF.renderFundraiser, admin: true },
   outings: { fn: DO.renderOutings, admin: true },

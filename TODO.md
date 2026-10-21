@@ -131,6 +131,8 @@ Sources: the October meeting minutes with MINDS, `VERSION-2.md` §2 and §5, and
 - [ ] Emails aren't verified; anyone can register with any email
 - [ ] PDPA: who can see which trainee details, photos (2.1) and volunteer contact details
 - [ ] Remove `FIRST_ADMIN_EMAIL` after the first admin is made
+- [ ] Note the admin password `setup()` shows in the Execution log, give it to the admins, and
+  have them change it (Settings → Admin password)
 
 ### 3.4 Upgrade the live Exp setup to Version 2
 - [ ] Follow `VERSION-2.md` §4: new `.gs` files, `appsscript.json` (Drive permission),
@@ -160,5 +162,5 @@ Sources: the October meeting minutes with MINDS, `VERSION-2.md` §2 and §5, and
 - **Automatic pairing of ad hoc volunteers** (Version 1's "fewest pairings" rule): replaced, at
   MINDS's request, by regulars' fixed trainees and admins pairing everyone else.
 - **Separate admin login:** the minutes suggested a separate admin profile; later guidance was
-  admin access on a volunteer's own account, protected by a password to remove an admin and an
+  admin access on a volunteer's own account, protected by a shared admin password to make or remove an admin, and an
   activity log. Revisit only if MINDS asks.

@@ -295,7 +295,7 @@ function tempPassword_() {
  * in the app later with the same email (Auth.gs → register_ links the row).
  */
 function createVolunteer_(p, admin) {
-  onlyFields_(p, PROFILE_FIELDS.concat(['role', 'createLogin']));
+  onlyFields_(p, PROFILE_FIELDS.concat(['role', 'createLogin', 'adminPassword']));
   const rec = {
     name: str_(p.name, 'Full name', { required: true, max: LIMITS.SHORT }),
     email: email_(p.email),
@@ -308,6 +308,7 @@ function createVolunteer_(p, admin) {
   };
   if (rec.birthday && rec.birthday > todayStr_()) throw err_.validation('Birthday cannot be in the future.');
   const role = p.role === undefined || p.role === '' ? 'volunteer' : oneOf_(p.role, 'Role', ['volunteer', 'admin']);
+  if (role === 'admin') checkAdminPassword_(admin, p.adminPassword, 'Enter the admin password to add someone as an admin.');
   const createLogin = p.createLogin !== false;
   const users = table_('users');
   if (users.find((u) => String(u.email).trim().toLowerCase() === rec.email)) {

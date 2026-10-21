@@ -50,6 +50,7 @@ function routes_() {
     setVolunteerType: { auth: 'admin', write: true, fn: setVolunteerType_ },
     listStandingPairings: { auth: 'admin', fn: listStandingPairings_ },
     setStandingPairing: { auth: 'admin', write: true, fn: setStandingPairing_ },
+    changeAdminPassword: { auth: 'admin', write: true, fn: changeAdminPassword_ },
     pairingHistory: { auth: 'admin', fn: pairingHistory_ },
     // What volunteers see about trainees (TraineeInfo.gs) and the activity log (AdminLog.gs)
     visibilitySettings: { auth: 'admin', fn: visibilitySettings_ },

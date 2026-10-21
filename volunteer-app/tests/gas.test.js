@@ -61,6 +61,7 @@ beforeEach(() => {
   rt.props.set('SPREADSHEET_ID', SHEET);
   rt.setNow(at('09:00'));
   rt.run('setup');
+  rt.evaluate(`setAdminActionPassword_('${ADMIN_PW}')`); // a known admin password for the tests
 
   ok(rt.call('register', volunteerPayload({ name: 'Leader Lee', email: 'leader@example.com', telegram: '' })));
   rt.props.set('FIRST_ADMIN_EMAIL', 'leader@example.com');
@@ -80,6 +81,7 @@ function confirm(bookingId, extra = {}) {
   return ok(rt.call('updateBooking', { bookingId, ...extra }, leader));
 }
 const PW = 'password123'; // every test account's password
+const ADMIN_PW = 'admin-test-pass'; // the shared admin password (AdminPassword.gs)
 
 describe('linking to an existing sheet', () => {
   test('setup keeps existing trainee columns, adds IDs, missing volunteer fields and write-back columns', () => {
@@ -152,15 +154,18 @@ describe('accounts and roles', () => {
     }
   });
 
-  test('promotion takes effect immediately; removing an admin needs your password; last admin cannot be removed', () => {
-    ok(rt.call('setRole', { userId: vol.user.userId, role: 'admin' }, leader));
+  test('making and removing admins both need the admin password; promotion takes effect immediately; last admin cannot be removed', () => {
+    fails(rt.call('setRole', { userId: vol.user.userId, role: 'admin' }, leader), 'PASSWORD_REQUIRED');
+    fails(rt.call('setRole', { userId: vol.user.userId, role: 'admin', adminPassword: PW }, leader), 'PASSWORD_REQUIRED');
+    ok(rt.call('setRole', { userId: vol.user.userId, role: 'admin', adminPassword: ADMIN_PW }, leader));
     ok(rt.call('adminHome', {}, vol.token));
     const leaderId = ok(rt.call('me', {}, leader)).user.userId;
     fails(rt.call('setRole', { userId: leaderId, role: 'volunteer' }, leader), 'CONFLICT'); // not yourself
     fails(rt.call('setRole', { userId: leaderId, role: 'volunteer' }, vol.token), 'PASSWORD_REQUIRED');
     fails(rt.call('setRole', { userId: leaderId, role: 'volunteer', adminPassword: 'wrong-password' }, vol.token), 'PASSWORD_REQUIRED');
-    ok(rt.call('setRole', { userId: leaderId, role: 'volunteer', adminPassword: PW }, vol.token));
-    fails(rt.call('setRole', { userId: vol.user.userId, role: 'volunteer', adminPassword: PW }, vol.token), 'CONFLICT');
+    fails(rt.call('setRole', { userId: leaderId, role: 'volunteer', adminPassword: PW }, vol.token), 'PASSWORD_REQUIRED'); // a sign-in password isn't it
+    ok(rt.call('setRole', { userId: leaderId, role: 'volunteer', adminPassword: ADMIN_PW }, vol.token));
+    fails(rt.call('setRole', { userId: vol.user.userId, role: 'volunteer', adminPassword: ADMIN_PW }, vol.token), 'CONFLICT');
   });
 
   test('password reset gives a temp password and signs the volunteer out everywhere', () => {
@@ -678,7 +683,8 @@ describe('editing details in the app', () => {
     const d = ok(rt.call('personDetail', { userId }, leader));
     assert.equal(d.person.emergencyName, 'Parent One');
     assert.equal(d.person.status, 'active');
-    const res = ok(rt.call('updatePerson', { userId, phone: '+65 9888 7777', emergencyPhone: '+65 6123 4567', role: 'admin' }, leader));
+    fails(rt.call('updatePerson', { userId, role: 'admin' }, leader), 'PASSWORD_REQUIRED');
+    const res = ok(rt.call('updatePerson', { userId, phone: '+65 9888 7777', emergencyPhone: '+65 6123 4567', role: 'admin', adminPassword: ADMIN_PW }, leader));
     assert.match(res.message, /Updated Vol One's phone and emergency phone\. Vol One is now an admin\./);
     assert.equal(rt.records(SHEET, 'Volunteers').find((r) => r['User ID'] === userId)['Details Updated By'], 'Leader Lee');
     ok(rt.call('adminHome', {}, vol.token)); // promotion applies straight away
@@ -692,7 +698,7 @@ describe('editing details in the app', () => {
     fails(rt.call('updatePerson', { userId: leaderId, status: 'inactive' }, leader), 'CONFLICT'); // not yourself
     fails(rt.call('updatePerson', { userId: leaderId, role: 'volunteer' }, leader), 'CONFLICT');
     fails(rt.call('updatePerson', { userId, role: 'volunteer' }, leader), 'PASSWORD_REQUIRED'); // removing an admin
-    assert.match(ok(rt.call('updatePerson', { userId, role: 'volunteer', adminPassword: PW }, leader)).message, /no longer an admin/);
+    assert.match(ok(rt.call('updatePerson', { userId, role: 'volunteer', adminPassword: ADMIN_PW }, leader)).message, /no longer an admin/);
     fails(rt.call('updatePerson', { userId: 'U-nope' }, leader), 'NOT_FOUND');
     fails(rt.call('updatePerson', { userId, notes: 'x' }, leader), 'VALIDATION_ERROR');
   });
@@ -707,11 +713,11 @@ describe('editing details in the app', () => {
     ok(rt.call('login', { email: 'sam@example.com', password: 'password123' }));
 
     // two leaders: one can deactivate the other, but not the last one left
-    ok(rt.call('updatePerson', { userId: vol.user.userId, role: 'admin' }, leader));
+    ok(rt.call('updatePerson', { userId: vol.user.userId, role: 'admin', adminPassword: ADMIN_PW }, leader));
     const leaderId = ok(rt.call('me', {}, leader)).user.userId;
     fails(rt.call('updatePerson', { userId: leaderId, status: 'inactive' }, vol.token), 'PASSWORD_REQUIRED');
-    ok(rt.call('updatePerson', { userId: leaderId, status: 'inactive', adminPassword: PW }, vol.token));
-    fails(rt.call('updatePerson', { userId: vol.user.userId, status: 'inactive', adminPassword: PW }, vol.token), 'CONFLICT');
+    ok(rt.call('updatePerson', { userId: leaderId, status: 'inactive', adminPassword: ADMIN_PW }, vol.token));
+    fails(rt.call('updatePerson', { userId: vol.user.userId, status: 'inactive', adminPassword: ADMIN_PW }, vol.token), 'CONFLICT');
     fails(rt.call('updatePerson', { userId: sam.user.userId, phone: '+65 9111 2222' }, sam.token), 'FORBIDDEN');
   });
 });
@@ -759,5 +765,74 @@ describe('adding sessions', () => {
     fails(rt.call('createSessions', { ...base, dates: [] }, leader), 'VALIDATION_ERROR');
     fails(rt.call('createSessions', { ...base, endTime: '14:00', dates: ['2026-10-17'] }, leader), 'VALIDATION_ERROR');
     fails(rt.call('createSessions', { ...base, dates: ['2026-10-17'] }, vol.token), 'FORBIDDEN');
+  });
+});
+
+
+describe('the admin password (separate from sign-in passwords)', () => {
+  test('every change to who is an admin needs it: make, remove, deactivate, reactivate, add as admin', () => {
+    const userId = vol.user.userId;
+    const need = (payload) => fails(rt.call('updatePerson', { userId, ...payload }, leader), 'PASSWORD_REQUIRED');
+    const pw = { adminPassword: ADMIN_PW };
+    need({ role: 'admin' });
+    ok(rt.call('updatePerson', { userId, role: 'admin', ...pw }, leader));
+    need({ status: 'inactive' });
+    ok(rt.call('updatePerson', { userId, status: 'inactive', ...pw }, leader));
+    need({ status: 'active' }); // reactivating an admin gives admin access back
+    ok(rt.call('updatePerson', { userId, status: 'active', ...pw }, leader));
+    need({ role: 'volunteer' });
+    ok(rt.call('updatePerson', { userId, role: 'volunteer', ...pw }, leader));
+    // Changes that don't touch admin access don't ask for it
+    ok(rt.call('updatePerson', { userId, status: 'inactive' }, leader));
+    ok(rt.call('updatePerson', { userId, status: 'active', phone: '+65 9000 1111' }, leader));
+    // Adding a new person with admin access (Volunteers → Add volunteer)
+    const add = { name: 'New Admin', email: 'na@example.com', phone: '+65 9000 2222', role: 'admin' };
+    fails(rt.call('createVolunteer', add, leader), 'PASSWORD_REQUIRED');
+    assert.equal(ok(rt.call('createVolunteer', { ...add, ...pw }, leader)).person.role, 'admin');
+    ok(rt.call('createVolunteer', { name: 'Plain Vol', email: 'pv@example.com', phone: '+65 9000 3333' }, leader));
+  });
+
+  test('setup() creates one, shows it once, and it works', () => {
+    const fresh = createGasRuntime();
+    fresh.createSpreadsheet('s2');
+    fresh.fillTab('s2', 'Trainees', [['Name'], ['Alex Tan']]);
+    fresh.props.set('SPREADSHEET_ID', 's2');
+    assert.match(fresh.run('checkConfig'), /Would create the admin password/);
+    const report = fresh.run('setup');
+    const generated = /ADMIN PASSWORD: (admin-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4})/.exec(report)[1];
+    assert.ok(!/ADMIN PASSWORD/.test(fresh.run('setup')), 'shown only the first time');
+    assert.ok(!JSON.stringify([...fresh.props.entries()]).includes(generated), 'only a hash is stored');
+    const a = fresh.call('register', volunteerPayload({ email: 'a@example.com', name: 'Admin A' })).data;
+    const b = fresh.call('register', volunteerPayload({ email: 'b@example.com', name: 'Admin B' })).data;
+    fresh.props.set('FIRST_ADMIN_EMAIL', 'a@example.com');
+    fresh.run('makeFirstAdmin');
+    assert.equal(fresh.call('setRole', { userId: b.user.userId, role: 'admin', adminPassword: generated }, a.token).ok, true);
+    assert.equal(fresh.call('setRole', { userId: b.user.userId, role: 'volunteer', adminPassword: generated }, a.token).ok, true);
+  });
+
+  test('an admin changes it with the current one and a new one; the old one stops working', () => {
+    fails(rt.call('changeAdminPassword', { currentPassword: 'nope-nope', newPassword: 'new-admin-pass' }, leader), 'PASSWORD_REQUIRED');
+    fails(rt.call('changeAdminPassword', { currentPassword: ADMIN_PW, newPassword: 'short' }, leader), 'VALIDATION_ERROR');
+    fails(rt.call('changeAdminPassword', { currentPassword: ADMIN_PW, newPassword: ADMIN_PW }, leader), 'VALIDATION_ERROR');
+    fails(rt.call('changeAdminPassword', { currentPassword: ADMIN_PW, newPassword: 'new-admin-pass' }, vol.token), 'FORBIDDEN');
+    assert.match(ok(rt.call('changeAdminPassword', { currentPassword: ADMIN_PW, newPassword: 'new-admin-pass' }, leader)).message, /Admin password changed/);
+    ok(rt.call('setRole', { userId: vol.user.userId, role: 'admin', adminPassword: 'new-admin-pass' }, leader));
+    fails(rt.call('setRole', { userId: vol.user.userId, role: 'volunteer', adminPassword: ADMIN_PW }, leader), 'PASSWORD_REQUIRED');
+    ok(rt.call('setRole', { userId: vol.user.userId, role: 'volunteer', adminPassword: 'new-admin-pass' }, leader));
+    const log = JSON.stringify(rt.records(SHEET, 'Admin Activity Log'));
+    assert.match(log, /Changed the admin password/);
+    assert.ok(!log.includes('new-admin-pass') && !log.includes(ADMIN_PW), 'never logged');
+  });
+
+  test('5 wrong tries lock it for 15 minutes; resetAdminPassword() makes a new one', () => {
+    ok(rt.call('setRole', { userId: vol.user.userId, role: 'admin', adminPassword: ADMIN_PW }, leader));
+    for (let i = 0; i < 5; i += 1) fails(rt.call('setRole', { userId: vol.user.userId, role: 'volunteer', adminPassword: `wrong-${i}` }, leader), 'PASSWORD_REQUIRED');
+    fails(rt.call('setRole', { userId: vol.user.userId, role: 'volunteer', adminPassword: ADMIN_PW }, leader), 'TOO_MANY_ATTEMPTS');
+    const text = rt.run('resetAdminPassword');
+    const fresh = /ADMIN PASSWORD: (admin-[a-z0-9-]+)/.exec(text)[1];
+    assert.match(JSON.stringify(rt.records(SHEET, 'Admin Activity Log')), /Reset the admin password/);
+    // the lock is per admin: the other admin can use the new password straight away
+    const leaderId = ok(rt.call('me', {}, leader)).user.userId;
+    ok(rt.call('setRole', { userId: leaderId, role: 'volunteer', adminPassword: fresh }, vol.token));
   });
 });

@@ -158,3 +158,41 @@ export function renderVisibility(root, app, ctx, traineeId) {
   return call('visibilitySettings', traineeId ? { traineeId } : {}).then((d) => { if (ctx.alive()) draw(d); })
     .catch((err) => { if (ctx.alive()) mount(root, errorBlock(err, () => app.rerender())); });
 }
+
+/* ---------------- the admin password ---------------- */
+
+/** Settings → Admin password: change the shared password needed to make or remove an admin. */
+export function renderAdminPassword(root) {
+  const field = (name, label, autocomplete) => {
+    const input = el('input', { type: 'password', name, id: `f-${name}`, class: 'input', autocomplete, minlength: 8, maxlength: 128 });
+    return el('div', {}, el('label', { class: 'label', for: `f-${name}` }, label), input);
+  };
+  const submit = el('button', { type: 'submit', class: 'btn btn-primary w-full' }, 'Change admin password');
+  const form = el('form', { class: 'card space-y-4 p-4', novalidate: true },
+    field('currentPassword', 'Current admin password', 'off'),
+    field('newPassword', 'New admin password', 'new-password'),
+    field('confirmPassword', 'New admin password again', 'new-password'),
+    el('p', { class: 'hint' }, 'At least 8 characters. After changing it, tell the other admins the new one.'),
+    submit);
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const current = form.currentPassword.value;
+    const next = form.newPassword.value;
+    if (!current) { toast('Type the current admin password.', 'warn'); form.currentPassword.focus(); return; }
+    if (next.length < 8) { toast('The new admin password needs at least 8 characters.', 'warn'); form.newPassword.focus(); return; }
+    if (next !== form.confirmPassword.value) { toast("The two new passwords don't match.", 'warn'); form.confirmPassword.focus(); return; }
+    busy(submit, 'Saving…', async () => {
+      const res = await call('changeAdminPassword', { currentPassword: current, newPassword: next });
+      form.reset();
+      toast(res.message);
+    });
+  });
+  mount(root,
+    el('h1', { class: 'page-title' }, 'Admin password'),
+    el('p', { class: 'mb-4 mt-1 text-sm muted' },
+      'A shared password, separate from everyone\u2019s sign-in password. It\u2019s needed to make someone an admin, remove admin access, or deactivate or reactivate an admin, so not every admin can do that on their own.'),
+    form,
+    el('div', { class: 'alert alert-info mt-4 text-sm' },
+      el('p', { class: 'font-bold' }, 'Forgotten it?'),
+      el('p', {}, 'Whoever looks after the app\u2019s Google Apps Script can make a new one: open the project, choose resetAdminPassword in the function list, click Run, and read the new password in the Execution log.')));
+}
