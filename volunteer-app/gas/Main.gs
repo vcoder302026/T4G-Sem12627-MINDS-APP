@@ -13,6 +13,7 @@ function routes_() {
   // scanning at the same moment cannot both append to the same row.
   return {
     ping: { auth: 'public', fn: () => ({ status: 'ok', time: fmtDateTime_(now_()) }) },
+    registrationForm: { auth: 'public', fn: registrationForm_ }, // the questions on the sign-up form (Config.gs → REGISTRATION)
     register: { auth: 'public', write: true, fn: register_ },
     login: { auth: 'public', fn: login_ },
 
@@ -62,7 +63,8 @@ function routes_() {
     listTrainees: { auth: 'admin', fn: listTrainees_ },
     traineeDetail: { auth: 'admin', fn: traineeDetail_ },
     addTraineeNote: { auth: 'admin', write: true, fn: addTraineeNote_ },
-    setNoteStatus: { auth: 'admin', write: true, fn: setNoteStatus_ },
+    setNoteStatus: { auth: 'admin', write: true, fn: setNoteStatus_ }, // older app versions; setNoteSharing replaces it
+    setNoteSharing: { auth: 'admin', write: true, fn: setNoteSharing_ }, // all / regulars / selected volunteers / private
     reviewQueue: { auth: 'admin', fn: reviewQueue_ },
     reviewObservation: { auth: 'admin', write: true, fn: reviewObservation_ },
 
@@ -74,6 +76,7 @@ function routes_() {
     deleteGuideSection: { auth: 'admin', write: true, fn: deleteGuideSection_ },
     addGuideFile: { auth: 'admin', write: true, fn: addGuideFile_ }, // infographic: upload, or a Google Drive link
     moveContent: { auth: 'admin', write: true, fn: moveContent_ },
+    reorderContent: { auth: 'admin', write: true, fn: reorderContent_ }, // drag and drop: the whole new order
 
     // Staff dashboard (web/admin/). Overview, attendance, hours, volunteers: Dashboard.gs
     dashboardOverview: { auth: 'admin', fn: dashboardOverview_ },

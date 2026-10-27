@@ -9,6 +9,13 @@ import {
   icon, initials, labelled, loading, mapsLink, mount, multiPick, searchBox, section, toast, todaySG, typeBadges,
 } from '../ui.js';
 import { personName, traineeName as traineeLabel } from '../quickview.js';
+
+/** A booking's (or scan result's) trainees: several are possible; older servers send one `trainee`. */
+const traineesOf = (b) => (b && (b.trainees || (b.trainee ? [b.trainee] : []))) || [];
+/** "A, B" with each name pressable for details. */
+const traineeLabels = (list, link) => list.map((t, i) => [i ? ', ' : '', link
+  ? el('a', { href: `#/trainee/${encodeURIComponent(t.id)}`, class: 'link' }, traineeLabel(t.name, t.id))
+  : traineeLabel(t.name, t.id)]);
 import { projectChecks, venuePicker } from './content.js';
 
 function list(...rows) {
@@ -189,9 +196,9 @@ export function renderSession(root, app, ctx, sessionId) {
         el('span', { class: 'flex size-10 shrink-0 items-center justify-center rounded-xl bg-indigo-100 text-sm font-extrabold text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300' }, initials(v.name)),
         el('div', { class: 'min-w-0 flex-1' },
           el('div', { class: 'flex items-start gap-2' }, name, remove),
-          el('p', { class: 'mt-1.5 text-sm' }, b.trainee
-            ? [el('span', { class: 'muted' }, b.pairing === 'standing' ? 'Regular trainee: ' : 'Trainee: '),
-              el('a', { href: `#/trainee/${encodeURIComponent(b.trainee.id)}`, class: 'link' }, traineeLabel(b.trainee.name, b.trainee.id))]
+          el('p', { class: 'mt-1.5 text-sm' }, traineesOf(b).length
+            ? [el('span', { class: 'muted' }, `${b.pairing === 'standing' ? 'Regular trainee' : 'Trainee'}${traineesOf(b).length > 1 ? 's' : ''}: `),
+              traineeLabels(traineesOf(b), true)]
             : badge('Not paired yet', 'amber', 'alert')),
           attendance ? el('div', { class: 'mt-1.5' }, attendance) : null));
     };
@@ -485,7 +492,7 @@ export function renderScan(root, app, ctx, presetSessionId) {
         el('div', { class: 'min-w-0' },
           el('p', { class: 'text-lg font-extrabold leading-tight text-slate-900 dark:text-white' }, o.title),
           res && res.volunteer ? el('p', { class: 'text-base font-bold text-slate-800 dark:text-neutral-100' }, personName(res.volunteer.name, res.volunteer.userId)) : null,
-          res && res.trainee ? el('p', { class: 'text-sm' }, 'Paired with ', traineeLabel(res.trainee.name, res.trainee.id)) : null,
+          traineesOf(res).length ? el('p', { class: 'text-sm' }, 'Paired with ', traineeLabels(traineesOf(res))) : null,
           res && res.session ? el('p', { class: 'text-xs muted' }, `${res.session.title}, ${fmtTimes(res.session)}`) : null)),
       el('p', { class: `mt-2 ${outcome === 'out' ? 'text-base font-bold' : ''}` }, res && res.message ? res.message : extra || ''),
       outcome === 'not-booked' ? walkInButton() : null));
@@ -570,7 +577,7 @@ export function renderClock(root, app, ctx, presetSessionId) {
       }
       const name = el('div', { class: 'min-w-0 flex-1' },
         personName(v.name, v.userId, 'block truncate font-bold text-slate-900 dark:text-white'),
-        el('span', { class: 'block truncate text-sm muted' }, b.trainee ? ['With ', traineeLabel(b.trainee.name, b.trainee.id)] : 'Not paired yet'));
+        el('span', { class: 'block truncate text-sm muted' }, traineesOf(b).length ? ['With ', traineeLabels(traineesOf(b))] : 'Not paired yet'));
       return el('div', { class: 'flex items-center gap-3 p-4' }, name, action);
     };
     const walkIn = combobox({

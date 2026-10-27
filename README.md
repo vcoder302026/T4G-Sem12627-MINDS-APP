@@ -11,6 +11,8 @@ replace manual logging of volunteer hours and attendance.
 **New here?** Read [VERSION-2.md](VERSION-2.md): what changed after the October meeting with
 MINDS, a 10-minute demo, and how to upgrade. [VERSION-1.md](VERSION-1.md) describes the
 first version.
+[STEVEN-UPDATE.md](STEVEN-UPDATE.md) covers the changes after Mr Sadil's feedback on Version 2
+(many-to-many pairing with drag and drop, note sharing, registration questions).
 
 ## Quick start
 

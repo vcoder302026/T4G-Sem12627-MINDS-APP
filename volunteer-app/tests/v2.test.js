@@ -141,7 +141,7 @@ describe('what volunteers and regulars can see', () => {
 
     ok(call('saveVisibility', { audience: 'volunteer', traineeId: 'T-0001', fields: ['Gender', 'Race'], makeDefault: true }));
     const settings = ok(call('visibilitySettings', {}));
-    assert.deepEqual(settings.audiences.volunteer.fields.sort(), ['gender', 'race']);
+    assert.deepEqual(settings.audiences.volunteer.fields.filter((k) => !k.startsWith('notes:')).sort(), ['gender', 'race']);
     assert.ok(rt.records(MAIN, 'App Settings').some((r) => r.Setting === 'visibility.volunteer'));
 
     ok(call('saveVisibility', { audience: 'regular', fields: ['Gender', 'Address'] }));

@@ -9,7 +9,7 @@
 //   asTrainee(node, id)         same, for a trainee
 
 import { call } from './api.js';
-import { badge, el, errorBlock, icon, loading, modal, mount, traineeAvatar, typeBadges } from './ui.js';
+import { badge, el, errorBlock, hvLabel, icon, loading, modal, mount, traineeAvatar, typeBadges } from './ui.js';
 
 export function asPerson(node, userId) {
   if (userId) node.dataset.person = userId;
@@ -59,7 +59,8 @@ function personCard(userId) {
       el('div', { class: 'flex flex-wrap gap-1.5' }, typeBadges(p), p.status === 'inactive' ? badge('Deactivated', 'red') : null),
       p.telegram ? link(`https://t.me/${p.telegram}`, 'send', `Telegram @${p.telegram}`) : el('p', { class: 'text-sm muted' }, 'No Telegram handle saved.'),
       p.phone ? link(`tel:${p.phone.replace(/\s/g, '')}`, 'phone', p.phone) : null,
-      d.regularTrainee ? el('p', { class: 'text-sm' }, 'Regular trainee: ', traineeName(d.regularTrainee.name, d.regularTrainee.id, 'font-bold')) : null,
+      (d.regularTrainees || []).length ? el('p', { class: 'text-sm' }, d.regularTrainees.length > 1 ? 'Regular trainees: ' : 'Regular trainee: ',
+        d.regularTrainees.map((t, i) => [i ? ', ' : '', traineeName(t.name, t.id, 'font-bold')])) : null,
       el('p', { class: 'text-sm muted' }, `${d.stats.sessions} session${d.stats.sessions === 1 ? '' : 's'}, ${d.stats.hours} h${d.stats.noShows ? `, ${d.stats.noShows} no-show${d.stats.noShows === 1 ? '' : 's'}` : ''}`),
       openLink(`#/volunteer/${userId}`, 'Open full profile', m.close)));
   }).catch((err) => mount(body, errorBlock(err)));
@@ -78,8 +79,9 @@ function traineeCard(traineeId, isAdmin) {
           t.preferredName && t.preferredName !== t.name ? el('p', {}, `Goes by ${t.preferredName}`) : null,
           t.gender ? el('p', { class: 'muted' }, t.gender) : null,
           d.regulars && d.regulars.length ? el('p', { class: 'muted' }, `Regular: ${d.regulars.join(', ')}`) : null)),
+      // Labels shortened the way the House Visit form shows them (the question, then its guide).
       d.summary && d.summary.length ? el('dl', { class: 'space-y-2 text-sm' }, d.summary.map((f) => el('div', {},
-        el('dt', { class: 'font-bold text-slate-700 dark:text-neutral-200' }, f.label),
+        el('dt', { class: 'font-bold text-slate-700 dark:text-neutral-200' }, hvLabel(f.label).label),
         el('dd', { class: 'whitespace-pre-line text-slate-600 dark:text-neutral-400' }, f.value)))) : null,
       d.notes && d.notes.length ? el('div', { class: 'well p-3 text-sm' },
         el('p', { class: 'text-xs font-bold uppercase tracking-wider muted' }, `Latest note${d.notes.length > 1 ? ` (of ${d.notes.length})` : ''}`),

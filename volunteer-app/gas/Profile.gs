@@ -43,6 +43,69 @@ function profilePatch_(p) {
   return patch;
 }
 
+/* ---------- the registration form's extra questions (Config.gs → REGISTRATION) ---------- */
+
+/** The options of a choice / multi question: a list, or 'projects' for the active projects. */
+function registrationOptions_(f) {
+  if (f.options === 'projects') return activeProjects_().map((pr) => pr.name);
+  return f.options || [];
+}
+
+/** The form as the app draws it (public: shown before signing in). */
+function registrationForm_() {
+  return {
+    sections: REGISTRATION.sections,
+    fields: REGISTRATION.fields.map((f) => ({
+      key: f.key, label: f.label, type: f.type, section: f.section, required: Boolean(f.required), hint: f.hint || '',
+      options: f.type === 'yesno' ? ['Yes', 'No'] : registrationOptions_(f),
+    })),
+  };
+}
+
+/**
+ * Checks the answers to the extra questions. `partial` (editing details):
+ * only the questions sent are checked, and a required one can't be cleared.
+ * Returns { key: cell text }; several choices are stored as "A, B".
+ */
+function registrationAnswers_(answers, partial) {
+  const a = answers === undefined || answers === null ? {} : obj_(answers, 'Answers');
+  const known = REGISTRATION.fields.map((f) => f.key);
+  Object.keys(a).forEach((k) => { if (known.indexOf(k) === -1) throw err_.validation(`Unknown question "${k}".`); });
+  const out = {};
+  REGISTRATION.fields.forEach((f) => {
+    if (partial && !Object.prototype.hasOwnProperty.call(a, f.key)) return;
+    const raw = a[f.key];
+    const options = f.type === 'yesno' ? ['Yes', 'No'] : registrationOptions_(f);
+    const free = options.indexOf('Other') >= 0; // "Other" lets people type their own answer
+    const pick = (v) => {
+      const text = str_(v, f.label, { max: LIMITS.SHORT });
+      const match = options.find((o) => o.toLowerCase() === text.toLowerCase());
+      if (match) return match;
+      if (text && free) return text;
+      if (text) throw err_.validation(`${f.label}: choose one of the options.`);
+      return '';
+    };
+    let value;
+    if (f.type === 'multi') {
+      const list = raw === undefined || raw === null || raw === '' ? [] : Array.isArray(raw) ? raw : String(raw).split(/\s*,\s*/);
+      if (list.length > 20) throw err_.validation(`${f.label}: too many choices.`);
+      value = list.map(pick).filter(Boolean).filter((x, i, all) => all.indexOf(x) === i).join(', ');
+    } else if (f.type === 'choice' || f.type === 'yesno') {
+      value = pick(raw);
+    } else {
+      value = str_(raw, f.label, { max: f.type === 'textarea' ? LIMITS.NOTES : LIMITS.NAME });
+    }
+    if (f.required && !value) throw err_.validation(`Please answer: ${f.label}`);
+    out[f.key] = value;
+  });
+  return out;
+}
+
+/** A person's answers, for their Me page and the admin profile: [{ key, label, value }]. */
+function registrationAnswersOut_(u) {
+  return REGISTRATION.fields.map((f) => ({ key: f.key, label: f.label, value: u[f.key] === undefined ? '' : String(u[f.key]) }));
+}
+
 /** Keeps only the fields whose value actually changes. */
 function changedOnly_(row, patch) {
   const out = {};
@@ -60,7 +123,7 @@ function assertEmailFree_(users, email, userId) {
 function changedMessage_(changes, prefix) {
   const keys = Object.keys(changes);
   if (!keys.length) return 'No changes to save.';
-  const names = keys.map((k) => PROFILE_LABELS[k] || k);
+  const names = keys.map((k) => PROFILE_LABELS[k] || (REGISTRATION.fields.find((f) => f.key === k) || { header: k }).header.toLowerCase());
   const list = names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}` : names[0];
   return `${prefix} ${list}.`;
 }
@@ -88,10 +151,10 @@ function applyProfileChanges_(users, target, changes, editor) {
 /* ---------- self-service ---------- */
 
 function updateProfile_(p, user) {
-  onlyFields_(p, PROFILE_FIELDS.concat(['currentPassword']));
+  onlyFields_(p, PROFILE_FIELDS.concat(['currentPassword', 'answers']));
   const users = table_('users');
   const target = users.find((u) => u.userId === user.userId);
-  const changes = changedOnly_(target, profilePatch_(p));
+  const changes = changedOnly_(target, Object.assign(profilePatch_(p), registrationAnswers_(p.answers, true)));
   if (changes.email) {
     const authRow = table_('auth').find((a) => a.userId === user.userId);
     if (typeof p.currentPassword !== 'string' || !p.currentPassword
@@ -137,18 +200,20 @@ function personDetail_(p) {
       date: a.date,
       title: (sessionsById[a.sessionId] || {}).title || 'Session',
       hours: Number(a.hours) || 0,
-      traineeId: b.traineeId ? String(b.traineeId) : '',
-      traineeName: b.traineeName || '',
+      trainees: bookingTrainees_(b),
+      traineeId: bookingTraineeIds_(b)[0] || '', // the first, for older screens
+      traineeName: namesText_(bookingTrainees_(b).map((t) => t.name)),
     };
   });
   const upcoming = table_('bookings').filter((b) => b.userId === target.userId && b.status !== 'cancelled' && String(b.sessionDate) >= todayStr_());
-  const fixed = activeStanding_(target.userId);
+  const fixed = activeStandings_(target.userId);
   return {
     person: personOut_(target, hasAccount),
     stats: { hours, sessions: done.length, upcoming: upcoming.length, noShows: noShowsByUser_()[target.userId] || 0, attended: sessionsAttended_(target.userId) },
     regularAfter: CONFIG.REGULAR_AFTER_SESSIONS,
     contact: contactInfo_(target), // Google Contacts sync (Contacts.gs)
-    regularTrainee: fixed ? { id: String(fixed.traineeId), name: fixed.traineeName } : null,
+    regularTrainees: fixed.map((x) => ({ id: String(x.traineeId), name: x.traineeName })),
+    regularTrainee: fixed.length ? { id: String(fixed[0].traineeId), name: fixed[0].traineeName } : null, // the first, for older screens
     regularHistory: sortBy_(allPairingRows_().filter((x) => x.userId === target.userId), (x) => x.from).reverse()
       .map((x) => ({ traineeId: x.traineeId, traineeName: x.traineeName, from: x.from, to: x.active ? '' : x.to, active: x.active })),
     typeSetBy: target.typeSetBy || '',

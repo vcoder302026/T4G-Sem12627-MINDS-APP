@@ -29,7 +29,10 @@ Sources: the October meeting minutes with MINDS, `VERSION-2.md` §2 and §5, and
 
 ### 1.2 Registration fields
 - [ ] Get MINDS's volunteer registration Google Form (it's in the shared Drive)
-- [ ] Match the sign-up form to it
+- [x] Sign-up form asks the form's extra questions, defined as data in `REGISTRATION` (`gas/Config.gs`)
+  (STEVEN-UPDATE.md). **The list is a best guess**: the Google Form itself isn't in this repo
+- [ ] Check every question, option and "required" flag against the real Google Form, then edit
+  `REGISTRATION.fields`, run `setup()` (adds the columns) and publish a new version
 - [x] Emergency contact removed from sign-up, Me and Edit my details (old details stay in the sheet and on the admin page)
 - [ ] Should Telegram be required at sign-up, now that it's the main way to reach volunteers? (It's optional today)
 - **Where:** `gas/Auth.gs` (`register_`), `gas/Profile.gs` (`PROFILE_FIELDS`, `profilePatch_`),
@@ -104,6 +107,8 @@ Sources: the October meeting minutes with MINDS, `VERSION-2.md` §2 and §5, and
 - [ ] Guide PDFs in the Google Drive preview on iPhone Safari
 - [ ] Offline: scan with no signal, then upload; QR pass with no signal
 - [ ] Dark mode on the new screens (pairing board, Admin menu, trainee pages, guide editor)
+- [ ] Drag and drop on real phones (pairing board: drag sideways; guide editor: the ⠿ handle).
+  Tested in an emulated iPhone 12 (Chromium) only, not iOS Safari or a real Android phone
 
 ### 3.2 Pairing with real numbers
 - [ ] Try the pairing board with a real-sized session (30+ volunteers, 100 trainees) on a phone

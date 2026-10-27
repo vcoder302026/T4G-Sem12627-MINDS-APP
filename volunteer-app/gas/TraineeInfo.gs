@@ -123,6 +123,34 @@ function visibleFor_(traineeId, audience) {
   return list ? { fields: list, isDefault: false } : { fields: defaultVisible_(audience), isDefault: true };
 }
 
+/*
+ * Notes in the same filter. "What volunteers see" also lists the trainee's
+ * notes, split by who wrote them, so the filter covers the updates volunteers
+ * send as well as the details:
+ *   notes:volunteer   notes from volunteers (session feedback and trainee updates)
+ *   notes:admin       notes added by admins
+ * Lists saved before this existed have no "notes:set" marker: notes stay shown.
+ */
+const NOTE_FILTER = {
+  marker: 'notes:set',
+  title: 'Notes',
+  fields: [
+    { key: 'notes:volunteer', label: 'Notes from volunteers (session feedback and updates)' },
+    { key: 'notes:admin', label: 'Notes from admins' },
+  ],
+};
+
+function noteFilterKeys_() {
+  return NOTE_FILTER.fields.map((f) => f.key);
+}
+
+/** { volunteer: bool, admin: bool }: which notes an audience sees for this trainee (each note's own sharing still applies). */
+function notesShown_(traineeId, audience) {
+  const fields = visibleFor_(traineeId, audience).fields;
+  if (fields.indexOf(NOTE_FILTER.marker) === -1) return { volunteer: true, admin: true };
+  return { volunteer: fields.indexOf('notes:volunteer') >= 0, admin: fields.indexOf('notes:admin') >= 0 };
+}
+
 /* ---------------- building the views ---------------- */
 
 /** A trainee's details, grouped. `allowed` = list of field keys, or null for everything. */
@@ -225,7 +253,7 @@ function traineeAccess_(user, traineeId) {
   if (volunteerType_(user) === 'regular') return 'regular';
   const from = addDays_(todayStr_(), -CONFIG.FEEDBACK_WINDOW_DAYS);
   const paired = table_('bookings').find((b) => b.userId === user.userId && b.status !== 'cancelled'
-    && String(b.traineeId) === String(traineeId) && String(b.sessionDate) >= from);
+    && hasTrainee_(b, traineeId) && String(b.sessionDate) >= from);
   if (!paired) throw err_.forbidden("You can see a trainee's details once an admin pairs you with them.");
   return 'volunteer';
 }
@@ -241,21 +269,21 @@ function traineeInfo_(p, user) {
   const today = todayStr_();
   const sessionById = byKey_(table_('sessions').rows(), 'sessionId');
   const together = sortBy_(table_('bookings').filter((b) => b.userId === user.userId && b.status !== 'cancelled'
-    && String(b.traineeId) === traineeId && String(b.sessionDate) >= today), (b) => b.sessionDate)
+    && hasTrainee_(b, traineeId) && String(b.sessionDate) >= today), (b) => b.sessionDate)
     .map((b) => { const s = sessionById[b.sessionId] || {}; return { date: b.sessionDate, title: s.title || b.sessionTitle, startTime: s.startTime || '', endTime: s.endTime || '' }; });
   const regulars = standingRows_().filter((x) => String(x.traineeId) === traineeId)
     .map((x) => x.volunteerName);
-  const mine = activeStanding_(user.userId);
+  const mine = activeStandings_(user.userId);
   const sections = traineeSectionsView_(row, allowed);
   return {
     trainee: traineeBasics_(row),
     access,
     sections,
     summary: cardFields_(sections, 5), // for the press-and-hold quick card
-    notes: sharedNotes_(row.id, access === 'volunteer' ? CONFIG.NOTES_SHOWN_TO_VOLUNTEERS : 0),
+    notes: notesFor_(row.id, user, access, access === 'volunteer' ? CONFIG.NOTES_SHOWN_TO_VOLUNTEERS : 0),
     together,
     regulars: access === 'volunteer' ? [] : regulars,
-    isMyRegular: Boolean(mine && String(mine.traineeId) === traineeId),
+    isMyRegular: mine.some((x) => String(x.traineeId) === traineeId),
   };
 }
 
@@ -269,9 +297,10 @@ function traineeDirectory_(p, user) {
   standingRows_().forEach((x) => {
     (regularsByTrainee[String(x.traineeId)] = regularsByTrainee[String(x.traineeId)] || []).push(x.volunteerName);
   });
-  const mine = activeStanding_(user.userId);
+  const mine = activeStandings_(user.userId);
   return {
-    myTraineeId: mine ? String(mine.traineeId) : '',
+    myTraineeIds: mine.map((x) => String(x.traineeId)),
+    myTraineeId: mine.length ? String(mine[0].traineeId) : '', // the first, for older screens
     trainees: traineeList_().map((t) => Object.assign({}, t, { regulars: regularsByTrainee[t.id] || [] })),
   };
 }
@@ -299,6 +328,7 @@ function submitTraineeUpdate_(p, user) {
     submittedAt: fmtDateTime_(now_()),
   });
   if (shareNow) addNote_(trainee, note, user.name, 'Volunteer update', 'automatic', fb.feedbackId, todayStr_());
+  // Goes to Trainees → Notes to review, next to session feedback, where an admin chooses who can read it.
   return {
     message: shareNow ? `Thanks! Your update is now in ${trainee.name}'s notes.` : `Thanks! An admin will review your update about ${trainee.name}.`,
   };
@@ -321,9 +351,15 @@ function visibilitySettings_(p) {
     const v = visibleFor_(traineeId, a);
     audiences[a] = { fields: v.fields, isDefault: !traineeId || v.isDefault };
   });
+  // Older saved lists have no notes marker, so their notes show as ticked.
+  AUDIENCES.forEach((a) => {
+    const f = audiences[a].fields;
+    if (f.indexOf(NOTE_FILTER.marker) === -1) audiences[a].fields = f.concat(noteFilterKeys_());
+  });
   return {
     trainee,
-    sections: traineeSections_().map((s) => ({ title: s.title, fields: s.headers.map((h) => ({ key: h.norm, label: h.header })) })),
+    sections: traineeSections_().map((s) => ({ title: s.title, fields: s.headers.map((h) => ({ key: h.norm, label: h.header })) }))
+      .concat([{ title: NOTE_FILTER.title, notes: true, fields: NOTE_FILTER.fields.slice() }]),
     audiences,
   };
 }
@@ -338,7 +374,7 @@ function saveVisibility_(p, admin) {
   const audience = oneOf_(p.audience, 'Audience', AUDIENCES);
   const traineeId = p.traineeId ? str_(p.traineeId, 'Trainee', { max: 40 }) : '';
   if (traineeId && !traineeById_(traineeId)) throw err_.notFound('Trainee not found.');
-  const known = allFieldKeys_();
+  const known = allFieldKeys_().concat(noteFilterKeys_(), [NOTE_FILTER.marker]);
   const table = table_('traineeVisibility');
   const existing = traineeId ? visibilityOverride_(traineeId, audience) : null;
   const who = audience === 'regular' ? 'regulars' : 'volunteers';
@@ -355,14 +391,16 @@ function saveVisibility_(p, admin) {
     if (known.indexOf(k) === -1) throw err_.validation(`"${f}" is not a column of the trainee sheet.`);
     if (fields.indexOf(k) === -1) fields.push(k);
   });
+  if (fields.indexOf(NOTE_FILTER.marker) === -1) fields.push(NOTE_FILTER.marker); // this list decides notes too
   const value = JSON.stringify(fields);
+  const details = fields.filter((k) => !/^notes:/.test(k)).length;
   if (!traineeId || p.makeDefault === true) {
     saveSetting_(`visibility.${audience}`, value, admin);
     if (existing) table.remove(existing);
-    return Object.assign(visibilitySettings_({ traineeId }), { message: `Saved as the default for ${who} (${fields.length} details).` });
+    return Object.assign(visibilitySettings_({ traineeId }), { message: `Saved as the default for ${who} (${details} details).` });
   }
   const stamp = { fields: value, updatedBy: admin.name, updatedAt: fmtDateTime_(now_()) };
   if (existing) table.update(existing, stamp);
   else table.insert(Object.assign({ traineeId, audience }, stamp));
-  return Object.assign(visibilitySettings_({ traineeId }), { message: `Saved for this trainee (${fields.length} details for ${who}).` });
+  return Object.assign(visibilitySettings_({ traineeId }), { message: `Saved for this trainee (${details} details for ${who}).` });
 }

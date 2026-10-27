@@ -7,6 +7,7 @@ import {
   backLink, badge, busy, combobox, el, errorBlock, field, fuzzyFilter, icon, labelled, loading, mapsLink, modal, mount,
   richText, searchBox, section, toast,
 } from '../ui.js';
+import { sortable } from '../dnd.js';
 
 const COLOURS = ['blue', 'green', 'purple', 'indigo', 'red'];
 
@@ -313,7 +314,7 @@ function infographicForm(existing, onSaved) {
       el('select', { id: 'f-position', name: 'position', class: 'input' },
         el('option', { value: 'top' }, 'At the top (above everything else)'),
         el('option', { value: 'bottom' }, 'At the bottom'))),
-    el('p', { class: 'hint' }, 'You can move it up or down afterwards.'),
+    el('p', { class: 'hint' }, 'You can drag it to another place in the guide afterwards.'),
     submit);
   const dlg = modal(existing ? 'Replace the infographic' : 'Add an infographic', form);
   form.addEventListener('submit', (e) => {
@@ -383,16 +384,15 @@ export function renderGuideEdit(root, app, ctx) {
       app.updateVenues(content.venues);
       if (ctx.alive()) draw(content);
     };
-    const move = (kind, id, direction, btn) => busy(btn, '', async () => redraw(await call('moveContent', { kind, id, direction })));
-    const arrows = (kind, id, i, n) => {
-      const up = el('button', { type: 'button', class: 'icon-btn', 'aria-label': 'Move up', disabled: i === 0 }, icon('up', 'size-4'));
-      const down = el('button', { type: 'button', class: 'icon-btn', 'aria-label': 'Move down', disabled: i === n - 1 }, icon('down', 'size-4'));
-      up.addEventListener('click', () => move(kind, id, 'up', up));
-      down.addEventListener('click', () => move(kind, id, 'down', down));
-      return el('div', { class: 'flex shrink-0 flex-col' }, up, down);
-    };
+    // Drag a row by its handle to reorder (or focus the handle and use the arrow keys).
+    const handle = (name) => el('button', { type: 'button', class: 'sort-handle', 'data-sort-handle': '', 'aria-label': `Move ${name}: drag, or use the arrow keys` }, icon('grip', 'size-5'));
+    const reorder = (kind, host) => sortable(host, (ids) => {
+      host.classList.add('opacity-60');
+      call('reorderContent', { kind, ids }).then((content) => { toast('New order saved.'); redraw(content); })
+        .catch((err) => { toast(err.message, 'error'); host.classList.remove('opacity-60'); app.rerender(); });
+    });
 
-    const sectionRow = (s, i) => {
+    const sectionRow = (s) => {
       const isFile = s.kind === 'image' || s.kind === 'pdf';
       const name = s.title || (isFile ? s.fileName || 'Infographic' : 'Untitled');
       const edit = el('button', { type: 'button', class: 'btn btn-secondary btn-sm', 'aria-label': `Edit ${name}` }, icon('pencil', 'size-4'), 'Edit');
@@ -409,8 +409,8 @@ export function renderGuideEdit(root, app, ctx) {
           ? el('img', { src: s.imageUrl, alt: '', loading: 'lazy', class: 'size-12 shrink-0 rounded-lg border border-slate-200 object-cover dark:border-neutral-800' })
           : el('span', { class: 'flex size-12 shrink-0 items-center justify-center rounded-lg bg-red-100 text-xs font-extrabold text-red-700 dark:bg-red-900/40 dark:text-red-300' }, 'PDF'))
         : null;
-      return el('div', { class: 'edit-row' },
-        arrows('guide', s.sectionId, i, c.sections.length),
+      return el('div', { class: 'edit-row', 'data-sort-id': s.sectionId },
+        handle(name),
         preview,
         el('div', { class: 'edit-row-main' },
           el('p', { class: 'flex flex-wrap items-center gap-1.5 font-bold text-slate-900 dark:text-white' }, name,
@@ -421,7 +421,7 @@ export function renderGuideEdit(root, app, ctx) {
         el('div', { class: 'edit-row-actions' }, edit, replace, del));
     };
 
-    const projectRow = (pr, i, all) => {
+    const projectRow = (pr) => {
       const archived = pr.status === 'archived';
       const edit = el('button', { type: 'button', class: 'btn btn-secondary btn-sm' }, icon('pencil', 'size-4'), 'Edit');
       edit.addEventListener('click', () => projectForm(pr, c.venues, app, redraw));
@@ -430,9 +430,8 @@ export function renderGuideEdit(root, app, ctx) {
         if (!archived && !confirm(`Archive ${pr.name}? It disappears from the guide and the session form.`)) return;
         busy(toggle, '', async () => redraw(await call('saveProject', { projectId: pr.projectId, status: archived ? 'active' : 'archived' })));
       });
-      const active = all.filter((x) => x.status !== 'archived');
-      return el('div', { class: `flex items-center gap-2 p-3 ${archived ? 'opacity-60' : ''}` },
-        archived ? el('span', { class: 'w-9' }) : arrows('projects', pr.projectId, active.indexOf(pr), active.length),
+      return el('div', { class: `flex items-center gap-2 p-3 ${archived ? 'opacity-60' : ''}`, 'data-sort-id': archived ? null : pr.projectId },
+        archived ? el('span', { class: 'w-9' }) : handle(pr.name),
         el('div', { class: 'min-w-0 flex-1' },
           el('p', { class: 'flex flex-wrap items-center gap-2 font-bold text-slate-900 dark:text-white' }, pr.name, archived ? badge('Archived', 'slate') : null),
           el('p', { class: 'truncate text-sm muted' }, [pr.schedule, pr.venue].filter(Boolean).join(', ') || 'No schedule or venue yet')),
@@ -446,15 +445,20 @@ export function renderGuideEdit(root, app, ctx) {
     const addProject = el('button', { type: 'button', class: 'btn btn-secondary btn-sm' }, icon('plus', 'size-4'), 'Add project');
     addProject.addEventListener('click', () => projectForm(null, c.venues, app, redraw));
 
+    const guideList = list(c.sections.map(sectionRow));
+    // Active projects are reordered among themselves; archived ones stay at the bottom.
+    const projectList = list(c.projects.map(projectRow));
     mount(root,
       el('h1', { class: 'page-title' }, 'Volunteer guide & projects'),
-      el('p', { class: 'mt-1 text-sm muted' }, 'New volunteers read this before their first sign-up. Add text, or an infographic (a picture or a PDF), and use the arrows to order them. Changes show straight away.'),
+      el('p', { class: 'mt-1 text-sm muted' }, 'New volunteers read this before their first sign-up. Add text, or an infographic (a picture or a PDF). Drag the ⠿ handle to put them in order. Changes show straight away.'),
       el('a', { href: '#/guide', class: 'btn btn-secondary btn-sm mt-3' }, icon('eye', 'size-4'), 'Preview as a volunteer'),
       el('div', { class: 'mt-6 flex flex-wrap items-center justify-between gap-2' }, el('h2', { class: 'group-label m-0' }, `The guide (${c.sections.length})`),
         el('div', { class: 'flex gap-2' }, addSection, addFile)),
-      el('div', { class: 'mt-2' }, c.sections.length ? list(c.sections.map(sectionRow)) : el('p', { class: 'text-sm muted' }, 'Nothing in the guide yet.')),
+      el('div', { class: 'mt-2' }, c.sections.length ? guideList : el('p', { class: 'text-sm muted' }, 'Nothing in the guide yet.')),
       el('div', { class: 'mt-6 flex items-center justify-between' }, el('h2', { class: 'group-label m-0' }, `Projects (${c.projects.length})`), addProject),
-      el('div', { class: 'mt-2' }, c.projects.length ? list(c.projects.map((pr, i, all) => projectRow(pr, i, all))) : el('p', { class: 'text-sm muted' }, 'No projects yet.')));
+      el('div', { class: 'mt-2' }, c.projects.length ? projectList : el('p', { class: 'text-sm muted' }, 'No projects yet.')));
+    reorder('guide', guideList);
+    reorder('projects', projectList);
   };
   mount(root, loading());
   return call('leaderContent').then((c) => { if (ctx.alive()) draw(c); })

@@ -5,8 +5,9 @@
 
 import { call } from '../api.js';
 import {
-  backLink, busy, el, field, formData, icon, isEmail, mount, PHONE_HINT, section, sgPhone, todaySG,
+  backLink, busy, el, field, formData, icon, isEmail, loading, mount, PHONE_HINT, section, sgPhone, todaySG,
 } from '../ui.js';
+import { questionSections, readAnswers } from './questions.js';
 
 export function renderLogin(root, app) {
   const error = el('div', { class: 'alert alert-error', role: 'alert', hidden: true });
@@ -54,20 +55,32 @@ export function renderLogin(root, app) {
       el('p', { class: 'mt-4 text-center text-xs muted' }, 'Forgot your password? Ask an admin to reset it.'))));
 }
 
+/**
+ * Registration follows MINDS's volunteer Google Form: the account details, then
+ * the form's other questions, fetched from the server (Config.gs → REGISTRATION).
+ */
 export function renderRegister(root, app) {
+  mount(root, backLink('#/login', 'Back to sign in'), loading('Loading the form…'));
+  return call('registrationForm').catch(() => null).then((questions) => {
+    if (location.hash.replace(/^#\/?/, '').split('/')[0] === 'register') drawRegister(root, app, questions);
+  });
+}
+
+function drawRegister(root, app, questions) {
   const error = el('div', { class: 'alert alert-error', role: 'alert', hidden: true });
   const submit = el('button', { type: 'submit', class: 'btn btn-primary w-full' }, 'Create account');
   const consent = el('input', { type: 'checkbox', name: 'consent', class: 'mt-0.5 size-5 shrink-0 accent-indigo-600' });
 
   const form = el('form', { novalidate: true, class: 'space-y-6' },
     error,
-    section('About you', 'blue',
-      field('name', 'Full name', { autocomplete: 'name' }),
+    section('Your account', 'blue',
+      field('name', 'Full name (as in NRIC)', { autocomplete: 'name' }),
       field('birthday', 'Birthday', { type: 'date', max: todaySG(), autocomplete: 'bday' }),
       field('email', 'Email', { type: 'email', autocomplete: 'email', inputmode: 'email', hint: "You'll use this to sign in." }),
       field('phone', 'Phone', { type: 'tel', autocomplete: 'tel', inputmode: 'tel', placeholder: '+65 91234567', hint: PHONE_HINT }),
-      field('telegram', 'Telegram handle', { optional: true, autocapitalize: 'none', placeholder: '@yourhandle' })),
-    section('Account', 'indigo',
+      field('telegram', 'Telegram handle', { optional: true, autocapitalize: 'none', placeholder: '@yourhandle', hint: 'Admins message volunteers on Telegram.' })),
+    questionSections(questions),
+    section('Password and consent', 'indigo',
       field('password', 'Password', { type: 'password', autocomplete: 'new-password', hint: 'At least 8 characters.' }),
       field('password2', 'Type it again', { type: 'password', autocomplete: 'new-password' }),
       el('label', { class: 'flex items-start gap-3 text-sm' }, consent,
@@ -78,6 +91,7 @@ export function renderRegister(root, app) {
     e.preventDefault();
     error.hidden = true;
     const d = formData(form);
+    const extra = readAnswers(form, questions ? questions.fields : []);
     const problem =
       (!d.name && 'Enter your full name.') ||
       (!d.birthday && 'Enter your birthday.') ||
@@ -85,6 +99,7 @@ export function renderRegister(root, app) {
       (!isEmail(d.email) && 'Check your email address: it should look like name@example.com.') ||
       (!d.phone && 'Enter your phone number.') ||
       (!sgPhone(d.phone) && `Phone: ${PHONE_HINT}`) ||
+      extra.problem ||
       (form.password.value.length < 8 && 'Choose a password with at least 8 characters.') ||
       (form.password.value !== form.password2.value && "The two passwords don't match.") ||
       (!consent.checked && 'Tick the box to agree to the personal data notice.');
@@ -104,6 +119,7 @@ export function renderRegister(root, app) {
           telegram: d.telegram,
           password: form.password.value,
           consent: true,
+          ...(questions ? { answers: extra.answers } : {}),
         });
         app.signedIn(res, 'Welcome! Start with this short guide, then book your first session.', '#/guide');
       } catch (err) {
@@ -117,6 +133,7 @@ export function renderRegister(root, app) {
   mount(root,
     backLink('#/login', 'Back to sign in'),
     el('h1', { class: 'page-title' }, 'Volunteer Registration'),
-    el('p', { class: 'mb-6 mt-1 muted' }, 'It takes about two minutes. Then read the short guide and say which sessions you\'re coming to.'),
-    form);
+    el('p', { class: 'mb-6 mt-1 muted' }, 'It takes about three minutes. Then read the short guide and say which sessions you\'re coming to.'),
+    form,
+    el('div', { class: 'h-24' }));
 }

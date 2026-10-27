@@ -46,12 +46,9 @@ function attendanceOut_(a) {
 function historyOut_(a, bookings, user, today) {
   const b = a.bookingId ? bookings.find((x) => x.bookingId === a.bookingId) : null;
   const out = attendanceOut_(a);
-  if (b && b.traineeId) {
-    const canView = user.role === 'admin' || volunteerType_(user) === 'regular' || String(a.date) >= addDays_(today, -CONFIG.FEEDBACK_WINDOW_DAYS);
-    out.trainee = { id: String(b.traineeId), name: b.traineeName, canView };
-  } else {
-    out.trainee = null;
-  }
+  const canView = user.role === 'admin' || volunteerType_(user) === 'regular' || String(a.date) >= addDays_(today, -CONFIG.FEEDBACK_WINDOW_DAYS);
+  out.trainees = bookingTrainees_(b).map((t) => Object.assign(t, { canView }));
+  out.trainee = out.trainees[0] || null; // the first, for older screens
   return out;
 }
 
@@ -82,13 +79,15 @@ function volunteerHome_(p, user) {
     (b) => when(sessionById[b.sessionId])
   ).map((b) => {
     const a = attByBooking[b.bookingId];
+    const trainees = bookingTraineeIds_(b).map(traineeOnHome_).filter(Boolean); // name and photo; details on request (traineeInfo)
     return {
       bookingId: b.bookingId,
       status: 'confirmed', // "coming" (older rows may still say pending)
       walkIn: b.walkIn === 'Yes',
       session: sessionOut_(sessionById[b.sessionId]),
-      trainee: b.traineeId ? traineeOnHome_(b.traineeId) : null, // name and photo; details on request (traineeInfo)
-      pairing: b.traineeId ? (b.pairing === 'standing' ? 'standing' : 'manual') : '',
+      trainees,
+      trainee: trainees[0] || null, // the first, for older screens
+      pairing: trainees.length ? (b.pairing === 'standing' ? 'standing' : 'manual') : '',
       attendance: a ? attendanceOut_(a) : null,
       canCancel: !a,
     };
@@ -109,12 +108,16 @@ function volunteerHome_(p, user) {
   const pendingFeedback = sortBy_(
     attendance.filter((a) => a.clockOut && a.bookingId && a.date >= feedbackFrom && !feedbackByBooking[a.bookingId]),
     (a) => a.clockOut
-  ).reverse().map((a) => ({
-    bookingId: a.bookingId,
-    sessionTitle: a.sessionTitle,
-    date: a.date,
-    traineeName: bookingById[a.bookingId] ? bookingById[a.bookingId].traineeName : '',
-  }));
+  ).reverse().map((a) => {
+    const trainees = bookingTrainees_(bookingById[a.bookingId]);
+    return {
+      bookingId: a.bookingId,
+      sessionTitle: a.sessionTitle,
+      date: a.date,
+      trainees, // the feedback form asks about each one
+      traineeName: namesText_(trainees.map((t) => t.name)),
+    };
+  });
 
   const completed = attendance.filter((a) => a.clockOut);
   const totalHours = completed.reduce((sum, a) => sum + (Number(a.hours) || 0), 0);
@@ -126,7 +129,7 @@ function volunteerHome_(p, user) {
   });
 
   const type = volunteerType_(user);
-  const fixed = type === 'regular' ? activeStanding_(user.userId) : null;
+  const fixed = type === 'regular' ? activeStandings_(user.userId).map((x) => traineeOnHome_(x.traineeId)).filter(Boolean) : [];
   return {
     user: publicUser_(user),
     today,
@@ -134,7 +137,8 @@ function volunteerHome_(p, user) {
     volunteerType: type,
     // A regular's fixed trainee, shown once at the top of Home. (Promotion to
     // regular is automatic and not shown to volunteers.)
-    regularTrainee: fixed ? traineeOnHome_(fixed.traineeId) : null,
+    regularTrainees: fixed,
+    regularTrainee: fixed[0] || null, // the first, for older screens
     upcoming,
     openSessions,
     pendingFeedback,
@@ -156,7 +160,7 @@ function bookSession_(p, user) {
   const sessionId = id_(p.sessionId, 'Session');
   guideCheck_(user);
   const r = comeToSession_(sessionId, user);
-  return { message: comingMessage_(r, user), trainee: r.trainee ? r.trainee.name : '', home: volunteerHome_({}, user) };
+  return { message: comingMessage_(r, user), trainee: namesText_(r.trainees.map((t) => t.name)), home: volunteerHome_({}, user) };
 }
 
 function cancelBooking_(p, user) {
@@ -175,7 +179,7 @@ function cancelBooking_(p, user) {
 }
 
 function submitFeedback_(p, user) {
-  onlyFields_(p, ['bookingId', 'rating', 'sessionFeedback', 'traineeObservation']);
+  onlyFields_(p, ['bookingId', 'rating', 'sessionFeedback', 'traineeObservation', 'observations']);
   const booking = ownBooking_(p.bookingId, user);
   const att = table_('attendance').find((a) => a.bookingId === booking.bookingId && a.clockOut);
   if (!att) throw err_.conflict('You can give feedback once you have been clocked out.');
@@ -183,32 +187,52 @@ function submitFeedback_(p, user) {
   if (feedback.find((f) => f.bookingId === booking.bookingId)) throw err_.conflict('Feedback for this session was already submitted. Thank you!');
   const rating = p.rating === undefined || p.rating === null || p.rating === '' ? '' : int_(p.rating, 'Rating', 1, 5);
   const sessionFeedback = str_(p.sessionFeedback, 'Session feedback', { max: LIMITS.NOTES });
-  const traineeObservation = str_(p.traineeObservation, 'Trainee observation', { max: LIMITS.NOTES });
-  if (rating === '' && !sessionFeedback && !traineeObservation) throw err_.validation('Add a rating or a comment before submitting.');
 
-  const shareNow = Boolean(traineeObservation && booking.traineeId && CONFIG.AUTO_SHARE_OBSERVATIONS);
-  const fb = feedback.insert({
+  // A note about each trainee they were with. Older app versions send one traineeObservation (the first trainee).
+  const trainees = bookingTrainees_(booking);
+  const notes = {};
+  if (p.observations !== undefined) {
+    if (!Array.isArray(p.observations) || p.observations.length > 20) throw err_.validation('Observations must be a list.');
+    p.observations.forEach((o) => {
+      const x = obj_(o, 'Observation');
+      const id = str_(x.traineeId, 'Trainee', { required: true, max: 40 });
+      if (!trainees.some((t) => t.id === id)) throw err_.validation('You can only write about trainees you were paired with.');
+      notes[id] = str_(x.note, 'Trainee observation', { max: LIMITS.NOTES });
+    });
+  }
+  const legacy = str_(p.traineeObservation, 'Trainee observation', { max: LIMITS.NOTES });
+  if (legacy && trainees.length && !notes[trainees[0].id]) notes[trainees[0].id] = legacy;
+  const withNotes = trainees.filter((t) => notes[t.id]);
+  if (rating === '' && !sessionFeedback && !withNotes.length && !legacy) throw err_.validation('Add a rating or a comment before submitting.');
+
+  const shareNow = Boolean(CONFIG.AUTO_SHARE_OBSERVATIONS);
+  const row = (t, first) => feedback.insert({
     feedbackId: newId_('F'),
     sessionId: booking.sessionId,
     bookingId: booking.bookingId,
     userId: user.userId,
     volunteerName: user.name,
-    traineeId: booking.traineeId,
-    traineeName: booking.traineeName,
+    traineeId: t ? t.id : booking.traineeId,
+    traineeName: t ? t.name : booking.traineeName,
     date: att.date,
-    rating,
-    sessionFeedback,
-    traineeObservation,
-    noteStatus: traineeObservation && booking.traineeId ? (shareNow ? 'shared' : 'pending') : 'none',
+    rating: first ? rating : '',
+    sessionFeedback: first ? sessionFeedback : '',
+    traineeObservation: t ? notes[t.id] : (trainees.length ? '' : legacy),
+    noteStatus: t ? (shareNow ? 'shared' : 'pending') : 'none',
     submittedAt: fmtDateTime_(now_()),
   });
+  // One row per trainee with a note (the first also holds the rating and session feedback), each reviewed on its own.
+  const rows = withNotes.length ? withNotes.map((t, i) => row(t, i === 0)) : [row(null, true)];
   if (shareNow) {
-    const trainee = traineeById_(booking.traineeId);
-    if (trainee) addNote_(trainee, traineeObservation, user.name, 'Volunteer feedback', 'automatic', fb.feedbackId, att.date);
+    rows.forEach((fb, i) => {
+      const t = withNotes[i];
+      const trainee = t ? traineeById_(t.id) : null;
+      if (trainee) addNote_(trainee, notes[t.id], user.name, 'Volunteer feedback', 'automatic', fb.feedbackId, att.date);
+    });
   }
   return {
     message: 'Thank you for your feedback!',
-    noteStatus: fb.noteStatus,
+    noteStatus: rows[0].noteStatus,
     home: volunteerHome_({}, user),
   };
 }

@@ -8,10 +8,44 @@
  *              it is applied every time they say they're coming, until changed.
  *   admin      any volunteer or regular with Role = admin also gets the Admin menu.
  *
- * Pairing rules:
- *   - a volunteer has one trainee per session (one fixed trainee if regular);
+ * Pairing rules (many to many, like the WERONE outing pairing page):
+ *   - a volunteer can have several trainees per session (and a regular several
+ *     fixed trainees);
  *   - a trainee can have several volunteers, ideally at least one regular.
+ * A booking's Trainee ID cell lists its trainees ("T-0001, T-0004"), like the
+ * session's "Trainees Attending" column; bookingTrainees_() reads it.
  */
+
+/* ---------------- a booking's trainees ---------------- */
+
+/** The trainee IDs on a booking (one or several). */
+function bookingTraineeIds_(b) {
+  return b ? parseIds_(b.traineeId) : [];
+}
+
+function hasTrainee_(b, traineeId) {
+  return bookingTraineeIds_(b).indexOf(String(traineeId)) >= 0;
+}
+
+/** [{ id, name }] for a booking, with today's names (the stored names are the fallback). */
+function bookingTrainees_(b) {
+  const stored = String((b && b.traineeName) || '').split(/\s*,\s*/);
+  const names = nameMaps_().trainees;
+  return bookingTraineeIds_(b).map((id, i) => ({ id, name: names[id] || stored[i] || id }));
+}
+
+/** The booking cells for a list of trainees: { traineeId: 'T-0001, T-0004', traineeName: 'A, B' }. */
+function traineeCells_(trainees) {
+  return {
+    traineeId: trainees.map((t) => String(t.id)).join(', '),
+    traineeName: trainees.map((t) => t.name).join(', '),
+  };
+}
+
+/** "A", "A and B", "A, B and C". */
+function namesText_(names) {
+  return names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}` : names[0] || '';
+}
 
 /* ---------------- volunteer types ---------------- */
 
@@ -110,71 +144,114 @@ function standingRows_() {
   return out;
 }
 
-function activeStanding_(userId) {
-  return standingRows_().find((x) => x.userId === userId) || null;
+/** A regular's fixed trainees (active Regular Pairings rows), oldest first. */
+function activeStandings_(userId) {
+  return standingRows_().filter((x) => x.userId === userId);
 }
 
-function endStandingPairing_(userId, admin) {
-  const current = activeStanding_(userId);
-  if (!current) return null;
-  table_('pairings').update(current.row, { status: 'ended', endedBy: admin.name, endedAt: fmtDateTime_(now_()) });
+/** The first fixed trainee, for screens that show one. */
+function activeStanding_(userId) {
+  return activeStandings_(userId)[0] || null;
+}
+
+function forgetPairingRows_() {
   delete DB_.cache.standingRows;
   delete DB_.cache.allPairingRows;
-  return current;
+}
+
+/** Ends one fixed pairing (or all of a regular's, without traineeId). Returns the ended rows. */
+function endStandingPairing_(userId, admin, traineeId) {
+  const ended = activeStandings_(userId).filter((x) => !traineeId || String(x.traineeId) === String(traineeId));
+  ended.forEach((x) => table_('pairings').update(x.row, { status: 'ended', endedBy: admin.name, endedAt: fmtDateTime_(now_()) }));
+  if (ended.length) forgetPairingRows_();
+  return ended[0] || null;
+}
+
+function startStandingPairing_(user, trainee, admin) {
+  table_('pairings').insert({
+    pairingId: newId_('P'),
+    userId: user.userId,
+    volunteerName: user.name,
+    traineeId: String(trainee.id),
+    traineeName: trainee.name,
+    status: 'active',
+    createdBy: admin.name,
+    createdAt: fmtDateTime_(now_()),
+  });
+  forgetPairingRows_();
 }
 
 /**
- * Admin sets (or clears, with traineeId '') a regular's fixed trainee.
- * Their upcoming bookings that used the old fixed trainee follow the change;
- * pairings an admin set by hand for a particular session are left alone.
+ * Admin changes a regular's fixed trainees. A regular can have several.
+ *   { userId, addTraineeId }     adds one (drag and drop, "+ Trainee")
+ *   { userId, removeTraineeId }  removes one (the small ✕)
+ *   { userId, traineeId }        replaces them all with one ('' removes them all)
+ * Their upcoming bookings that followed the fixed pairing (or had none) follow
+ * the change; pairings an admin set by hand for a particular session are left alone.
  */
 function setStandingPairing_(p, admin) {
-  onlyFields_(p, ['userId', 'traineeId']);
+  onlyFields_(p, ['userId', 'traineeId', 'addTraineeId', 'removeTraineeId']);
   const user = table_('users').find((u) => u.userId === id_(p.userId, 'User'));
   if (!user || user.status === 'inactive') throw err_.notFound('Volunteer not found.');
-  const clearing = p.traineeId === '' || p.traineeId === null || p.traineeId === undefined;
-  let trainee = null;
-  if (!clearing) {
+  const has = (k) => Object.prototype.hasOwnProperty.call(p, k);
+  const ops = ['traineeId', 'addTraineeId', 'removeTraineeId'].filter(has);
+  if (ops.length !== 1) throw err_.validation('Send one of traineeId, addTraineeId or removeTraineeId.');
+  const op = ops[0];
+  const value = p[op] === null || p[op] === undefined ? '' : p[op];
+  const activeTrainee = () => {
     if (volunteerType_(user) !== 'regular') {
       throw err_.conflict(`${user.name} is a volunteer (ad hoc). Make them a regular first, or pair them for a single session.`);
     }
-    trainee = traineeById_(str_(p.traineeId, 'Trainee', { required: true, max: 40 }));
-    if (!trainee || !isActiveTrainee_(trainee)) throw err_.validation('Choose an active trainee.');
+    const t = traineeById_(str_(value, 'Trainee', { required: true, max: 40 }));
+    if (!t || !isActiveTrainee_(t)) throw err_.validation('Choose an active trainee.');
+    return t;
+  };
+  const current = activeStandings_(user.userId);
+  const isCurrent = (id) => current.some((x) => String(x.traineeId) === String(id));
+  let message;
+  if (op === 'addTraineeId') {
+    const trainee = activeTrainee();
+    if (isCurrent(trainee.id)) return Object.assign(standingBoard_(), { message: `${user.name} is already paired with ${trainee.name}.` });
+    startStandingPairing_(user, trainee, admin);
+    message = `${user.name} is now ${trainee.name}'s regular volunteer.`;
+  } else if (op === 'removeTraineeId') {
+    const id = str_(value, 'Trainee', { required: true, max: 40 });
+    const ended = endStandingPairing_(user.userId, admin, id);
+    if (!ended) return Object.assign(standingBoard_(), { message: `${user.name} isn't paired with that trainee.` });
+    message = `${user.name} is no longer ${ended.traineeName}'s regular volunteer.`;
+  } else if (value === '') {
+    if (!current.length) return Object.assign(standingBoard_(), { message: `${user.name} has no regular trainee.` });
+    endStandingPairing_(user.userId, admin);
+    message = `${user.name}'s regular pairing has been removed.`;
+  } else {
+    const trainee = activeTrainee();
+    if (current.length === 1 && isCurrent(trainee.id)) {
+      return Object.assign(standingBoard_(), { message: `${user.name} is already paired with ${trainee.name}.` });
+    }
+    current.filter((x) => String(x.traineeId) !== String(trainee.id)).forEach((x) => endStandingPairing_(user.userId, admin, x.traineeId));
+    if (!isCurrent(trainee.id)) startStandingPairing_(user, trainee, admin);
+    message = `${user.name} is now ${trainee.name}'s regular volunteer.`;
   }
-  const current = activeStanding_(user.userId);
-  if (current && trainee && String(current.traineeId) === String(trainee.id)) {
-    return Object.assign(standingBoard_(), { message: `${user.name} is already paired with ${trainee.name}.` });
-  }
-  if (current) endStandingPairing_(user.userId, admin);
-  if (trainee) {
-    delete DB_.cache.standingRows;
-    delete DB_.cache.allPairingRows;
-    table_('pairings').insert({
-      pairingId: newId_('P'),
-      userId: user.userId,
-      volunteerName: user.name,
-      traineeId: String(trainee.id),
-      traineeName: trainee.name,
-      status: 'active',
-      createdBy: admin.name,
-      createdAt: fmtDateTime_(now_()),
-    });
-  }
-  // Upcoming bookings that followed the old fixed pairing (or had none) follow the new one.
+  const moved = followStanding_(user);
+  if (moved) message += ` Updated ${moved} upcoming session${moved === 1 ? '' : 's'}.`;
+  return Object.assign(standingBoard_(), { message });
+}
+
+/** Upcoming bookings that follow a regular's fixed trainees (or have none) get the current list. */
+function followStanding_(user) {
+  const trainees = activeStandings_(user.userId).map((x) => traineeById_(x.traineeId)).filter((t) => t && isActiveTrainee_(t));
+  const cells = trainees.length ? Object.assign(traineeCells_(trainees), { pairing: 'standing' }) : { traineeId: '', traineeName: '', pairing: '' };
   const bookings = table_('bookings');
   const today = todayStr_();
   let moved = 0;
   bookings.filter((b) => b.userId === user.userId && b.status !== 'cancelled' && String(b.sessionDate) >= today
     && (b.pairing === 'standing' || !b.traineeId)).forEach((b) => {
     if (table_('attendance').find((a) => a.bookingId === b.bookingId)) return; // already on site: leave it
-    bookings.update(b, trainee
-      ? { traineeId: String(trainee.id), traineeName: trainee.name, pairing: 'standing' }
-      : { traineeId: '', traineeName: '', pairing: '' });
+    if (String(b.traineeId || '') === cells.traineeId) return;
+    bookings.update(b, cells);
     moved += 1;
   });
-  let message = trainee ? `${user.name} is now ${trainee.name}'s regular volunteer.` : `${user.name}'s regular pairing has been removed.`;
-  if (moved) message += ` Updated ${moved} upcoming session${moved === 1 ? '' : 's'}.`;
-  return Object.assign(standingBoard_(), { message });
+  return moved;
 }
 
 /** Everything the "Regular pairings" board needs. */
@@ -182,14 +259,15 @@ function standingBoard_() {
   delete DB_.cache.standingRows;
   delete DB_.cache.allPairingRows;
   const active = standingRows_();
-  const byUser = byKey_(active, 'userId');
   const regulars = table_('users').rows()
     .filter((u) => u.userId && u.status !== 'inactive' && volunteerType_(u) === 'regular')
     .map((u) => {
-      const pair = byUser[u.userId];
+      const pairs = active.filter((x) => x.userId === u.userId);
       return {
         userId: u.userId, name: u.name, phone: u.phone || '', telegram: u.telegram || '', isAdmin: u.role === 'admin',
-        traineeId: pair ? String(pair.traineeId) : '', traineeName: pair ? pair.traineeName : '',
+        trainees: pairs.map((x) => ({ id: String(x.traineeId), name: x.traineeName })),
+        traineeId: pairs.length ? String(pairs[0].traineeId) : '', // the first, for older screens
+        traineeName: pairs.map((x) => x.traineeName).join(', '),
       };
     });
   const regularsByTrainee = {};
@@ -202,7 +280,7 @@ function standingBoard_() {
     history: pairHistoryFor_(ids), // for choosing someone new, or someone they know
     counts: {
       regulars: regulars.length,
-      unpairedRegulars: regulars.filter((r) => !r.traineeId).length,
+      unpairedRegulars: regulars.filter((r) => !r.trainees.length).length,
       traineesWithoutRegular: trainees.filter((t) => !t.regulars.length).length,
     },
   };
@@ -215,18 +293,17 @@ function listStandingPairings_() {
 /* ---------------- pairing a booking ---------------- */
 
 /**
- * When someone says they're coming: a regular with a fixed trainee is paired
- * straight away; everyone else waits for an admin. Returns the trainee or null.
+ * When someone says they're coming: a regular with fixed trainees is paired
+ * with them straight away; everyone else waits for an admin.
+ * Returns the trainees (an array, empty if none).
  */
 function applyStanding_(booking, user) {
-  if (!CONFIG.APPLY_STANDING_PAIRINGS || booking.traineeId) return null;
-  if (volunteerType_(user) !== 'regular') return null;
-  const pair = activeStanding_(user.userId);
-  if (!pair) return null;
-  const trainee = traineeById_(pair.traineeId);
-  if (!trainee || !isActiveTrainee_(trainee)) return null;
-  table_('bookings').update(booking, { traineeId: String(trainee.id), traineeName: trainee.name, pairing: 'standing' });
-  return trainee;
+  if (!CONFIG.APPLY_STANDING_PAIRINGS || booking.traineeId) return [];
+  if (volunteerType_(user) !== 'regular') return [];
+  const trainees = activeStandings_(user.userId).map((x) => traineeById_(x.traineeId)).filter((t) => t && isActiveTrainee_(t));
+  if (!trainees.length) return [];
+  table_('bookings').update(booking, Object.assign(traineeCells_(trainees), { pairing: 'standing' }));
+  return trainees;
 }
 
 /** Records "I'm coming" for one session. Shared by bookSession and bookSessions. */
@@ -253,8 +330,8 @@ function comeToSession_(sessionId, user) {
     decidedBy: `${user.name} (self)`,
     decidedAt: stampNow,
   });
-  const trainee = applyStanding_(booking, user);
-  return { session: s, booking, trainee };
+  const trainees = applyStanding_(booking, user);
+  return { session: s, booking, trainees };
 }
 
 function guideCheck_(user) {
@@ -264,7 +341,9 @@ function guideCheck_(user) {
 }
 
 function comingMessage_(r, user) {
-  if (r.trainee) return `You're coming to ${r.session.title}! You'll be with ${r.trainee.name}, your regular trainee.`;
+  if (r.trainees.length) {
+    return `You're coming to ${r.session.title}! You'll be with ${namesText_(r.trainees.map((t) => t.name))}, your regular trainee${r.trainees.length > 1 ? 's' : ''}.`;
+  }
   return volunteerType_(user) === 'regular'
     ? `You're coming to ${r.session.title}! An admin will pair you with a trainee.`
     : `You're coming to ${r.session.title}! An admin will pair you with a trainee before the session.`;
@@ -282,7 +361,7 @@ function bookSessions_(p, user) {
   const results = ids.map((sessionId) => {
     try {
       const r = comeToSession_(sessionId, user);
-      return { sessionId, ok: true, title: r.session.title, trainee: r.trainee ? r.trainee.name : '' };
+      return { sessionId, ok: true, title: r.session.title, trainee: namesText_(r.trainees.map((t) => t.name)) };
     } catch (e) {
       if (!(e instanceof AppError)) throw e;
       return { sessionId, ok: false, message: e.message };
@@ -312,11 +391,11 @@ function addWalkIn_(p, admin) {
     userId: user.userId, volunteerName: user.name, status: 'confirmed', walkIn: 'Yes',
     bookedAt: stampNow, decidedBy: admin.name, decidedAt: stampNow,
   });
-  const trainee = applyStanding_(booking, user);
+  const trainees = applyStanding_(booking, user);
   return {
     detail: sessionDetail_({ sessionId: session.sessionId }),
     bookingId: booking.bookingId,
-    message: `${user.name} added as a walk-in${trainee ? `, with ${trainee.name}` : ''}.`,
+    message: `${user.name} added as a walk-in${trainees.length ? `, with ${namesText_(trainees.map((t) => t.name))}` : ''}.`,
   };
 }
 
@@ -333,12 +412,14 @@ function pairStats_() {
   const map = {};
   table_('bookings').rows().forEach((b) => {
     if (b.status === 'cancelled' || !b.traineeId || !attended[b.bookingId]) return;
-    const key = `${b.userId}|${b.traineeId}`;
-    const s = map[key] || (map[key] = { userId: b.userId, traineeId: String(b.traineeId), traineeName: b.traineeName, volunteerName: b.volunteerName, sessions: 0, first: '', last: '' });
-    s.sessions += 1;
-    const d = String(b.sessionDate);
-    if (!s.first || d < s.first) s.first = d;
-    if (d > s.last) { s.last = d; s.traineeName = b.traineeName; }
+    bookingTrainees_(b).forEach((t) => {
+      const key = `${b.userId}|${t.id}`;
+      const s = map[key] || (map[key] = { userId: b.userId, traineeId: t.id, traineeName: t.name, volunteerName: b.volunteerName, sessions: 0, first: '', last: '' });
+      s.sessions += 1;
+      const d = String(b.sessionDate);
+      if (!s.first || d < s.first) s.first = d;
+      if (d > s.last) { s.last = d; s.traineeName = t.name; }
+    });
   });
   DB_.cache.pairStats = map;
   return map;

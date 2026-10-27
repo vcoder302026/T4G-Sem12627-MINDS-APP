@@ -43,7 +43,7 @@ const CONFIG = {
   LOGIN_MAX_FAILURES: 5,         // per email, per 15 minutes
   MIN_MINUTES_BEFORE_CLOCK_OUT: 2, // a second scan sooner than this is ignored (stops double-scans)
   OFFLINE_SCAN_MAX_AGE_HOURS: 24,  // queued offline scans older than this are rejected
-  ALLOW_SHARED_TRAINEE: true,    // a trainee may have several volunteers in one session (each volunteer has one trainee)
+  ALLOW_SHARED_TRAINEE: true,    // a trainee may have several volunteers in one session (a volunteer may also have several trainees)
   QR_DAYS_AHEAD: 14,             // QR codes pre-issued to the phone for offline use
   FEEDBACK_WINDOW_DAYS: 14,      // how long after a session volunteers can still give feedback
 
@@ -217,9 +217,12 @@ const CONFIG = {
         date: 'Date',
         note: 'Note',
         author: 'Written By',
-        source: 'Source',        // Volunteer feedback | Leader
+        source: 'Source',        // Volunteer feedback | Volunteer update | Leader
         feedbackId: 'Feedback ID',
-        status: 'Status',        // shared | hidden
+        status: 'Status',        // shared | hidden (= private)
+        audience: 'Shared With', // all | regular | selected | private (see NOTE_AUDIENCES)
+        sharedWith: 'Shared With Volunteers', // user IDs, when audience = selected
+        sharedWithNames: 'Shared With (Names)', // the same people by name, for reading the sheet
         addedBy: 'Added By',
         addedAt: 'Added At',
       },
@@ -268,7 +271,7 @@ const CONFIG = {
     },
 
     pairings: {
-      tab: 'Regular Pairings', // a regular volunteer's fixed trainee, set by an admin
+      tab: 'Regular Pairings', // a regular volunteer's fixed trainees (one row each), set by an admin
       columns: {
         pairingId: 'Pairing ID',
         userId: 'User ID',
@@ -568,3 +571,45 @@ const CONFIG = {
     },
   },
 };
+
+/* Who can read a trainee note. Admins choose one when they review a volunteer's
+   note (Trainees → Notes to review) or add or change a note on a trainee's page.
+   "private" notes are kept for admins, never deleted. */
+const NOTE_AUDIENCES = {
+  all: { label: 'Share with all future volunteers', hint: 'Everyone paired with this trainee, and every regular.', done: 'shared with all future volunteers' },
+  regular: { label: 'Share with regular volunteers only', hint: 'Regulars can read it; ad hoc volunteers can\'t.', done: 'shared with regular volunteers only' },
+  selected: { label: 'Share with selected volunteers', hint: 'Only the volunteers you pick (they see it when they open this trainee).', done: 'shared with the volunteers you picked' },
+  private: { label: 'Keep private (admins only)', hint: 'Kept on the trainee\'s profile for admins. Volunteers never see it.', done: 'private: only admins can read it' },
+};
+const NOTE_AUDIENCE_KEYS = Object.keys(NOTE_AUDIENCES);
+
+/* The volunteer registration form, in the order of MINDS's Google Form.
+   Name, birthday, email, phone, Telegram and the password are always asked
+   (they are the account); these extra questions follow them. Each answer is
+   saved in its own column of the Volunteers tab (setup() adds missing columns).
+     key       code name (letters only)        header   the column in the Volunteers tab
+     type      text | textarea | choice (one) | multi (several) | yesno
+     options   for choice / multi; "Other" lets the volunteer type their own
+     required  true = must be answered          section  heading the question is shown under
+   To match a new version of the form: edit, add or remove entries here, run
+   setup() again, and publish a new version. Old answers stay in the sheet. */
+const REGISTRATION = {
+  sections: ['Personal particulars', 'About you', 'Volunteering with MINDS'],
+  fields: [
+    { key: 'preferredName', header: 'Preferred Name', label: 'Preferred name', type: 'text', section: 'Personal particulars', hint: 'What should trainees and staff call you?' },
+    { key: 'gender', header: 'Gender', label: 'Gender', type: 'choice', options: ['Male', 'Female'], required: true, section: 'Personal particulars' },
+    { key: 'occupation', header: 'Occupation', label: 'Are you studying or working?', type: 'choice', options: ['Student', 'Working', 'Other'], required: true, section: 'About you' },
+    { key: 'organisation', header: 'School / Organisation', label: 'School or organisation', type: 'text', required: true, section: 'About you', hint: 'e.g. NTU, or your company.' },
+    { key: 'languages', header: 'Languages Spoken', label: 'Languages you speak', type: 'multi', options: ['English', 'Mandarin', 'Malay', 'Tamil', 'Other'], required: true, section: 'About you' },
+    { key: 'shirtSize', header: 'T-Shirt Size', label: 'T-shirt size', type: 'choice', options: ['XS', 'S', 'M', 'L', 'XL', 'XXL'], section: 'About you' },
+    { key: 'dietary', header: 'Dietary Restrictions', label: 'Dietary restrictions', type: 'text', section: 'About you', hint: 'e.g. vegetarian, halal, no beef. Leave blank if none.' },
+    { key: 'medical', header: 'Medical Conditions', label: 'Medical conditions or allergies we should know about', type: 'textarea', section: 'About you' },
+    { key: 'projects', header: 'Projects Interested In', label: 'Which projects are you interested in?', type: 'multi', options: 'projects', required: true, section: 'Volunteering with MINDS' }, // 'projects' = the active projects (Projects tab)
+    { key: 'experience', header: 'Experience with Persons with Intellectual Disability', label: 'Have you volunteered with persons with intellectual disability before?', type: 'yesno', required: true, section: 'Volunteering with MINDS' },
+    { key: 'heardFrom', header: 'How Did You Hear About Us', label: 'How did you hear about us?', type: 'choice', options: ['Friends or family', 'School', 'Social media', 'MINDS website', 'Other'], section: 'Volunteering with MINDS' },
+    { key: 'photoConsent', header: 'Photo Consent', label: 'May MINDS use photos of you taken at sessions (e.g. on social media)?', type: 'yesno', required: true, section: 'Volunteering with MINDS' },
+  ],
+};
+// Each registration answer has its own column in the Volunteers tab.
+REGISTRATION.fields.forEach((f) => { CONFIG.TABLES.users.columns[f.key] = f.header; });
+
