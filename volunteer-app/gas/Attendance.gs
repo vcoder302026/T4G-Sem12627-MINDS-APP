@@ -193,7 +193,7 @@ function clock_(user, o) {
     bookings.update(booking, { status: 'confirmed', decidedBy: o.admin.name, decidedAt: fmtDateTime_(now_()) });
   }
   const paired = applyStanding_(booking, user);
-  if (paired) note += ` Paired with ${paired.name} (their regular trainee).`;
+  if (paired.length) note += ` Paired with ${namesText_(paired.map((t) => t.name))} (their regular trainee${paired.length > 1 ? 's' : ''}).`;
   else if (!booking.traineeId) note += ' Not paired with a trainee yet: pair them on the pairing board.';
   const record = attendance.insert({
     attendanceId: newId_('A'),
@@ -218,6 +218,7 @@ function clockResult_(outcome, user, session, record, booking, message) {
     volunteer: { userId: user.userId, name: user.name },
     session: session ? { sessionId: session.sessionId, title: session.title, startTime: session.startTime, endTime: session.endTime } : null,
     attendance: record ? attendanceOut_(record) : null,
-    trainee: booking && booking.traineeName ? { id: String(booking.traineeId), name: booking.traineeName } : null,
+    trainees: bookingTrainees_(booking),
+    trainee: bookingTrainees_(booking)[0] || null, // the first, for older screens
   };
 }

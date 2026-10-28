@@ -62,6 +62,9 @@ function guideBanner() {
 
 const UNPAIRED_HINT = "You're on the list. An admin will pair you with a trainee before the session.";
 
+/** A booking's trainees (one or several); older servers send just `trainee`. */
+const traineesOf = (u) => u.trainees || (u.trainee ? [u.trainee] : []);
+
 
 function attendanceBox(a) {
   if (!a) return null;
@@ -113,7 +116,7 @@ export function renderHome(root, app, ctx) {
           el('span', { class: 'block muted' }, [admin.unpairedTotal ? `${admin.unpairedTotal} to pair` : '', admin.reviewCount ? `${admin.reviewCount} note${admin.reviewCount === 1 ? '' : 's'} to review` : ''].filter(Boolean).join(' · '))),
         icon('chevron', 'size-5 text-slate-400')) : null,
       // Regulars: their fixed trainee, once. Details: press and hold, or tap.
-      h.regularTrainee ? traineeLine(h.regularTrainee, 'standing', 'Your regular trainee') : null,
+      (h.regularTrainees || (h.regularTrainee ? [h.regularTrainee] : [])).map((t, i, all) => traineeLine(t, 'standing', all.length > 1 ? `Your regular trainee (${i + 1} of ${all.length})` : 'Your regular trainee')),
 
       h.pendingFeedback.map((f) => el('div', { class: 'card mt-4 border-l-4 border-l-amber-400 p-4' },
         badge('Feedback needed', 'amber', 'message'),
@@ -131,8 +134,8 @@ export function renderHome(root, app, ctx) {
             sessionMeta(u.session)),
           u.attendance ? null : statusBadge(u.status)),
         attendanceBox(u.attendance),
-        traineeLine(u.trainee, u.pairing),
-        !u.trainee && !u.attendance ? el('p', { class: 'alert alert-info mt-4' }, UNPAIRED_HINT) : null,
+        traineesOf(u).map((t) => traineeLine(t, u.pairing)),
+        !traineesOf(u).length && !u.attendance ? el('p', { class: 'alert alert-info mt-4' }, UNPAIRED_HINT) : null,
         u.attendance && u.attendance.clockOut ? null
           : el('a', { href: '#/pass', class: 'btn btn-primary mt-4 w-full' }, icon('qr'), 'Show my QR pass'))),
 
@@ -145,8 +148,8 @@ export function renderHome(root, app, ctx) {
               el('h3', { class: 'font-bold text-slate-900 dark:text-white' }, u.session.title),
               el('p', { class: 'text-sm muted' }, `${fmtTimes(u.session)}, `, venueLink(u.session))),
             statusBadge(u.status)),
-          u.trainee ? null : el('p', { class: 'mt-2 text-xs muted' }, UNPAIRED_HINT),
-          traineeLine(u.trainee, u.pairing),
+          traineesOf(u).length ? null : el('p', { class: 'mt-2 text-xs muted' }, UNPAIRED_HINT),
+          traineesOf(u).map((t) => traineeLine(t, u.pairing)),
           el('div', { class: 'mt-2' }, cancelButton(app, u, draw)))))
         : emptyState('calendar', "You haven't signed up for any sessions", "Find sessions that suit you and say you're coming.",
           el('a', { href: h.guideRead === false ? '#/guide' : '#/sessions', class: 'btn btn-primary mt-5' }, h.guideRead === false ? 'Read the guide first' : 'Find a session')));
@@ -356,8 +359,8 @@ export function renderMe(root, app, ctx) {
             el('p', { class: 'font-bold text-slate-900 dark:text-white' }, a.sessionTitle),
             el('p', { class: 'text-sm muted' }, `${fmtDay(a.date, h.today)}, ${clockTime(a.clockIn)}–${clockTime(a.clockOut)}`),
             // Who they were with. The name opens the trainee's details while they may still see them.
-            el('p', { class: 'mt-0.5 text-sm' }, a.trainee
-              ? ['With ', a.trainee.canView ? traineeName(a.trainee.name, a.trainee.id, 'font-bold') : el('span', { class: 'font-bold' }, a.trainee.name)]
+            el('p', { class: 'mt-0.5 text-sm' }, traineesOf(a).length
+              ? ['With ', traineesOf(a).map((t, i) => [i ? ', ' : '', t.canView ? traineeName(t.name, t.id, 'font-bold') : el('span', { class: 'font-bold' }, t.name)])]
               : el('span', { class: 'muted' }, 'No trainee paired'))),
           badge(fmtHours(a.hours), 'indigo'))))
         : emptyState('clock', 'No completed sessions yet', 'Sessions you finish will be listed here with your hours.'),
@@ -367,7 +370,8 @@ export function renderMe(root, app, ctx) {
         el('div', { class: 'section-head section-blue' }, 'My details',
           el('a', { href: '#/edit-me', class: 'btn btn-secondary btn-sm normal-case tracking-normal' }, icon('pencil', 'size-4'), 'Edit')),
         el('dl', { class: 'divide-y divide-slate-100 px-4 py-2 text-sm dark:divide-neutral-800' },
-          detail('Email', u.email), detail('Phone', u.phone), detail('Telegram', u.telegram ? `@${u.telegram}` : ''), detail('Birthday', u.birthday))),
+          detail('Email', u.email), detail('Phone', u.phone), detail('Telegram', u.telegram ? `@${u.telegram}` : ''), detail('Birthday', u.birthday),
+          (u.answers || []).filter((a) => a.value).map((a) => detail(a.label, a.value)))),
       accordion('Change password', 'indigo', pwForm),
       el('div', { class: 'mt-3' }, list(linkRow('#/guide', 'book', 'Volunteer Guide', 'Projects, what to wear and what we expect'))),
       el('button', { class: 'btn btn-danger mt-3 w-full', onclick: () => app.signOut() }, icon('logout'), 'Sign out'));
@@ -376,6 +380,9 @@ export function renderMe(root, app, ctx) {
 }
 
 /* ---------------- Feedback ---------------- */
+
+/** The trainees a pending feedback item is about (older servers send only the names). */
+const feedbackTrainees = (item) => item.trainees || [];
 
 export function renderFeedback(root, app, ctx, bookingId) {
   const draw = (h) => {
@@ -389,19 +396,21 @@ export function renderFeedback(root, app, ctx, bookingId) {
       section('How did it go?', 'blue',
         el('div', {}, el('p', { class: 'label' }, 'Overall, how was the session?'), likert('rating', 'Very difficult', 'Went really well')),
         field('sessionFeedback', 'What went well, or what could be better?', { type: 'textarea', optional: true, maxlength: 5000 })),
-      item.traineeName ? section(`About ${item.traineeName}`, 'green',
-        field('traineeObservation', `Notes for future volunteers working with ${item.traineeName}`, {
+      // One box per trainee they were with (a volunteer can be paired with several).
+      feedbackTrainees(item).map((t) => section(`About ${t.name}`, 'green',
+        field(`obs-${t.id}`, `Notes for future volunteers working with ${t.name}`, {
           type: 'textarea', optional: true, rows: 4, maxlength: 5000,
           placeholder: 'e.g. Calmer with a 5-minute warning before changing activity. Loved the colouring sheets.',
-          hint: `What helped, what to avoid, new skills or changes you noticed. An admin reads it first, then it is added to ${item.traineeName}'s notes for the next volunteer.`,
-        })) : null,
+          hint: `What helped, what to avoid, new skills or changes you noticed. An admin reads it first and decides who can read it (e.g. all future volunteers, or only regulars).`,
+        }))),
       el('div', { class: 'action-bar' }, el('div', { class: 'mx-auto flex max-w-2xl gap-3' },
         el('a', { href: '#/home', class: 'btn btn-secondary' }, 'Not now'), submit)));
 
     form.addEventListener('submit', (e) => {
       e.preventDefault();
       const d = formData(form);
-      if (!d.rating && !d.sessionFeedback && !d.traineeObservation) {
+      const observations = feedbackTrainees(item).map((t) => ({ traineeId: t.id, note: (d[`obs-${t.id}`] || '').trim() })).filter((o) => o.note);
+      if (!d.rating && !d.sessionFeedback && !observations.length) {
         toast('Pick a rating or write a comment first.', 'warn');
         return;
       }
@@ -410,7 +419,7 @@ export function renderFeedback(root, app, ctx, bookingId) {
           bookingId,
           rating: d.rating ? Number(d.rating) : '',
           sessionFeedback: d.sessionFeedback || '',
-          traineeObservation: d.traineeObservation || '',
+          observations,
         });
         app.saveHome(res.home);
         toast(res.message);

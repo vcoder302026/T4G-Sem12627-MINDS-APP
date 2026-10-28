@@ -26,6 +26,7 @@ function publicUser_(u) {
     volunteerType: volunteerType_(u),
     createdAt: u.createdAt,
     guideReadAt: u.guideReadAt || '',
+    answers: registrationAnswersOut_(u), // the registration form's other questions (Config.gs → REGISTRATION)
   };
 }
 
@@ -74,7 +75,7 @@ function requireUser_(token) {
 /* ---------- actions ---------- */
 
 function register_(p) {
-  onlyFields_(p, ['name', 'birthday', 'email', 'phone', 'telegram', 'emergencyName', 'emergencyPhone', 'emergencyRelation', 'password', 'consent']);
+  onlyFields_(p, ['name', 'birthday', 'email', 'phone', 'telegram', 'emergencyName', 'emergencyPhone', 'emergencyRelation', 'password', 'consent', 'answers']);
   const rec = {
     name: str_(p.name, 'Full name', { required: true, max: LIMITS.SHORT }),
     birthday: date_(p.birthday, 'Birthday'),
@@ -87,6 +88,8 @@ function register_(p) {
     emergencyRelation: str_(p.emergencyRelation, 'Relationship', { max: 50 }),
   };
   if (rec.birthday > todayStr_()) throw err_.validation('Birthday cannot be in the future.');
+  // The form's other questions. Older app versions don't send them, so required ones are only enforced when answers are sent.
+  if (p.answers !== undefined) Object.assign(rec, registrationAnswers_(p.answers, false));
   const password = password_(p.password);
   if (p.consent !== true) throw err_.validation('Please agree to the personal data notice to register.');
 
@@ -183,7 +186,8 @@ function listPeople_() {
     h.sessions += 1;
   });
   const hasAccount = byKey_(table_('auth').rows(), 'userId');
-  const standing = byKey_(standingRows_(), 'userId');
+  const standing = {};
+  standingRows_().forEach((x) => { (standing[x.userId] = standing[x.userId] || []).push(x); });
   const noShows = noShowsByUser_();
   const people = table_('users').rows()
     .filter((u) => u.userId)
@@ -193,8 +197,9 @@ function listPeople_() {
       hours: Math.round(((hours[u.userId] || {}).hours || 0) * 100) / 100,
       sessions: (hours[u.userId] || {}).sessions || 0,
       noShows: noShows[u.userId] || 0,
-      regularTraineeName: standing[u.userId] ? standing[u.userId].traineeName : '',
-      regularTraineeId: standing[u.userId] ? standing[u.userId].traineeId : '',
+      regularTrainees: (standing[u.userId] || []).map((x) => ({ id: String(x.traineeId), name: x.traineeName })),
+      regularTraineeName: (standing[u.userId] || []).map((x) => x.traineeName).join(', '),
+      regularTraineeId: standing[u.userId] ? String(standing[u.userId][0].traineeId) : '', // the first, for older screens
     }));
   return { people: sortBy_(people, (x) => String(x.name).toLowerCase()), regularAfter: CONFIG.REGULAR_AFTER_SESSIONS };
 }

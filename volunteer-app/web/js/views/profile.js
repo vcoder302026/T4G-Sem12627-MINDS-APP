@@ -5,6 +5,7 @@ import { call } from '../api.js';
 import {
   backLink, badge, busy, el, errorBlock, field, fmtDay, fmtHours, formData, icon, initials, isEmail, loading, mount, PHONE_HINT, section, sgPhone, toast, todaySG,
 } from '../ui.js';
+import { answerText, questionSections, readAnswers } from './questions.js';
 
 const FIELDS = ['name', 'birthday', 'email', 'phone', 'telegram']; // no emergency contact: MINDS only needs Telegram
 
@@ -19,7 +20,7 @@ const REQUIRED = {
  * The registration fields, filled in with a person's current details.
  * Returns { form, changes() } where changes() lists only the edited fields.
  */
-function detailsForm(person, { self, submit, extra }) {
+function detailsForm(person, { self, submit, extra, questions }) {
   const error = el('div', { class: 'alert alert-error', role: 'alert', hidden: true });
   const passwordBox = self ? el('div', { hidden: true },
     field('currentPassword', 'Current password', {
@@ -38,6 +39,8 @@ function detailsForm(person, { self, submit, extra }) {
       passwordBox,
       field('phone', 'Phone', { type: 'tel', inputmode: 'tel', value: person.phone, placeholder: '+65 91234567', hint: PHONE_HINT }),
       field('telegram', 'Telegram handle', { optional: true, autocapitalize: 'none', value: person.telegram ? `@${person.telegram}` : '', placeholder: '@yourhandle' })),
+    // The registration form's other questions, with their current answers.
+    questions ? questionSections(questions, Object.fromEntries((person.answers || []).map((a) => [a.key, a.value]))) : null,
     extra || null,
     submit);
 
@@ -64,6 +67,13 @@ function detailsForm(person, { self, submit, extra }) {
     FIELDS.forEach((k) => {
       if (normal(k, d[k]) !== normal(k, person[k])) out[k] = d[k] || '';
     });
+    if (questions) {
+      const read = readAnswers(form, questions.fields);
+      if (read.problem) throw new Error(read.problem);
+      const before = Object.fromEntries((person.answers || []).map((a) => [a.key, a.value]));
+      const changed = Object.keys(read.answers).filter((k) => answerText(read.answers[k]) !== answerText(before[k]));
+      if (changed.length) out.answers = Object.fromEntries(changed.map((k) => [k, read.answers[k]]));
+    }
     if (out.email && self) {
       if (!form.currentPassword.value) throw new Error('Enter your current password to change your email.');
       out.currentPassword = form.currentPassword.value;
@@ -81,11 +91,12 @@ function detailsForm(person, { self, submit, extra }) {
 /* ---------------- everyone: editing their own details ---------------- */
 
 export function renderEditMe(root, app, ctx) {
+  let questions = null;
   const draw = (person) => {
     const save = el('button', { type: 'submit', class: 'btn btn-primary flex-1' }, 'Save changes');
     const bar = el('div', { class: 'action-bar' }, el('div', { class: 'mx-auto flex max-w-2xl gap-3' },
       el('a', { href: '#/me', class: 'btn btn-secondary' }, 'Cancel'), save));
-    const { form, changes, showError } = detailsForm(person, { self: true, submit: bar });
+    const { form, changes, showError } = detailsForm(person, { self: true, submit: bar, questions });
     form.addEventListener('submit', (e) => {
       e.preventDefault();
       showError('');
@@ -119,11 +130,15 @@ export function renderEditMe(root, app, ctx) {
       el('div', { class: 'h-24' }));
   };
 
-  if (app.user) draw(app.user);
-  else mount(root, loading());
-  return call('me').then((res) => {
+  mount(root, loading());
+  return Promise.all([call('me'), call('registrationForm').catch(() => null)]).then(([res, q]) => {
     if (!ctx.alive()) return;
+    questions = q;
     app.updateUser(res.user);
-    if (!root.contains(document.activeElement)) draw(res.user); // don't redraw under someone typing
-  }).catch((err) => { if (ctx.alive() && !app.user) mount(root, errorBlock(err, () => app.rerender())); });
+    draw(res.user);
+  }).catch((err) => {
+    if (!ctx.alive()) return;
+    if (app.user) draw(app.user); // offline: the details this phone already has
+    else mount(root, errorBlock(err, () => app.rerender()));
+  });
 }

@@ -1,9 +1,10 @@
 // Admin → Volunteers and Trainees.
 
 import { personName, traineeName } from '../../../js/quickview.js';
+import { audienceBadge, shareChooser } from '../../../js/views/trainees.js';
 import { call } from '../../../js/api.js';
 import {
-  badge, busy, el, fuzzyFilter, labelled, modal, mount, passwordPrompt, searchBox, toast, traineeAvatar, typeBadges,
+  badge, busy, el, fuzzyFilter, hvSections, labelled, modal, mount, passwordPrompt, searchBox, toast, traineeAvatar, typeBadges,
 } from '../../../js/ui.js';
 import {
   backTo, dateRangeText, day, field, formModal, hours, icon, load, pageHead, panel, plural, row, selectField, stat, statGrid, table,
@@ -96,7 +97,7 @@ export function renderVolunteers(root, app, ctx) {
     mount(listHost, table([
       { label: 'Name', cell: (p) => personName(p.name, p.userId, 'font-bold') },
       { label: 'Profile', cell: (p) => el('span', { class: 'flex flex-wrap gap-1' }, typeBadges(p), p.status === 'inactive' ? badge('Deactivated', 'red') : null, p.hasAccount ? null : badge('No login yet', 'amber')) },
-      { label: 'Regular trainee', cell: (p) => (p.regularTraineeName ? traineeName(p.regularTraineeName, p.regularTraineeId) : '') },
+      { label: 'Regular trainees', cell: (p) => (p.regularTrainees || []).map((t, i) => [i ? ', ' : '', traineeName(t.name, t.id)]) },
       { label: 'Phone', cell: (p) => p.phone, class: 'whitespace-nowrap' },
       { label: 'Sessions', cell: (p) => String(p.sessions), class: 'text-right' },
       { label: 'No-shows', cell: (p) => (p.noShows ? el('span', { class: 'font-bold text-red-600 dark:text-red-400' }, String(p.noShows)) : '0'), class: 'text-right' },
@@ -203,12 +204,16 @@ export function renderVolunteer(root, app, ctx, userId) {
         panel('Details', el('button', { class: 'btn btn-secondary btn-sm', onclick: () => edit(p) }, icon('pencil', 'size-4'), 'Edit'),
           el('dl', { class: 'divide-y divide-slate-100 px-4 py-2 text-sm dark:divide-neutral-800' },
             dl('Phone', p.phone), dl('Telegram', p.telegram ? `@${p.telegram}` : ''), dl('Birthday', p.birthday),
-            dl('Regular trainee', d.regularTrainee ? traineeName(d.regularTrainee.name, d.regularTrainee.id) : (regular ? 'Not set: see Pairing → Regular pairings' : '')),
+            dl((d.regularTrainees || []).length > 1 ? 'Regular trainees' : 'Regular trainee', (d.regularTrainees || []).length
+              ? d.regularTrainees.map((t, i) => [i ? ', ' : '', traineeName(t.name, t.id)])
+              : (regular ? 'Not set: see Pairing → Regular pairings' : '')),
             d.typeSetBy ? dl('Profile set by', d.typeSetBy) : null,
             d.contact && d.contact.on ? dl('Google Contacts', d.contact.saved ? d.contact.status
               : d.contact.status ? el('span', { class: 'font-bold text-red-600 dark:text-red-400' }, d.contact.status) : 'Not saved yet') : null,
             // Emergency contacts aren't collected any more; details from before are still shown.
             p.emergencyName || p.emergencyPhone ? dl('Emergency contact (old)', [p.emergencyName, p.emergencyRelation ? `(${p.emergencyRelation})` : '', p.emergencyPhone].filter(Boolean).join(' ')) : null,
+            // The registration form's other questions (Config.gs → REGISTRATION).
+            (p.answers || []).filter((a) => a.value).map((a) => dl(a.label, a.value)),
             dl('Registered', p.createdAt),
             p.updatedBy ? dl('Last edited', `${p.updatedAt} by ${p.updatedBy}`) : null)),
         el('div', { class: 'space-y-6' },
@@ -216,7 +221,7 @@ export function renderVolunteer(root, app, ctx, userId) {
             table([
               { label: 'Date', cell: (r) => day(r.date), class: 'whitespace-nowrap' },
               { label: 'Session', cell: (r) => r.title },
-              { label: 'Trainee', cell: (r) => (r.traineeName ? traineeName(r.traineeName, r.traineeId) : '') },
+              { label: 'Trainee', cell: (r) => (r.trainees || (r.traineeId ? [{ id: r.traineeId, name: r.traineeName }] : [])).map((t, i) => [i ? ', ' : '', traineeName(t.name, t.id)]) },
               { label: 'Hours', cell: (r) => hours(r.hours), class: 'text-right' },
             ], d.recent, { empty: 'No completed sessions yet.' })),
           d.regularHistory && d.regularHistory.length ? panel('Regular trainees over time', el('a', { href: '#/pairings/history', class: 'link text-sm' }, 'Pairing history'),
@@ -405,25 +410,43 @@ export function renderTrainee(root, app, ctx, traineeId) {
       refresh();
     }, { wide: true });
 
-    const noteForm = el('form', { class: 'flex flex-col gap-2 border-t border-slate-100 p-4 sm:flex-row dark:border-neutral-800' },
-      el('textarea', { name: 'note', class: 'input min-h-[60px] flex-1', rows: 2, placeholder: 'Add a note future volunteers will read', 'aria-label': 'New note' }),
-      el('button', { type: 'submit', class: 'btn btn-primary self-start' }, 'Add note'));
+    const audiences = d.noteAudiences || [];
+    const newShare = shareChooser({ audiences, volunteers: d.volunteers || [], name: 'new-note' });
+    const noteForm = el('form', { class: 'space-y-2 border-t border-slate-100 p-4 dark:border-neutral-800' },
+      el('textarea', { name: 'note', class: 'input min-h-[60px]', rows: 2, placeholder: 'Add a note about this trainee', 'aria-label': 'New note' }),
+      el('details', {}, el('summary', { class: 'cursor-pointer text-sm font-bold text-indigo-600 dark:text-indigo-400' }, 'Who can read it? (all future volunteers)'),
+        el('div', { class: 'mt-2' }, newShare.el)),
+      el('button', { type: 'submit', class: 'btn btn-primary btn-sm' }, 'Add note'));
     noteForm.addEventListener('submit', (e) => {
       e.preventDefault();
       const note = noteForm.note.value.trim();
       if (!note) return;
-      busy(noteForm.querySelector('button'), 'Adding…', async () => {
-        await call('addTraineeNote', { traineeId: t.id, note });
+      const how = newShare.get();
+      if (!how) return;
+      busy(noteForm.querySelector('button[type=submit]'), 'Adding…', async () => {
+        await call('addTraineeNote', { traineeId: t.id, note, audience: how.audience, userIds: how.userIds });
         toast('Note added.');
         refresh();
       });
     });
-    const noteToggle = (n) => {
-      const b = el('button', { class: 'btn btn-secondary btn-sm' }, n.status === 'hidden' ? 'Show to volunteers' : 'Hide from volunteers');
-      b.addEventListener('click', () => busy(b, '', async () => {
-        await call('setNoteStatus', { noteId: n.noteId, status: n.status === 'hidden' ? 'shared' : 'hidden' });
-        refresh();
-      }));
+    // Share a note with more volunteers, with specific ones, or keep it private (it is never deleted).
+    const noteShare = (n) => {
+      const b = el('button', { class: 'btn btn-secondary btn-sm' }, icon('eye', 'size-4'), 'Who can read');
+      b.addEventListener('click', () => {
+        const chooser = shareChooser({ audiences, volunteers: d.volunteers || [], audience: n.audience || 'all', userIds: (n.sharedWith || []).map((x) => x.userId), name: `note-${n.noteId}` });
+        const saveBtn = el('button', { type: 'button', class: 'btn btn-primary w-full' }, 'Save');
+        const m = modal('Who can read this note?', [el('p', { class: 'mb-3 whitespace-pre-line text-sm well p-3' }, n.note), chooser.el, el('div', { class: 'mt-4' }, saveBtn)]);
+        saveBtn.addEventListener('click', () => {
+          const how = chooser.get();
+          if (!how) return;
+          busy(saveBtn, 'Saving…', async () => {
+            const res = await call('setNoteSharing', { noteId: n.noteId, audience: how.audience, userIds: how.userIds });
+            m.close();
+            toast(res.message);
+            refresh();
+          });
+        });
+      });
       return b;
     };
 
@@ -448,19 +471,15 @@ export function renderTrainee(root, app, ctx, traineeId) {
       el('div', { class: `alert ${d.regulars.length ? 'alert-success' : 'alert-warn'} mb-6 flex flex-wrap items-center justify-between gap-2` },
         el('span', {}, d.regulars.length ? ['Regular volunteers: ', d.regulars.map((r, i) => [i ? ', ' : '', personName(r.name, r.userId, 'font-bold')])] : 'No regular volunteer yet. Ideally every trainee has at least one.'),
         el('a', { href: '#/pairings/regular', class: 'link' }, 'Regular pairings')),
-      el('div', { class: 'grid gap-6 lg:grid-cols-2' },
-        (d.sections.length ? d.sections : [{ title: 'Details', fields: [] }]).map((s) => panel(s.title, null,
-          s.fields.length ? el('dl', { class: 'divide-y divide-slate-100 text-sm dark:divide-neutral-800' },
-            s.fields.map((f) => el('div', { class: 'grid gap-1 px-4 py-2.5 sm:grid-cols-3' },
-              el('dt', { class: 'muted' }, f.label),
-              el('dd', { class: 'whitespace-pre-line font-medium sm:col-span-2' }, f.value))))
-            : el('p', { class: 'p-4 text-sm muted' }, 'Nothing filled in yet.')))),
+      // Details grouped and coloured like MINDS's House Visit form.
+      el('div', { class: 'grid gap-x-6 lg:grid-cols-2 [&>details:first-child]:mt-0 lg:[&>details:nth-child(2)]:mt-0' },
+        hvSections(d.sections.length ? d.sections : [{ title: 'Details', fields: [] }])),
       el('div', { class: 'mt-6 grid gap-6 lg:grid-cols-2' },
-        panel(`Notes for volunteers (${d.notes.length})`, null,
+        panel(`Notes (${d.notes.length})`, null,
           table([
             { label: 'Date', cell: (n) => day(n.date), class: 'whitespace-nowrap' },
-            { label: 'Note', cell: (n) => el('span', {}, el('span', { class: 'block whitespace-pre-line' }, n.note), el('span', { class: 'block text-xs muted' }, `${n.author} · ${n.source}`)) },
-            { label: '', cell: (n) => el('span', { class: 'flex flex-col items-end gap-1' }, n.status === 'hidden' ? badge('Hidden', 'slate') : null, noteToggle(n)), class: 'text-right' },
+            { label: 'Note', cell: (n) => el('span', {}, el('span', { class: 'block whitespace-pre-line' }, n.note), el('span', { class: 'block text-xs muted' }, `${n.author} · ${n.source}`), el('span', { class: 'mt-1 block' }, audienceBadge(n))) },
+            { label: '', cell: (n) => noteShare(n), class: 'text-right' },
           ], d.notes, { empty: 'No notes yet.' }),
           noteForm),
         panel(`House visits (${d.visits.length})`, el('a', { href: '#/visits', class: 'link text-sm' }, 'All visits'),
@@ -485,7 +504,7 @@ export function renderTrainee(root, app, ctx, traineeId) {
           { label: 'Dates', cell: (x) => dateRangeText(x.startDate, x.endDate), class: 'whitespace-nowrap' },
           { label: 'Status', cell: (x) => x.status },
         ], d.trips, { empty: 'No trips.', href: (x) => `#/trip/${x.tripId}` }))),
-      el('p', { class: 'mt-4 text-xs muted' }, `${plural(d.notes.filter((n) => n.status !== 'hidden').length, 'note')} visible to paired volunteers.`));
+      el('p', { class: 'mt-4 text-xs muted' }, `${plural(d.notes.filter((n) => n.audience === 'all').length, 'note')} shared with all future volunteers, ${plural(d.notes.filter((n) => n.audience === 'private').length, 'private note')}.`));
   };
   mount(root, host);
   return refresh();

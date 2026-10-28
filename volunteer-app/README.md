@@ -57,7 +57,7 @@ gives an overview of both apps.
 | Profile | Who | Trainees they can see | How they're paired |
 | --- | --- | --- | --- |
 | **Volunteer** | Everyone starts here (new / ad hoc) | Only the trainee they're paired with, and only the details admins allow | An admin pairs them for each session |
-| **Regular** | After **10 attended sessions** (automatic), or promoted by an admin | Any trainee, with the details admins allow (everything by default) | An admin can give them a **fixed trainee**; it's applied every time they say they're coming, until an admin changes it |
+| **Regular** | After **10 attended sessions** (automatic), or promoted by an admin | Any trainee, with the details admins allow (everything by default) | An admin can give them one or more **fixed trainees**; they're applied every time they say they're coming, until an admin changes them |
 | **Admin** | A regular volunteer with admin access: becoming an admin makes them a regular (an admin can change that by hand) | Everything | As above, plus they pair everyone else |
 
 A volunteer has **one trainee** per session. A trainee can have **several volunteers**,
@@ -87,7 +87,7 @@ press have a dotted underline.
 | --- | --- | --- |
 | **Dashboard** | Overview · Activity log | New and regular volunteers, trainees without a regular, who's coming and who still needs pairing. The **activity log** lists every change an admin makes (also kept in the sheet). |
 | **Sessions** | | Who's coming to each session (no-shows after the day). Each session has **Pair**, **Scan** and **Clock in** (by hand, with walk-ins) on its row. **New session**: just pick the date (or several dates): it's a "Regular session", 2:30–5:30 pm at Woodlands, for both projects (**West End (WE)** and **Regular Service Project for the Intellectually Disabled (RSPID)**) unless you change the dropdowns or untick a project. Edit, close or cancel sessions. |
-| **Pairing** | Sessions to pair · Regular pairings · History | The WERONE-style board for each session (volunteers beside trainees, search, **Unpaired** filter, tap to pair, **Pairing list** to screenshot), and each regular's fixed trainee. When choosing, each trainee shows the pair's history ("Together 3× · last 13 Oct", "Was their regular trainee …", or "New for them"); for a regular's fixed trainee, new-for-them trainees come first, to rotate regulars through different trainees. **History**: every pair that has been at a session together, and each regular's fixed trainees over time. |
+| **Pairing** | Sessions to pair · Regular pairings · History | The WERONE outing-style board for each session (volunteers beside trainees, search, **All / Paired / Unpaired** filter on each column, **drag and drop** or tap to pair, **✕** to unpair, many to many, **Pairing list** to screenshot), and each regular's fixed trainees on the same board. When choosing, each trainee shows the pair's history ("Together 3× · last 13 Oct", "Was their regular trainee …", or "New for them"); for a regular's fixed trainee, new-for-them trainees come first, to rotate regulars through different trainees. **History**: every pair that has been at a session together, and each regular's fixed trainees over time. |
 | **Volunteers** | People · Attendance · Hours | Profiles, sessions (with the trainee each was paired with), no-shows and hours; promote to regular, make or remove admins (both need the **admin password**), reset passwords, **Deactivate** from the list. Every clock-in and out, fixing missed scans, and hours exported as CSV. |
 | **Trainees** | Trainees · Notes to review · What volunteers see | Every trainee's details grouped like the House Visit form, their **photo** (add, change, remove), regular volunteers and notes. Volunteer notes waiting to be shared. Which details volunteers and regulars see (a default, per trainee, "Set as default"). The form's list of attached volunteers is hidden. |
 | **Settings** | Guide & projects · Venues · Admin password | The Volunteer Guide: text sections and **infographics** (a picture or PDF, uploaded or from Google Drive), projects and venues. The **admin password**: a shared password, separate from sign-in passwords, needed to make or remove an admin (including deactivating or reactivating one); change it here with the current one. |
@@ -196,7 +196,7 @@ Open **<http://localhost:5173>** and sign in with a demo account:
 | --- | --- | --- | --- |
 | Admin | `admin@example.com` | `AdminDemo123` | Ada: the Admin menu |
 | Regular | `regular@example.com` | `RegularDemo123` | Rex: fixed trainee Mock Trainee 1 |
-| Regular | `rina@example.com` | `RegularDemo123` | Rina: fixed trainee Mock Trainee 2 |
+| Regular | `rina@example.com` | `RegularDemo123` | Rina: fixed trainees Mock Trainee 2 and 6 |
 | Volunteer | `volunteer@example.com` | `VolunteerDemo123` | Vera: paired by an admin |
 | Volunteer | `sam@example.com` | `VolunteerDemo123` | Sam: 9 sessions done; clocking him out today makes him a regular |
 
@@ -570,13 +570,13 @@ shows what would be saved.
 | Volunteers | person | Profile (phone saved as `+65 91234567`), emergency contact (no longer collected; kept from Version 1), Role (`admin` = Admin menu), Volunteer Type (`volunteer`/`regular`) and who set it, Status (`inactive` blocks sign-in), Google Contact ID and status (when sync is on) |
 | _Auth (hidden) | person | Salted password hashes. Never shown in the app |
 | Sessions | session | Venue, project(s) (several separated by commas), trainees attending; status `open` / `closed` / `cancelled` |
-| Bookings | sign-up | `confirmed` ("coming") or `cancelled`; paired trainee and how (`standing` = regular's fixed trainee, `manual` = an admin); walk-in flag |
+| Bookings | sign-up | `confirmed` ("coming") or `cancelled`; paired trainees (Trainee ID may list several: `T-0001, T-0004`) and how (`standing` = regular's fixed trainee, `manual` = an admin); walk-in flag |
 | Attendance | clock record | Clock in, clock out, hours, who scanned, method (`QR`, `QR (offline)`, `Manual`, `Dashboard`), who edited it on the dashboard |
 | Feedback | submission | Rating 1–5, comments, trainee observation, review status |
 | Trainee Notes | note | What future volunteers see; `shared` or `hidden` |
 | Venues, Projects | item | Editable by admins in the app |
 | Volunteer Guide | text section or infographic | Type (`text`, `image`, `pdf`), heading, content or caption, and the Google Drive file ID |
-| Regular Pairings | pairing | A regular's fixed trainee; `active` or `ended`. Rows may be typed with names only (User ID and Trainee ID blank) |
+| Regular Pairings | pairing | A regular's fixed trainees, one row each; `active` or `ended`. Rows may be typed with names only (User ID and Trainee ID blank) |
 | Admin Activity Log | change | When, which admin, what they did, in plain English |
 | App Settings, Trainee Visibility | setting | What volunteers and regulars see about trainees (default, and per trainee) |
 | Trainee Photos | trainee | The trainee's photo (a Google Drive file ID), set by admins in the app |

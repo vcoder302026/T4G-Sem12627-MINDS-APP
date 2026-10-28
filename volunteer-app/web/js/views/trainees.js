@@ -5,7 +5,7 @@
 
 import { call } from '../api.js';
 import {
-  backLink, badge, busy, el, errorBlock, field, fmtDay, fmtTimes, fuzzyFilter, icon, loading, mount, searchBox, toast, traineeAvatar,
+  backLink, badge, busy, el, errorBlock, field, fmtDay, fmtTimes, fuzzyFilter, hvSections, icon, loading, mount, multiPick, searchBox, toast, traineeAvatar,
 } from '../ui.js';
 import { asTrainee, personName, traineeName } from '../quickview.js';
 
@@ -15,10 +15,83 @@ function list(...rows) {
 
 const sourceLabel = (source) => (source === 'Leader' ? 'Admin' : 'Volunteer');
 
-function notesList(notes) {
+/* ---------------- who can read a note ---------------- */
+
+const AUDIENCE_BADGE = {
+  all: ['All future volunteers', 'emerald'],
+  regular: ['Regulars only', 'purple'],
+  selected: ['Selected volunteers', 'indigo'],
+  private: ['Private: admins only', 'slate'],
+};
+
+/** A badge saying who can read a note (for admins). */
+export function audienceBadge(n) {
+  const [text, tone] = AUDIENCE_BADGE[n.audience] || AUDIENCE_BADGE.all;
+  const b = badge(n.audience === 'selected' && n.sharedWith && n.sharedWith.length ? `Shared with ${n.sharedWith.map((x) => x.name).join(', ')}` : text, tone, n.audience === 'private' ? 'eyeOff' : 'eye');
+  b.classList.add('whitespace-normal');
+  return b;
+}
+
+/**
+ * The four ways a note can be shared, as radio cards; "selected volunteers"
+ * opens a fuzzy search to pick several people. get() returns
+ * { audience, userIds } or null (with a toast) when nobody is picked.
+ */
+export function shareChooser({ audiences, volunteers, audience = 'all', userIds = [], name = 'share' }) {
+  let value = audience;
+  let picked = userIds.slice();
+  const pickHost = el('div', { class: 'mt-2', hidden: value !== 'selected' });
+  const picker = multiPick({
+    name: `${name}-people`,
+    options: volunteers.map((v) => ({ value: v.userId, label: v.name, hint: v.type === 'regular' ? 'Regular' : 'Volunteer' })),
+    values: picked,
+    placeholder: 'Search volunteers by name',
+    noneText: 'Pick one or more volunteers',
+    onChange: (ids) => { picked = ids; },
+  });
+  mount(pickHost, picker.el);
+  const opts = audiences.map((a) => {
+    const radio = el('input', { type: 'radio', name, value: a.key, checked: a.key === value });
+    radio.addEventListener('change', () => { if (radio.checked) { value = a.key; pickHost.hidden = value !== 'selected'; } });
+    return el('label', { class: 'share-opt' }, radio,
+      el('span', { class: 'min-w-0' }, el('span', { class: 'block text-sm font-bold' }, a.label), el('span', { class: 'block text-xs muted' }, a.hint)));
+  });
+  return {
+    el: el('div', { class: 'space-y-2' }, opts, pickHost),
+    get() {
+      if (value === 'selected' && !picked.length) { toast('Pick at least one volunteer to share it with.', 'warn'); return null; }
+      return { audience: value, userIds: value === 'selected' ? picked : [] };
+    },
+  };
+}
+
+const NOTE_FILTERS = [['all', 'All notes'], ['volunteer', 'From volunteers'], ['admin', 'From admins']];
+
+/** Notes with a filter by who wrote them (volunteers' feedback and updates, or admins). */
+function notesBlock(notes, isAdmin) {
+  let filter = 'all';
+  const host = el('div', {});
+  const chips = el('div', { class: 'chip-row mb-3' });
+  const draw = () => {
+    const from = (n) => n.from || (n.source === 'Leader' ? 'admin' : 'volunteer');
+    const shown = notes.filter((n) => filter === 'all' || from(n) === filter);
+    mount(chips, NOTE_FILTERS.map(([key, text]) => {
+      const count = notes.filter((n) => key === 'all' || from(n) === key).length;
+      const b = el('button', { type: 'button', class: 'chip', 'aria-pressed': String(filter === key) }, `${text} (${count})`);
+      b.addEventListener('click', () => { filter = key; draw(); });
+      return b;
+    }));
+    mount(host, shown.length ? notesList(shown, isAdmin) : el('p', { class: 'text-sm muted' }, 'No notes here.'));
+  };
+  draw();
+  return el('div', {}, notes.length > 1 ? chips : null, host);
+}
+
+function notesList(notes, isAdmin) {
   return el('ul', { class: 'space-y-3' }, notes.map((n) => el('li', { class: 'border-l-2 border-indigo-200 pl-3 text-sm dark:border-indigo-800' },
     el('p', { class: 'whitespace-pre-line text-slate-700 dark:text-neutral-300' }, n.note),
-    el('p', { class: 'mt-0.5 text-xs muted' }, `${n.author || sourceLabel(n.source)}, ${fmtDay(n.date)}`))));
+    el('p', { class: 'mt-0.5 text-xs muted' }, `${n.author || sourceLabel(n.source)}, ${fmtDay(n.date)}${n.source === 'Volunteer update' ? ' · update' : ''}`),
+    isAdmin && n.audience ? el('p', { class: 'mt-1' }, audienceBadge(n)) : null)));
 }
 
 /* ---------------- "Your trainee" on Home ---------------- */
@@ -45,7 +118,7 @@ function updateForm(trainee, onSent) {
     field('note', `Something the next volunteer should know about ${trainee.preferredName || trainee.name}`, {
       type: 'textarea', rows: 3, maxlength: 5000,
       placeholder: 'e.g. Calmer with a 5-minute warning before changing activity.',
-      hint: 'An admin reads it first, then adds it to the notes other volunteers see.',
+      hint: 'An admin reads it first and decides who can read it: all future volunteers, regulars only, or specific volunteers.',
     }),
     el('button', { type: 'submit', class: 'btn btn-primary w-full' }, icon('send', 'size-4'), 'Send update'));
   form.addEventListener('submit', (e) => {
@@ -79,15 +152,11 @@ export function renderTraineeInfo(root, app, ctx, traineeId) {
         el('ul', { class: 'mt-1 list-disc pl-5' }, d.together.map((s) => el('li', {}, `${s.title}, ${fmtDay(s.date)}${s.startTime ? `, ${fmtTimes(s)}` : ''}`)))) : null,
       d.access === 'admin' ? el('p', { class: 'alert alert-info mt-4' }, 'You see every detail as an admin. ',
         el('a', { href: `#/trainee/${encodeURIComponent(t.id)}`, class: 'link' }, 'Open the admin profile')) : null,
-      d.sections.length ? d.sections.map((s) => el('details', { class: 'card group mt-3 overflow-hidden', open: true },
-        el('summary', { class: 'section-head section-blue cursor-pointer list-none select-none' }, s.title,
-          icon('down', 'size-5 transition-transform duration-200 group-open:rotate-180')),
-        el('dl', { class: 'divide-y divide-slate-100 px-4 text-sm dark:divide-neutral-800' }, s.fields.map((f) => el('div', { class: 'py-2.5' },
-          el('dt', { class: 'font-bold text-slate-700 dark:text-neutral-200' }, f.label),
-          el('dd', { class: 'mt-0.5 whitespace-pre-line text-slate-600 dark:text-neutral-400' }, f.value))))))
+      // Grouped and coloured like MINDS's House Visit form, each question with its guide text.
+      d.sections.length ? hvSections(d.sections)
         : el('p', { class: 'alert alert-warn mt-4' }, 'No details are shared for this trainee yet.'),
       el('h2', { class: 'group-label' }, 'Notes from volunteers and admins'),
-      d.notes.length ? el('div', { class: 'card p-4' }, notesList(d.notes)) : el('p', { class: 'text-sm muted' }, 'No notes yet.'),
+      d.notes.length ? el('div', { class: 'card p-4' }, notesBlock(d.notes, d.access === 'admin')) : el('p', { class: 'text-sm muted' }, 'No notes yet.'),
       el('h2', { class: 'group-label' }, 'Send an update'),
       el('div', { class: 'card p-4' }, updateForm(t)));
   };
@@ -112,9 +181,10 @@ export function renderDirectory(root, app, ctx) {
   const draw = () => {
     if (!data) return;
     const shown = fuzzyFilter(data.trainees, query, (t) => [t.name, t.preferredName, t.id, t.regulars.join(' ')]);
-    const mine = data.trainees.find((t) => t.id === data.myTraineeId);
+    const myIds = data.myTraineeIds || (data.myTraineeId ? [data.myTraineeId] : []);
+    const mine = data.trainees.filter((t) => myIds.includes(t.id));
     mount(host,
-      mine && !query ? [el('h2', { class: 'group-label mt-0' }, 'Your regular trainee'), list(row(mine, true))] : null,
+      mine.length && !query ? [el('h2', { class: 'group-label mt-0' }, mine.length > 1 ? 'Your regular trainees' : 'Your regular trainee'), list(mine.map((t) => row(t, true)))] : null,
       el('h2', { class: 'group-label' }, `${shown.length} trainee${shown.length === 1 ? '' : 's'}`),
       shown.length ? list(shown.map((t) => row(t, false))) : el('p', { class: 'text-sm muted' }, 'No trainee matches that search.'));
   };
@@ -130,47 +200,63 @@ export function renderDirectory(root, app, ctx) {
 
 /* ---------------- admins: review volunteers' notes ---------------- */
 
+const KINDS = [['all', 'All'], ['session', 'Session feedback'], ['update', 'Trainee updates']];
+
 export function renderReview(root, app, ctx) {
+  let kind = 'all';
   const draw = (q) => {
-    const after = (next, message) => {
+    const after = (next) => {
       app.dropAdminHome();
       app.dropTrainees();
-      toast(message);
+      toast(next.message || 'Saved.');
       if (ctx.alive()) draw(next);
     };
     const item = (it) => {
       const text = el('textarea', { class: 'input min-h-[110px]', rows: 4, maxlength: 5000, 'aria-label': `Note about ${it.traineeName}` });
       text.value = it.observation;
-      const share = el('button', { type: 'button', class: 'btn btn-success btn-sm flex-1' }, icon('tick', 'size-4'), 'Share with future volunteers');
-      const keep = el('button', { type: 'button', class: 'btn btn-secondary btn-sm' }, 'Keep private');
-      share.addEventListener('click', () => {
+      const share = shareChooser({ audiences: q.audiences, volunteers: q.volunteers, name: `share-${it.feedbackId}` });
+      const save = el('button', { type: 'button', class: 'btn btn-success btn-sm w-full sm:w-auto' }, icon('tick', 'size-4'), 'Save');
+      save.addEventListener('click', () => {
+        const how = share.get();
+        if (!how) return;
         const note = text.value.trim();
-        if (!note) {
-          toast('The note is empty. Use Keep private instead.', 'warn');
+        if (!note && how.audience !== 'private') {
+          toast('The note is empty. Choose "Keep private" instead.', 'warn');
           return;
         }
-        busy(share, 'Sharing…', async () => after(await call('reviewObservation', { feedbackId: it.feedbackId, decision: 'share', note }),
-          `Added to ${it.traineeName}'s notes.`));
+        busy(save, 'Saving…', async () => after(await call('reviewObservation', {
+          feedbackId: it.feedbackId, audience: how.audience, userIds: how.userIds, ...(note ? { note } : {}),
+        })));
       });
-      keep.addEventListener('click', () => busy(keep, 'Saving…', async () => after(await call('reviewObservation', { feedbackId: it.feedbackId, decision: 'private' }),
-        'Kept private. Admins can still read it in the Feedback tab.')));
       return el('article', { class: 'card p-4' },
         el('div', { class: 'flex items-start justify-between gap-3' },
           el('div', { class: 'min-w-0' },
             el('a', { href: `#/trainee/${encodeURIComponent(it.traineeId)}`, class: 'font-bold text-slate-900 hover:underline dark:text-white' }, traineeName(it.traineeName, it.traineeId)),
             el('p', { class: 'text-sm muted' }, 'From ', personName(it.volunteerName, it.userId), `, ${fmtDay(it.date)}`)),
-          it.rating ? badge(`Session ${it.rating}/5`, 'slate') : null),
+          el('span', { class: 'flex flex-wrap justify-end gap-1' },
+            badge(it.kind === 'update' ? 'Trainee update' : 'Session feedback', it.kind === 'update' ? 'indigo' : 'slate'),
+            it.rating ? badge(`Session ${it.rating}/5`, 'slate') : null)),
         el('div', { class: 'mt-3' }, text),
         el('p', { class: 'hint' }, 'Edit before sharing if needed, e.g. remove anything private or not helpful to other volunteers.'),
-        el('div', { class: 'mt-3 flex gap-2' }, keep, share));
+        el('p', { class: 'label mt-4' }, 'Who can read it?'),
+        share.el,
+        el('div', { class: 'mt-3 flex justify-end' }, save));
     };
+    const items = q.items.filter((it) => kind === 'all' || (it.kind || 'session') === kind);
+    const chips = el('div', { class: 'chip-row mb-4' }, KINDS.map(([key, label]) => {
+      const n = q.items.filter((it) => key === 'all' || (it.kind || 'session') === key).length;
+      const b = el('button', { type: 'button', class: 'chip', 'aria-pressed': String(kind === key) }, `${label} (${n})`);
+      b.addEventListener('click', () => { kind = key; draw(q); });
+      return b;
+    }));
     mount(root,
       el('h1', { class: 'page-title' }, 'Notes to review'),
-      el('p', { class: 'mb-4 mt-1 text-sm muted' }, 'Session feedback and updates volunteers sent about trainees. Shared notes appear for the next volunteers paired with that trainee.'),
-      q.items.length ? el('div', { class: 'space-y-3' }, q.items.map(item))
+      el('p', { class: 'mb-4 mt-1 text-sm muted' }, 'Session feedback and updates volunteers sent about trainees. Choose who can read each one: all future volunteers, regulars only, selected volunteers, or keep it private (only admins can read it; it stays on the trainee\'s page).'),
+      q.items.length ? chips : null,
+      items.length ? el('div', { class: 'space-y-3' }, items.map(item))
         : el('div', { class: 'flex flex-col items-center rounded-2xl border border-dashed border-slate-200 px-6 py-10 text-center muted dark:border-neutral-800' },
           icon('inbox', 'mb-3 size-12 text-slate-300 dark:text-neutral-700'),
-          el('p', { class: 'font-medium text-slate-900 dark:text-white' }, 'All caught up'),
+          el('p', { class: 'font-medium text-slate-900 dark:text-white' }, q.items.length ? 'Nothing of this kind' : 'All caught up'),
           el('p', { class: 'mt-1 text-sm' }, 'New observations from volunteers will appear here.')));
   };
   mount(root, loading());

@@ -29,16 +29,103 @@ function traineeById_(id) {
   return traineeTable_().find((r) => String(r.id) === String(id));
 }
 
-function sharedNotes_(traineeId, limit) {
-  const notes = table_('traineeNotes').filter((n) => String(n.traineeId) === String(traineeId) && n.status !== 'hidden');
+/* ---------- who a note is shared with ---------- */
+
+/**
+ * Each trainee note has an audience (Config.gs → NOTE_AUDIENCES):
+ *   all       every volunteer who can open the trainee (future volunteers)
+ *   regular   regular volunteers only
+ *   selected  only the volunteers an admin picked (Shared With Volunteers)
+ *   private   admins only. Kept, never deleted.
+ * Older rows have no audience: Status "hidden" counts as private, else all.
+ */
+function noteAudience_(n) {
+  if (NOTE_AUDIENCE_KEYS.indexOf(n.audience) >= 0) return n.audience;
+  return n.status === 'hidden' ? 'private' : 'all';
+}
+
+function noteSharedWith_(n) {
+  return parseIds_(n.sharedWith);
+}
+
+/** Admin notes ("Leader") or notes from volunteers (session feedback and updates). */
+function noteFrom_(n) {
+  return n.source === 'Leader' ? 'admin' : 'volunteer';
+}
+
+/** Can this person read this note? `kind` is their traineeAccess_ ('admin' | 'regular' | 'volunteer'). */
+function noteVisibleTo_(n, user, kind) {
+  const audience = noteAudience_(n);
+  if (kind === 'admin') return true;
+  if (audience === 'all') return true;
+  if (audience === 'regular') return kind === 'regular';
+  if (audience === 'selected') return noteSharedWith_(n).indexOf(user.userId) >= 0;
+  return false;
+}
+
+/** Validates { audience, userIds } from an admin. Returns the cells to write. */
+function noteSharing_(p, fallback) {
+  const audience = p.audience === undefined || p.audience === '' ? fallback : oneOf_(p.audience, 'Shared with', NOTE_AUDIENCE_KEYS);
+  let ids = [];
+  if (audience === 'selected') {
+    if (!Array.isArray(p.userIds) || !p.userIds.length) throw err_.validation('Choose at least one volunteer to share the note with.');
+    if (p.userIds.length > 200) throw err_.validation('Choose at most 200 volunteers.');
+    const users = byKey_(table_('users').rows().filter((u) => u.userId), 'userId');
+    p.userIds.forEach((x) => {
+      const id = id_(x, 'Volunteer');
+      if (!users[id]) throw err_.validation('One of the chosen volunteers is not on the volunteer list.');
+      if (ids.indexOf(id) === -1) ids.push(id);
+    });
+  }
+  const names = nameMaps_().users;
+  return {
+    audience,
+    status: audience === 'private' ? 'hidden' : 'shared', // kept for anyone reading the Status column
+    sharedWith: ids.join(', '),
+    sharedWithNames: ids.map((id) => names[id] || id).join(', '),
+  };
+}
+
+/** "Everyone", "Regulars only", "Ana, Ben" or "Admins only", for admins. */
+function noteSharingOut_(n, names) {
+  const audience = noteAudience_(n);
+  const ids = noteSharedWith_(n);
+  return {
+    audience,
+    sharedWith: ids.map((id) => ({ userId: id, name: names.users[id] || id })),
+  };
+}
+
+/** Active volunteers for the "Share with selected volunteers" picker. */
+function volunteerOptions_() {
+  return sortBy_(table_('users').rows().filter((u) => u.userId && u.status !== 'inactive')
+    .map((u) => ({ userId: u.userId, name: u.name, type: volunteerType_(u) })), (u) => String(u.name).toLowerCase());
+}
+
+/**
+ * The notes one person may read about a trainee, newest first. Volunteers and
+ * regulars see the author's first name; the visibility filter (What volunteers
+ * see → Notes) can hide notes from volunteers or from admins for an audience.
+ */
+function notesFor_(traineeId, user, kind, limit) {
+  const show = kind === 'admin' ? { volunteer: true, admin: true } : notesShown_(traineeId, kind);
+  const notes = table_('traineeNotes').filter((n) => String(n.traineeId) === String(traineeId)
+    && noteVisibleTo_(n, user, kind) && show[noteFrom_(n)]);
   const sorted = sortBy_(notes, (n) => `${n.date} ${n.addedAt}`).reverse();
   return (limit ? sorted.slice(0, limit) : sorted).map((n) => ({
     noteId: n.noteId,
     date: n.date,
     note: n.note,
-    author: String(n.author || '').split(/\s+/)[0], // first name only for volunteers
+    author: kind === 'admin' ? n.author : String(n.author || '').split(/\s+/)[0], // first name only for volunteers
     source: n.source,
+    from: noteFrom_(n),
+    audience: noteAudience_(n),
   }));
+}
+
+/** Notes everyone may read (shared with all), for older callers. */
+function sharedNotes_(traineeId, limit) {
+  return notesFor_(traineeId, { userId: '' }, 'volunteer', limit).filter((n) => n.audience === 'all');
 }
 
 /** Everything about a trainee, for admins. */
@@ -51,9 +138,13 @@ function traineeDetail_(p) {
   const fields = Object.keys(CONFIG.TRAINEES.columns)
     .filter((key) => key !== 'id' && key !== 'name' && row[key] !== '' && row[key] !== undefined)
     .map((key) => ({ key, label: table.header(key), value: String(row[key]), visibleToVolunteers: visible.indexOf(normHeader_(table.header(key))) >= 0 }));
+  const names = nameMaps_();
   const allNotes = sortBy_(table_('traineeNotes').filter((n) => String(n.traineeId) === String(row.id)), (n) => `${n.date} ${n.addedAt}`).reverse()
-    .map((n) => ({ noteId: n.noteId, date: n.date, note: n.note, author: n.author, source: n.source, status: n.status || 'shared', addedBy: n.addedBy }));
-  const pairings = sortBy_(table_('bookings').filter((b) => String(b.traineeId) === String(row.id) && b.status === 'confirmed'), (b) => b.sessionDate).reverse()
+    .map((n) => Object.assign({
+      noteId: n.noteId, date: n.date, note: n.note, author: n.author, source: n.source, from: noteFrom_(n),
+      status: noteAudience_(n) === 'private' ? 'hidden' : 'shared', addedBy: n.addedBy,
+    }, noteSharingOut_(n, names)));
+  const pairings = sortBy_(table_('bookings').filter((b) => hasTrainee_(b, row.id) && b.status === 'confirmed'), (b) => b.sessionDate).reverse()
     .slice(0, 10).map((b) => ({ date: b.sessionDate, sessionTitle: b.sessionTitle, userId: b.userId, volunteerName: b.volunteerName }));
   return { trainee: { id: String(row.id), name: row.name, active: isActiveTrainee_(row), fields }, notes: allNotes, pairings };
 }
@@ -78,8 +169,10 @@ function listTrainees_() {
 
 /* ---------- notes ---------- */
 
-function addNote_(trainee, text, author, source, leaderName, feedbackId, dateStr) {
-  const note = table_('traineeNotes').insert({
+/** Adds a trainee note. `sharing` (from noteSharing_) defaults to everyone. */
+function addNote_(trainee, text, author, source, leaderName, feedbackId, dateStr, sharing) {
+  const share = sharing || { audience: 'all', status: 'shared', sharedWith: '', sharedWithNames: '' };
+  const note = table_('traineeNotes').insert(Object.assign({
     noteId: newId_('N'),
     traineeId: String(trainee.id),
     traineeName: trainee.name,
@@ -88,11 +181,11 @@ function addNote_(trainee, text, author, source, leaderName, feedbackId, dateStr
     author,
     source,
     feedbackId: feedbackId || '',
-    status: 'shared',
     addedBy: leaderName,
     addedAt: fmtDateTime_(now_()),
-  });
-  writeLatestObservation_(trainee, text, author, note.date);
+  }, share));
+  // Only notes for everyone are copied onto MINDS's own trainee row.
+  if (share.audience === 'all') writeLatestObservation_(trainee, text, author, note.date);
   return note;
 }
 
@@ -109,27 +202,43 @@ function writeLatestObservation_(trainee, text, author, dateStr) {
   return Object.keys(patch).length > 0;
 }
 
-/** Leader adds a note straight onto a trainee's profile. */
+/** An admin adds a note straight onto a trainee's profile, shared with everyone unless they choose otherwise. */
 function addTraineeNote_(p, admin) {
-  onlyFields_(p, ['traineeId', 'note']);
+  onlyFields_(p, ['traineeId', 'note', 'audience', 'userIds']);
   const trainee = traineeById_(str_(p.traineeId, 'Trainee', { required: true, max: 40 }));
   if (!trainee) throw err_.notFound('Trainee not found.');
   const text = str_(p.note, 'Note', { required: true, max: LIMITS.NOTES });
-  addNote_(trainee, text, admin.name, 'Leader', admin.name, '', todayStr_());
+  addNote_(trainee, text, admin.name, 'Leader', admin.name, '', todayStr_(), noteSharing_(p, 'all'));
   return traineeDetail_({ traineeId: String(trainee.id) });
 }
 
-/** Leader hides (or re-shares) a note. Hidden notes stay in the sheet but volunteers no longer see them. */
-function setNoteStatus_(p) {
-  onlyFields_(p, ['noteId', 'status']);
+/**
+ * An admin changes who can read a note: share it with more volunteers, with
+ * specific volunteers, or keep it private (admins only; it is never deleted).
+ */
+function setNoteSharing_(p, admin) {
+  onlyFields_(p, ['noteId', 'audience', 'userIds']);
   const notes = table_('traineeNotes');
   const note = notes.find((n) => n.noteId === id_(p.noteId, 'Note'));
   if (!note) throw err_.notFound('Note not found.');
-  notes.update(note, { status: oneOf_(p.status, 'Status', ['shared', 'hidden']) });
-  return traineeDetail_({ traineeId: String(note.traineeId) });
+  if (p.audience === undefined) throw err_.validation('Choose who can read the note.');
+  const share = noteSharing_(p, 'all');
+  notes.update(note, share);
+  if (share.audience === 'all') {
+    const trainee = traineeById_(note.traineeId);
+    if (trainee) writeLatestObservation_(trainee, note.note, note.author, note.date);
+  }
+  return Object.assign(traineeDetail_({ traineeId: String(note.traineeId) }), { message: `Note now ${NOTE_AUDIENCES[share.audience].done}.` });
 }
 
-/** Volunteer observations waiting for a leader. */
+/** Older app versions: hide (= private) or share (= everyone). */
+function setNoteStatus_(p, admin) {
+  onlyFields_(p, ['noteId', 'status']);
+  const status = oneOf_(p.status, 'Status', ['shared', 'hidden']);
+  return setNoteSharing_({ noteId: p.noteId, audience: status === 'hidden' ? 'private' : 'all' }, admin);
+}
+
+/** Volunteer observations waiting for an admin: session feedback and trainee updates. */
 function reviewQueue_() {
   const items = table_('feedback').filter((f) => f.noteStatus === 'pending' && f.traineeObservation);
   return {
@@ -142,25 +251,37 @@ function reviewQueue_() {
       date: f.date,
       observation: f.traineeObservation,
       rating: f.rating,
+      kind: f.sessionId ? 'session' : 'update', // end-of-session feedback, or "Send update" on a trainee's page
     })),
+    audiences: NOTE_AUDIENCE_KEYS.map((key) => ({ key, label: NOTE_AUDIENCES[key].label, hint: NOTE_AUDIENCES[key].hint })),
+    volunteers: volunteerOptions_(),
   };
 }
 
+/**
+ * An admin decides how a volunteer's note is shared:
+ *   audience 'all' | 'regular' | 'selected' (with userIds) | 'private'.
+ * Older app versions send decision 'share' (everyone) or 'private'.
+ * A private note is kept on the trainee's profile for admins, not thrown away.
+ */
 function reviewObservation_(p, admin) {
-  onlyFields_(p, ['feedbackId', 'decision', 'note']);
+  onlyFields_(p, ['feedbackId', 'decision', 'note', 'audience', 'userIds']);
   const feedback = table_('feedback');
   const f = feedback.find((x) => x.feedbackId === id_(p.feedbackId, 'Feedback'));
   if (!f) throw err_.notFound('Feedback not found.');
   if (f.noteStatus !== 'pending') throw err_.conflict('This note has already been reviewed.');
-  const decision = oneOf_(p.decision, 'Decision', ['share', 'private']);
-  if (decision === 'share') {
-    const trainee = traineeById_(f.traineeId);
-    if (!trainee) throw err_.notFound('The trainee for this note is no longer on the trainee list.');
-    const text = p.note === undefined ? f.traineeObservation : str_(p.note, 'Note', { required: true, max: LIMITS.NOTES });
-    addNote_(trainee, text, f.volunteerName, 'Volunteer feedback', admin.name, f.feedbackId, f.date);
-  }
-  feedback.update(f, { noteStatus: decision === 'share' ? 'shared' : 'private', reviewedBy: admin.name });
-  return reviewQueue_();
+  let fallback = 'all';
+  if (p.decision !== undefined) fallback = oneOf_(p.decision, 'Decision', ['share', 'private']) === 'private' ? 'private' : 'all';
+  const share = noteSharing_(p, fallback);
+  const trainee = traineeById_(f.traineeId);
+  if (!trainee) throw err_.notFound('The trainee for this note is no longer on the trainee list.');
+  const text = p.note === undefined ? f.traineeObservation : str_(p.note, 'Note', { required: true, max: LIMITS.NOTES });
+  const source = f.sessionId ? 'Volunteer feedback' : 'Volunteer update';
+  addNote_(trainee, text, f.volunteerName, source, admin.name, f.feedbackId, f.date, share);
+  feedback.update(f, { noteStatus: share.audience === 'private' ? 'private' : 'shared', reviewedBy: admin.name });
+  return Object.assign(reviewQueue_(), { message: share.audience === 'private'
+    ? `Kept private on ${trainee.name}'s profile: only admins can read it.`
+    : `Added to ${trainee.name}'s notes, ${NOTE_AUDIENCES[share.audience].done}.` });
 }
 
 /* ---------- automatic pairing ---------- */
@@ -277,8 +398,8 @@ function updateTrainee_(p) {
     // Volunteers see the trainee's name on their upcoming bookings; past rows keep the name used at the time.
     const bookings = table_('bookings');
     const today = todayStr_();
-    bookings.filter((b) => String(b.traineeId) === traineeId && String(b.sessionDate) >= today)
-      .forEach((b) => bookings.update(b, { traineeName: changes.name }));
+    bookings.filter((b) => hasTrainee_(b, traineeId) && String(b.sessionDate) >= today)
+      .forEach((b) => bookings.update(b, { traineeName: bookingTrainees_(b).map((t) => t.name).join(', ') }));
   }
   return Object.assign(traineeProfile_({ traineeId }), { message: `Saved ${row.name}.` });
 }
@@ -300,6 +421,8 @@ function traineeProfile_(p) {
     regulars: regularsByTrainee_()[traineeId] || [],
     visibility: { volunteer: !visibleFor_(traineeId, 'volunteer').isDefault, regular: !visibleFor_(traineeId, 'regular').isDefault },
     notes: detail.notes,
+    noteAudiences: NOTE_AUDIENCE_KEYS.map((key) => ({ key, label: NOTE_AUDIENCES[key].label, hint: NOTE_AUDIENCES[key].hint })),
+    volunteers: volunteerOptions_(),
     pairings: detail.pairings,
     visits: listVisits_({ traineeId }).visits,
     trips: table_('tripParticipants').filter((x) => String(x.traineeId) === traineeId).map((x) => {

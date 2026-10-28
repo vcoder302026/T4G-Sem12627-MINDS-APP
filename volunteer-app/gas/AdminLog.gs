@@ -23,6 +23,7 @@ const ADMIN_ACTION_LABELS = {
   setStandingPairing: 'Changed a regular pairing',
   addTraineeNote: 'Added a trainee note',
   setNoteStatus: 'Changed a note',
+  setNoteSharing: 'Changed who can read a note',
   reviewObservation: 'Reviewed a volunteer note',
   saveVenue: 'Saved a venue',
   saveProject: 'Saved a project',
@@ -30,6 +31,7 @@ const ADMIN_ACTION_LABELS = {
   deleteGuideSection: 'Deleted a guide section',
   addGuideFile: 'Added an infographic to the guide',
   moveContent: 'Reordered the guide or projects',
+  reorderContent: 'Reordered the guide or projects',
   saveVisibility: 'Changed what volunteers see about trainees',
   setTraineePhoto: 'Changed a trainee photo',
   changeAdminPassword: 'Changed the admin password',
@@ -62,6 +64,8 @@ function describeAdminAction_(action, p, out) {
       const b = booking(p.bookingId);
       const who = b ? `${b.volunteerName}, ${b.sessionTitle} (${b.sessionDate})` : p.bookingId;
       if (p.status === 'cancelled') return `Removed ${who}`;
+      if (p.addTraineeId) return `Paired ${who} with ${trainee(p.addTraineeId)}`;
+      if (p.removeTraineeId) return `Unpaired ${who} from ${trainee(p.removeTraineeId)}`;
       if (Object.prototype.hasOwnProperty.call(p, 'traineeId')) return p.traineeId ? `Paired ${who} with ${trainee(p.traineeId)}` : `Unpaired ${who}`;
       return who;
     }
@@ -80,14 +84,19 @@ function describeAdminAction_(action, p, out) {
     }
     case 'resetPassword': return person(p.userId);
     case 'setVolunteerType': return `${person(p.userId)} → ${p.volunteerType}`;
-    case 'setStandingPairing': return p.traineeId ? `${person(p.userId)} ↔ ${trainee(p.traineeId)}` : `${person(p.userId)}: regular pairing removed`;
+    case 'setStandingPairing':
+      if (p.addTraineeId) return `${person(p.userId)} ↔ ${trainee(p.addTraineeId)} (added)`;
+      if (p.removeTraineeId) return `${person(p.userId)}: ${trainee(p.removeTraineeId)} removed`;
+      return p.traineeId ? `${person(p.userId)} ↔ ${trainee(p.traineeId)}` : `${person(p.userId)}: regular pairing removed`;
     case 'addTraineeNote': return trainee(p.traineeId);
     case 'changeAdminPassword': return ''; // never log passwords
     case 'syncContact': return person(p.userId);
     case 'resetAdminPassword': return 'from the Apps Script editor';
     case 'setTraineePhoto': return `${trainee(p.traineeId)}: ${p.remove ? 'photo removed' : p.driveUrl ? 'photo from Google Drive' : 'photo uploaded'}`;
     case 'setNoteStatus': return `${p.noteId} → ${p.status}`;
-    case 'reviewObservation': return `${p.feedbackId}: ${p.decision}`;
+    case 'setNoteSharing': return `${p.noteId} → ${noteAudienceText_(p)}`;
+    case 'reviewObservation': return `${p.feedbackId}: ${p.audience ? noteAudienceText_(p) : p.decision}`;
+    case 'reorderContent': return `${p.kind === 'projects' ? 'Projects' : 'Guide'}: ${(p.ids || []).length} items`;
     case 'saveVenue': return p.name || p.venueId || '';
     case 'saveProject': return p.name || p.projectId || '';
     case 'saveGuideSection': return p.title || p.sectionId || '';
@@ -102,6 +111,15 @@ function describeAdminAction_(action, p, out) {
     case 'makeFirstAdmin': return person(p.userId);
     default: return list(p);
   }
+}
+
+/** "regular volunteers only", "Ana, Ben", … for the log. */
+function noteAudienceText_(p) {
+  if (p.audience === 'selected') {
+    const names = nameMaps_().users;
+    return `shared with ${(p.userIds || []).map((id) => names[id] || id).join(', ')}`;
+  }
+  return NOTE_AUDIENCES[p.audience] ? NOTE_AUDIENCES[p.audience].done : String(p.audience || '');
 }
 
 function logAdminAction_(admin, action, payload, out) {

@@ -63,6 +63,7 @@ const ICONS = {
   pencil: '<path d="M21.17 6.81a1 1 0 0 0-3.98-3.98L3.84 16.17a2 2 0 0 0-.5.83l-1.32 4.35a.5.5 0 0 0 .62.62l4.35-1.32a2 2 0 0 0 .83-.5z"/><path d="m15 5 4 4"/>',
   trash: '<path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>',
   up: '<path d="m18 15-6-6-6 6"/>',
+  grip: '<circle cx="9" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="19" r="1"/>',
   sparkle: '<path d="M9.94 15.5A2 2 0 0 0 8.5 14.06l-6.13-1.58a.5.5 0 0 1 0-.96L8.5 9.94A2 2 0 0 0 9.94 8.5l1.58-6.13a.5.5 0 0 1 .96 0L14.06 8.5A2 2 0 0 0 15.5 9.94l6.13 1.58a.5.5 0 0 1 0 .96L15.5 14.06a2 2 0 0 0-1.44 1.44l-1.58 6.13a.5.5 0 0 1-.96 0z"/>',
   inbox: '<path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/>',
   building: '<rect width="16" height="20" x="4" y="2" rx="2"/><path d="M9 22v-4h6v4M8 6h.01M16 6h.01M12 6h.01M12 10h.01M12 14h.01M16 10h.01M16 14h.01M8 10h.01M8 14h.01"/>',
@@ -391,7 +392,7 @@ export function combobox({ name, options, value = '', placeholder = 'Type to sea
 }
 
 /** Checklist with fuzzy search, for choosing several items (e.g. trainees attending). */
-export function multiPick({ name, options, values = [], placeholder = 'Search', emptyText = 'No matches' }) {
+export function multiPick({ name, options, values = [], placeholder = 'Search', emptyText = 'No matches', noneText = 'None selected: any trainee can be paired', onChange }) {
   const chosen = new Set(values.map(String));
   const hidden = el('input', { type: 'hidden', name, value: [...chosen].join(',') });
   const count = el('span', { class: 'text-xs font-bold muted' });
@@ -399,7 +400,8 @@ export function multiPick({ name, options, values = [], placeholder = 'Search', 
   let query = '';
   const sync = () => {
     hidden.value = [...chosen].join(',');
-    count.textContent = chosen.size ? `${chosen.size} selected` : 'None selected: any trainee can be paired';
+    count.textContent = chosen.size ? `${chosen.size} selected` : noneText;
+    if (onChange) onChange([...chosen]);
   };
   const draw = () => {
     const shown = fuzzyFilter(options, query, (o) => [o.label, o.hint]);
@@ -572,4 +574,56 @@ export const PHONE_HINT = '+65 followed by 8 digits, e.g. +65 91234567.';
 export function isEmail(value) {
   const s = String(value || '').trim().toLowerCase();
   return /^[a-z0-9._%+-]+@([a-z0-9]([a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}$/.test(s) && !/\.\./.test(s) && !/^\.|\.@/.test(s);
+}
+
+/* ---------- trainee details laid out like MINDS's House Visit form ---------- */
+
+/** The form's colour for a section, by its title (same rules as the Trainee House Visit app). */
+export function sectionTone(title) {
+  const l = String(title || '').toLowerCase();
+  if (/general|visit|volunteer/.test(l) && !/observation/.test(l)) return 'blue';
+  if (/trainee/.test(l)) return 'green';
+  if (/caregiver|family|emergency|background/.test(l)) return 'yellow';
+  if (/medical|health/.test(l)) return 'red';
+  if (/abilit|behavio/.test(l)) return 'purple';
+  if (/school|work/.test(l)) return 'indigo';
+  if (/observation/.test(l)) return 'pink';
+  return 'slate';
+}
+
+/**
+ * A form question split like the House Visit form shows it: the question, and
+ * the guide text in brackets under it. "Current Health Condition （近期的身体状况）"
+ * → { label: 'Current Health Condition', guide: '近期的身体状况' }. Numbered
+ * questions keep their number: "Name of Caregiver / Guardian (2)".
+ */
+export function hvLabel(raw) {
+  const text = String(raw || '').trim();
+  const num = /\((\d+)\)/.exec(text);
+  let label = text;
+  let guide = '';
+  const hyphen = /^(.+?\(\d+\))\s*[-–]\s*(.+)$/.exec(text);
+  const bracket = /^(.+?)(\s*[(（].+)$/.exec(text);
+  if (/^area/i.test(text)) label = text;
+  else if (hyphen) { label = hyphen[1].trim(); guide = hyphen[2].trim(); }
+  else if (bracket && !/^[(（][s\d]+[)）]$/i.test(bracket[2].trim())) { label = bracket[1].trim(); guide = bracket[2].trim(); }
+  guide = guide.replace(/[(（]dd\/mm\/yy.*?[)）]/gi, '').replace(/\(\d+\)/g, '').replace(/\(s\)/g, '').replace(/[()（）]/g, '').trim();
+  if (num && !/\(\d+\)/.test(label)) label = `${label} (${num[1]})`;
+  return { label: label.replace(/\s+/g, ' '), guide };
+}
+
+/**
+ * Collapsible coloured sections, one per form section, each question with its
+ * guide line. sections: [{ title, fields: [{ label, value }] }].
+ */
+export function hvSections(sections, { open = true } = {}) {
+  return sections.map((s) => el('details', { class: 'card group mt-3 overflow-hidden', open },
+    el('summary', { class: `section-head section-${sectionTone(s.title)} cursor-pointer list-none select-none` }, s.title,
+      icon('down', 'size-5 transition-transform duration-200 group-open:rotate-180')),
+    s.fields.length ? el('dl', { class: 'divide-y divide-slate-100 px-4 text-sm dark:divide-neutral-800' }, s.fields.map((f) => {
+      const q = hvLabel(f.label);
+      return el('div', { class: 'py-2.5' },
+        el('dt', { class: 'font-bold text-slate-700 dark:text-neutral-200' }, q.label, q.guide ? el('span', { class: 'hv-guide' }, q.guide) : null),
+        el('dd', { class: 'mt-0.5 whitespace-pre-line text-slate-600 dark:text-neutral-400' }, f.value));
+    })) : el('p', { class: 'p-4 text-sm muted' }, 'Nothing filled in yet.')));
 }

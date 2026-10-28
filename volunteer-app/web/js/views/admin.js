@@ -117,6 +117,7 @@ export function renderVisibility(root, app, ctx, traineeId) {
           el('summary', { class: 'flex cursor-pointer items-center justify-between gap-2 py-1 font-bold' },
             el('span', {}, `${s.title} (${s.fields.filter((f) => chosen.has(f.key)).length}/${s.fields.length})`),
             el('span', { class: 'flex gap-3' }, all, none)),
+          s.notes ? el('p', { class: 'pb-1 text-xs muted' }, 'Notes volunteers send (session feedback and trainee updates) and notes admins add. Each note also has its own setting: all future volunteers, regulars only, selected volunteers, or private.') : null,
           el('div', { class: 'pl-1' }, items));
       };
       const fields = () => boxes.filter((b) => b.checked).map((b) => b.value);
@@ -127,7 +128,7 @@ export function renderVisibility(root, app, ctx, traineeId) {
       if (forTrainee) {
         const makeDefault = el('button', { class: 'btn btn-secondary btn-sm' }, 'Set as default for everyone');
         makeDefault.addEventListener('click', () => {
-          if (!confirm(`Use these ${fields().length} details as the default for all trainees?`)) return;
+          if (!confirm(`Use these ${fields().filter((k) => !k.startsWith('notes:')).length} details as the default for all trainees?`)) return;
           busy(makeDefault, 'Saving…', async () => after(await call('saveVisibility', { audience, fields: fields(), traineeId: d.trainee.id, makeDefault: true })));
         });
         extra.push(makeDefault);

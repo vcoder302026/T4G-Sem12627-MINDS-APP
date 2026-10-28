@@ -156,7 +156,6 @@ function sessionDetail_(p) {
   const attendance = table_('attendance').rows();
   const attByBooking = byKey_(attendance.filter((a) => a.sessionId === sessionId), 'bookingId');
   const feedbackByBooking = byKey_(table_('feedback').rows().filter((f) => f.sessionId === sessionId), 'bookingId');
-  const standing = byKey_(standingRows_(), 'userId');
   const regulars = regularsByTrainee_();
   const today = todayStr_();
   const order = { confirmed: 0, pending: 0, cancelled: 2 };
@@ -166,7 +165,8 @@ function sessionDetail_(p) {
   ).map((b) => {
     const u = users[b.userId] || {};
     const a = attByBooking[b.bookingId];
-    const fixed = standing[b.userId];
+    const fixed = activeStandings_(b.userId);
+    const trainees = bookingTrainees_(b);
     return {
       bookingId: b.bookingId,
       status: b.status === 'pending' ? 'confirmed' : b.status, // older sign-ups waited for a leader; now everyone listed is coming
@@ -179,11 +179,11 @@ function sessionDetail_(p) {
         isAdmin: u.role === 'admin',
         phone: u.phone || '',
         telegram: u.telegram || '',
-        standingTraineeId: fixed ? String(fixed.traineeId) : '',
-        standingTraineeName: fixed ? fixed.traineeName : '',
+        standingTrainees: fixed.map((x) => ({ id: String(x.traineeId), name: x.traineeName })),
       },
-      trainee: b.traineeId ? { id: String(b.traineeId), name: b.traineeName } : null,
-      pairing: b.traineeId ? (b.pairing === 'standing' ? 'standing' : 'manual') : '',
+      trainees,
+      trainee: trainees[0] || null, // the first, for older screens
+      pairing: trainees.length ? (b.pairing === 'standing' ? 'standing' : 'manual') : '',
       attendance: a ? attendanceOut_(a) : null,
       noShow: s.date < today && b.status !== 'cancelled' && !a,
       feedbackGiven: Boolean(feedbackByBooking[b.bookingId]),
@@ -202,34 +202,58 @@ function sessionDetail_(p) {
 }
 
 /**
- * An admin pairs a volunteer with a trainee for one session (traineeId), clears
- * it (traineeId ''), or takes someone off the list (status 'cancelled').
- * A trainee may have several volunteers; each volunteer has one trainee.
+ * An admin changes who a volunteer is with for one session, or takes them off
+ * the list (status 'cancelled'). Pairing is many to many: a volunteer can have
+ * several trainees and a trainee several volunteers.
+ *   addTraineeId      adds a trainee (drag and drop, "+ Trainee")
+ *   removeTraineeId   removes one (the small ✕)
+ *   traineeId         replaces them all with one; '' unpairs them
  */
 function updateBooking_(p, admin) {
-  onlyFields_(p, ['bookingId', 'status', 'traineeId']);
+  onlyFields_(p, ['bookingId', 'status', 'traineeId', 'addTraineeId', 'removeTraineeId']);
   const bookings = table_('bookings');
   const booking = bookings.find((b) => b.bookingId === id_(p.bookingId, 'Booking'));
   if (!booking) throw err_.notFound('Booking not found.');
   const patch = {};
   let message = 'Saved.';
 
-  if (Object.prototype.hasOwnProperty.call(p, 'traineeId')) {
+  const has = (k) => Object.prototype.hasOwnProperty.call(p, k);
+  const pairOps = ['traineeId', 'addTraineeId', 'removeTraineeId'].filter(has);
+  if (pairOps.length > 1) throw err_.validation('Send one of traineeId, addTraineeId or removeTraineeId.');
+  if (pairOps.length) {
     if (booking.status === 'cancelled') throw err_.conflict(`${booking.volunteerName} is no longer coming to this session.`);
-    if (p.traineeId === '' || p.traineeId === null) {
-      Object.assign(patch, { traineeId: '', traineeName: '', pairing: '' });
-      message = `${booking.volunteerName} is now unpaired.`;
-    } else {
-      const trainee = traineeById_(str_(p.traineeId, 'Trainee', { required: true, max: 40 }));
+    const op = pairOps[0];
+    const current = bookingTrainees_(booking);
+    const findTrainee = (value) => {
+      const trainee = traineeById_(str_(value, 'Trainee', { required: true, max: 40 }));
       if (!trainee) throw err_.validation('Trainee not found in the trainee list.');
       if (!CONFIG.ALLOW_SHARED_TRAINEE) {
         const other = bookings.find((b) => b.sessionId === booking.sessionId && b.bookingId !== booking.bookingId &&
-          b.status !== 'cancelled' && String(b.traineeId) === String(trainee.id));
+          b.status !== 'cancelled' && hasTrainee_(b, trainee.id));
         if (other) throw err_.conflict(`${trainee.name} is already paired with ${other.volunteerName} for this session.`);
       }
-      Object.assign(patch, { traineeId: String(trainee.id), traineeName: trainee.name, pairing: 'manual' });
-      message = `${booking.volunteerName} is paired with ${trainee.name}.`;
+      return { id: String(trainee.id), name: trainee.name };
+    };
+    let next;
+    if (op === 'addTraineeId') {
+      const t = findTrainee(p.addTraineeId);
+      if (current.some((x) => x.id === t.id)) throw err_.conflict(`${booking.volunteerName} is already paired with ${t.name}.`);
+      next = current.concat([t]);
+      message = `${booking.volunteerName} is paired with ${namesText_(next.map((x) => x.name))}.`;
+    } else if (op === 'removeTraineeId') {
+      const id = str_(p.removeTraineeId, 'Trainee', { required: true, max: 40 });
+      const gone = current.find((x) => x.id === id);
+      if (!gone) throw err_.conflict(`${booking.volunteerName} isn't paired with that trainee.`);
+      next = current.filter((x) => x.id !== id);
+      message = next.length ? `${booking.volunteerName} is no longer with ${gone.name}.` : `${booking.volunteerName} is now unpaired.`;
+    } else if (p.traineeId === '' || p.traineeId === null) {
+      next = [];
+      message = `${booking.volunteerName} is now unpaired.`;
+    } else {
+      next = [findTrainee(p.traineeId)];
+      message = `${booking.volunteerName} is paired with ${next[0].name}.`;
     }
+    Object.assign(patch, next.length ? Object.assign(traineeCells_(next), { pairing: 'manual' }) : { traineeId: '', traineeName: '', pairing: '' });
   }
 
   if (Object.prototype.hasOwnProperty.call(p, 'status')) {

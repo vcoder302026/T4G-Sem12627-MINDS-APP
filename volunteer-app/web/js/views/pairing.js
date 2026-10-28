@@ -1,15 +1,18 @@
 // Pairing, in the style of the WERONE outing app's manual pairing page:
 // volunteers (green) beside trainees (blue), a search box for each, an
-// "Unpaired" count that filters the list, tap a card to pair, press and hold a
-// volunteer for their contact details.
+// All / Paired / Unpaired filter on each column and an "unpaired" count.
+// Drag a card sideways onto a card in the other column to pair them (phones
+// and computers), or tap a card (or its "+ Trn" / "+ Vol") for a pick list.
+// Each card lists who it is paired with; the small ✕ on a name unpairs them.
+// Press and hold a card (or a name on it) for their details.
 //
 //   #/pairings            upcoming sessions that need pairing
-//   #/pairings/regular    each regular volunteer's fixed trainee
+//   #/pairings/regular    each regular volunteer's fixed trainees
 //   #/pairings/history    who has been with whom, and each regular's trainees over time
 //   #/pair/<sessionId>    who is with whom at one session
 //
-// Rules (Pairing.gs): a volunteer has one trainee; a trainee can have several
-// volunteers, ideally at least one regular.
+// Rules (Pairing.gs): many to many. A volunteer can have several trainees, and
+// a trainee several volunteers (ideally at least one regular).
 
 import { call } from '../api.js';
 import {
@@ -17,6 +20,7 @@ import {
 } from '../ui.js';
 import { icon, panel, table } from '../../admin/js/kit.js';
 import { asPerson, asTrainee, personName, traineeName } from '../quickview.js';
+import { pairDrag } from '../dnd.js';
 
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 
@@ -34,144 +38,229 @@ const historyLine = (o, userId, traineeId) => el('span', {
   class: `pb-sub ${historyOf(o, userId, traineeId) ? 'font-bold text-indigo-700 dark:text-indigo-300' : 'text-emerald-700 dark:text-emerald-400'}`,
 }, historyText(historyOf(o, userId, traineeId)));
 
+const FILTERS = [['all', 'All'], ['paired', 'Paired'], ['unpaired', 'Unpaired']];
+
+/** All / Paired / Unpaired for one column. */
+function filterSeg(value, label, onPick) {
+  return el('span', { class: 'pb-seg', role: 'group', 'aria-label': `Show ${label}` }, FILTERS.map(([key, text]) => {
+    const b = el('button', { type: 'button', 'aria-pressed': String(value === key) }, text);
+    b.addEventListener('click', () => onPick(key));
+    return b;
+  }));
+}
+
 /**
  * The two-column board. All data comes in `o`; it redraws itself when filters
- * change, and calls o.onPair / o.onUnpair (which return a promise) to save.
- *   o.volunteers: [{ key, userId, name, type, isAdmin, telegram, phone, traineeId, traineeName, tag, note }]
- *   o.trainees:   [{ id, name, preferredName, note, warn }]
+ * change. Changes show straight away and are saved in the background:
+ * o.save('add' | 'remove', volunteer, trainee) returns a promise of the server's
+ * reply, and o.settled(reply) runs once nothing else is waiting, so a quick run
+ * of drags doesn't flicker. A failed save shows why and reloads (o.reload).
+ *   o.volunteers: [{ key, userId, name, type, isAdmin, trainees: [{ id, name }], tag, note }]
+ *   o.trainees:   [{ id, name, preferredName, photoUrl, note, warn(vols) }]
  */
 function pairBoard(o) {
-  const state = { vq: '', tq: '', unpairedOnly: false, traineeFilter: 'all' };
+  const state = { vq: '', tq: '', vf: 'all', tf: 'all', flash: null };
+  let pending = 0;
   const host = el('div', {});
   const pairedTo = () => {
     const map = {};
-    o.volunteers.forEach((v) => { if (v.traineeId) (map[v.traineeId] = map[v.traineeId] || []).push(v); });
+    o.volunteers.forEach((v) => v.trainees.forEach((t) => { (map[t.id] = map[t.id] || []).push(v); }));
     return map;
   };
+  const volByKey = (key) => o.volunteers.find((v) => String(v.key) === String(key));
+  const traineeById = (id) => o.trainees.find((t) => t.id === id) || { id, name: id };
+  const isPaired = (v, t) => v.trainees.some((x) => x.id === t.id);
+  const redrawers = new Set(); // open pick lists redraw with the board
 
-  const pickTrainee = (v) => {
+  const change = (op, vIn, t) => {
+    const v = volByKey(vIn.key);
+    if (!v) return;
+    if (op === 'add' && isPaired(v, t)) { toast(`${v.name} is already paired with ${t.name}.`, 'warn'); return; }
+    v.trainees = op === 'add' ? v.trainees.concat([{ id: t.id, name: t.name }]) : v.trainees.filter((x) => x.id !== t.id);
+    state.flash = op === 'add' ? { key: v.key, id: t.id } : null;
+    draw();
+    pending += 1;
+    Promise.resolve(o.save(op, v, t)).then((res) => {
+      pending -= 1;
+      if (res && res.message) toast(res.message);
+      if (!pending && o.settled) o.settled(res);
+    }).catch((err) => {
+      pending -= 1;
+      toast(err.message, 'error');
+      if (o.reload) o.reload();
+    });
+  };
+
+  const pill = (text, id, onRemove, isTrainee, extraCls = '') => {
+    const x = el('button', { type: 'button', class: 'pb-x', 'aria-label': `Unpair ${text}` }, '✕');
+    x.addEventListener('click', (e) => { e.stopPropagation(); onRemove(); });
+    const label = isTrainee ? traineeName(text, id) : personName(text, id);
+    return el('span', { class: `pb-pill ${extraCls}` }, label, x);
+  };
+
+  const pickTrainee = (vIn) => {
     let q = '';
     const listHost = el('div', { class: 'mt-3 space-y-1' });
-    const byTrainee = pairedTo();
-    const draw = () => {
+    const draw2 = () => {
+      const v = volByKey(vIn.key);
+      if (!v) return;
+      const byTrainee = pairedTo();
       let shown = fuzzyFilter(o.trainees, q, (t) => [t.name, t.preferredName, t.id]);
       if (o.newFirst && !q) {
         // Regular pairings: trainees this regular hasn't been with come first, to encourage variety.
         const seen = (t) => { const h = historyOf(o, v.userId, t.id); return h ? 1 + (h.sessions || 0) : 0; };
         shown = [...shown].sort((a, b) => seen(a) - seen(b));
       }
+      if (!q) shown = [...shown.filter((t) => isPaired(v, t)), ...shown.filter((t) => !isPaired(v, t))]; // theirs first
       // Who they've been with, most recent first: so past trainees are visible even when "new first" pushes them down the list.
       const past = Object.keys((o.history || {})[v.userId] || {}).map((id) => ({ id, h: o.history[v.userId][id], t: o.trainees.find((x) => x.id === id) }))
         .filter((x) => x.t).sort((a, b) => String(b.h.regularFrom || b.h.last).localeCompare(String(a.h.regularFrom || a.h.last)));
       mount(listHost,
+        v.trainees.length ? el('p', { class: 'px-1 pb-1 text-sm' }, el('span', { class: 'font-bold' }, 'Now with: '), v.trainees.map((t) => t.name).join(', ')) : null,
         past.length && !q ? el('div', { class: 'well mb-2 p-3 text-xs' },
           el('p', { class: 'font-bold uppercase tracking-wider muted' }, 'Been with before'),
           el('ul', { class: 'mt-1 space-y-0.5' }, past.slice(0, 6).map((x) => el('li', {}, el('span', { class: 'font-bold' }, x.t.name), ` · ${historyText(x.h)}`)))) : null,
-        el('p', { class: 'px-1 pb-1 text-xs muted' }, o.newFirst ? 'Trainees new for them are listed first.' : 'Each trainee shows whether they have been together before.'),
-        v.traineeId ? el('button', { type: 'button', class: 'pick-row font-bold text-red-600 dark:text-red-400', onclick: () => save(null) }, icon('x', 'size-5'), `Unpair from ${v.traineeName}`) : null,
+        el('p', { class: 'px-1 pb-1 text-xs muted' }, `Tap to pair or unpair. ${v.name.split(' ')[0]} can have several trainees.${o.newFirst ? ' Trainees new for them are listed first.' : ''}`),
         shown.slice(0, 60).map((t) => {
+          const here = isPaired(v, t);
           const others = (byTrainee[t.id] || []).filter((x) => x.key !== v.key);
-          return asTrainee(el('button', { type: 'button', class: `pick-row ${t.id === v.traineeId ? 'select-ring' : ''}`, onclick: () => save(t) },
+          return asTrainee(el('button', { type: 'button', class: `pick-row ${here ? 'select-ring' : ''}`, onclick: () => change(here ? 'remove' : 'add', v, t) },
+            traineeAvatar(t, 'sm'),
             el('span', { class: 'min-w-0 flex-1' },
               el('span', { class: 'pb-name' }, t.name),
               historyLine(o, v.userId, t.id),
-              el('span', { class: 'pb-sub' }, [t.note, others.length ? `With ${others.map((x) => x.name).join(', ')}` : 'No one yet'].filter(Boolean).join(' · '))),
-            t.id === v.traineeId ? icon('tick', 'size-5 text-indigo-600') : null), t.id);
+              el('span', { class: 'pb-sub' }, [here ? 'Paired: tap to unpair' : '', t.note, others.length ? `With ${others.map((x) => x.name).join(', ')}` : 'No one yet'].filter(Boolean).join(' · '))),
+            here ? icon('tick', 'size-5 text-emerald-600') : icon('plus', 'size-5 text-slate-400')), t.id);
         }),
         shown.length > 60 ? el('p', { class: 'px-3 text-xs muted' }, `Showing 60 of ${shown.length}. Search to narrow it down.`) : null,
         !shown.length ? el('p', { class: 'p-3 text-sm muted' }, 'No trainee matches.') : null);
     };
-    const m = modal(`Pair ${v.name}`, [searchBox('Search trainees', (x) => { q = x; draw(); }, 'Search trainees'), listHost]);
-    const save = (t) => {
-      m.close();
-      Promise.resolve(t ? o.onPair(v, t) : o.onUnpair(v)).catch((err) => toast(err.message, 'error'));
-    };
-    draw();
+    const done = el('button', { type: 'button', class: 'btn btn-primary btn-sm mt-3 w-full' }, 'Done');
+    const m = modal(`Pair ${vIn.name}`, [searchBox('Search trainees', (x) => { q = x; draw2(); }, 'Search trainees'), listHost, done], () => redrawers.delete(draw2));
+    done.addEventListener('click', () => m.close());
+    redrawers.add(draw2);
+    draw2();
   };
 
   const pickVolunteer = (t) => {
     let q = '';
     const listHost = el('div', { class: 'mt-3 space-y-1' });
-    const draw = () => {
-      const pool = fuzzyFilter(o.volunteers, q, (v) => [v.name, v.traineeName]);
-      const sorted = [...pool.filter((v) => !v.traineeId), ...pool.filter((v) => v.traineeId && v.traineeId !== t.id), ...pool.filter((v) => v.traineeId === t.id)];
-      mount(listHost, sorted.map((v) => {
-        const here = v.traineeId === t.id;
-        return asPerson(el('button', { type: 'button', class: `pick-row ${here ? 'select-ring' : ''}`, onclick: () => save(v, here) },
-          el('span', { class: 'min-w-0 flex-1' },
-            el('span', { class: 'pb-name' }, v.name),
-            el('span', { class: 'pb-sub' }, here ? 'Paired here: tap to unpair' : v.traineeId ? `Now with ${v.traineeName}: tap to move here` : 'Unpaired'),
-            historyLine(o, v.userId, t.id)),
-          el('span', { class: 'flex shrink-0 flex-wrap gap-1' }, typeBadges(v))), v.userId);
-      }), !sorted.length ? el('p', { class: 'p-3 text-sm muted' }, o.emptyVolunteers || 'No volunteers.') : null);
+    const draw2 = () => {
+      const pool = fuzzyFilter(o.volunteers, q, (v) => [v.name, v.trainees.map((x) => x.name).join(' ')]);
+      const sorted = [...pool.filter((v) => isPaired(v, t)), ...pool.filter((v) => !v.trainees.length), ...pool.filter((v) => v.trainees.length && !isPaired(v, t))];
+      mount(listHost,
+        el('p', { class: 'px-1 pb-1 text-xs muted' }, `Tap to pair or unpair. ${t.name} can have several volunteers.`),
+        sorted.map((v) => {
+          const here = isPaired(v, t);
+          return asPerson(el('button', { type: 'button', class: `pick-row ${here ? 'select-ring' : ''}`, onclick: () => change(here ? 'remove' : 'add', v, t) },
+            el('span', { class: 'min-w-0 flex-1' },
+              el('span', { class: 'pb-name' }, v.name),
+              el('span', { class: 'pb-sub' }, here ? 'Paired here: tap to unpair' : v.trainees.length ? `Also with ${v.trainees.map((x) => x.name).join(', ')}` : 'Unpaired'),
+              historyLine(o, v.userId, t.id)),
+            el('span', { class: 'flex shrink-0 flex-wrap items-center gap-1' }, typeBadges(v), here ? icon('tick', 'size-5 text-emerald-600') : null)), v.userId);
+        }), !sorted.length ? el('p', { class: 'p-3 text-sm muted' }, o.emptyVolunteers || 'No volunteers.') : null);
     };
-    const m = modal(`Who is with ${t.name}?`, [searchBox(`Search ${o.volunteerLabel.toLowerCase()}`, (x) => { q = x; draw(); }, 'Search'), listHost]);
-    const save = (v, here) => {
-      m.close();
-      Promise.resolve(here ? o.onUnpair(v) : o.onPair(v, t)).catch((err) => toast(err.message, 'error'));
-    };
-    draw();
+    const done = el('button', { type: 'button', class: 'btn btn-primary btn-sm mt-3 w-full' }, 'Done');
+    const m = modal(`Who is with ${t.name}?`, [searchBox(`Search ${o.volunteerLabel.toLowerCase()}`, (x) => { q = x; draw2(); }, 'Search'), listHost, done], () => redrawers.delete(draw2));
+    done.addEventListener('click', () => m.close());
+    redrawers.add(draw2);
+    draw2();
   };
 
   const draw = () => {
     const byTrainee = pairedTo();
-    const unpaired = o.volunteers.filter((v) => !v.traineeId);
-    let vols = fuzzyFilter(o.volunteers, state.vq, (v) => [v.name, v.traineeName]);
-    if (state.unpairedOnly) vols = vols.filter((v) => !v.traineeId);
+    const unpairedVols = o.volunteers.filter((v) => !v.trainees.length);
+    const unpairedTrainees = o.trainees.filter((t) => !(byTrainee[t.id] || []).length);
+    let vols = fuzzyFilter(o.volunteers, state.vq, (v) => [v.name, v.trainees.map((t) => t.name).join(' ')]);
+    if (state.vf === 'paired') vols = vols.filter((v) => v.trainees.length);
+    if (state.vf === 'unpaired') vols = vols.filter((v) => !v.trainees.length);
     let trainees = fuzzyFilter(o.trainees, state.tq, (t) => [t.name, t.preferredName, t.id, (byTrainee[t.id] || []).map((v) => v.name).join(' ')]);
-    if (state.traineeFilter === 'warn') trainees = trainees.filter((t) => t.warn(byTrainee[t.id] || []));
+    if (state.tf === 'paired') trainees = trainees.filter((t) => (byTrainee[t.id] || []).length);
+    if (state.tf === 'unpaired') trainees = trainees.filter((t) => !(byTrainee[t.id] || []).length);
+    const flashed = (key, id) => state.flash && ((key !== null && String(state.flash.key) === String(key)) || (id !== null && state.flash.id === id));
 
+    const card = (role, key, paired, warn, flash, label, ...body) => {
+      const c = el('div', {
+        class: `pb-card ${paired ? 'pb-paired' : 'pb-unpaired-card'} ${warn ? 'pb-warn' : ''} ${flash ? 'pb-flash' : ''}`,
+        role: 'button', tabindex: '0', 'aria-label': label, dataset: { dndRole: role, dndKey: key },
+      }, ...body);
+      return c;
+    };
     const volCard = (v) => {
-      const card = el('button', { type: 'button', class: `pb-card ${v.traineeId ? '' : 'pb-warn'}`, 'aria-label': `${v.name}: ${v.traineeId ? `with ${v.traineeName}` : 'unpaired'}. Press and hold for contact details.` },
-        el('span', { class: 'pb-name' }, v.name),
-        el('span', { class: 'pb-chips' }, typeBadges(v)),
-        el('span', { class: 'pb-sub' }, v.traineeId ? `→ ${v.traineeName}${v.tag === 'standing' ? ' (regular)' : ''}` : 'Unpaired'),
-        v.note ? el('span', { class: 'pb-sub' }, v.note) : null);
-      card.addEventListener('click', () => pickTrainee(v));
-      return asPerson(card, v.userId); // press and hold: Telegram and phone
+      const add = el('button', { type: 'button', class: 'pb-add', 'aria-label': `Add a trainee for ${v.name}` }, '+ Trn');
+      add.addEventListener('click', (e) => { e.stopPropagation(); pickTrainee(v); });
+      const c = card('vol', v.key, v.trainees.length > 0, false, flashed(v.key, null),
+        `${v.name}: ${v.trainees.length ? `with ${v.trainees.map((t) => t.name).join(', ')}` : 'unpaired'}. Tap to pair, or drag onto a trainee.`,
+        el('span', { class: 'pb-name' }, v.trainees.length ? icon('tick', 'pb-tick') : null, el('span', {}, v.name)),
+        el('span', { class: 'pb-chips' }, typeBadges(v), v.tag === 'standing' && v.trainees.length ? badge('Regular pair', 'purple') : null),
+        v.note ? el('span', { class: 'pb-sub' }, v.note) : null,
+        // Who they're with (✕ unpairs), then "+ Trn" to add another.
+        el('span', { class: 'pb-drop' },
+          v.trainees.map((t) => pill(t.name, t.id, () => change('remove', v, traineeById(t.id)), true, flashed(null, t.id) && String(state.flash.key) === String(v.key) ? 'pb-pill-new' : '')),
+          el('span', { class: 'pb-drop-foot' }, v.trainees.length ? null : el('span', { class: 'pb-hint' }, 'Drop a trainee here'), add)));
+      c.addEventListener('click', () => pickTrainee(v));
+      c.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pickTrainee(v); } });
+      return asPerson(c, v.userId); // press and hold: Telegram and phone
     };
     const traineeCard = (t) => {
       const withVols = byTrainee[t.id] || [];
-      const warn = t.warn(withVols);
-      const card = el('button', { type: 'button', class: `pb-card ${warn ? 'pb-warn' : ''}` },
-        el('span', { class: 'flex items-center gap-2' }, traineeAvatar(t, 'sm'), el('span', { class: 'pb-name min-w-0' }, t.name)),
+      const add = el('button', { type: 'button', class: 'pb-add', 'aria-label': `Add a volunteer for ${t.name}` }, '+ Vol');
+      add.addEventListener('click', (e) => { e.stopPropagation(); pickVolunteer(t); });
+      const c = card('tr', t.id, withVols.length > 0, t.warn(withVols), flashed(null, t.id),
+        `${t.name}: ${withVols.length ? `with ${withVols.map((v) => v.name).join(', ')}` : 'no one yet'}. Tap to pair, or drag onto a volunteer.`,
+        el('span', { class: 'pb-name' }, traineeAvatar(t, 'xs'), withVols.length ? icon('tick', 'pb-tick') : null, el('span', {}, t.name)),
         t.note ? el('span', { class: 'pb-sub' }, t.note) : null,
-        withVols.length ? el('span', { class: 'pb-chips' }, withVols.map((v) => el('span', { class: `pb-chip ${v.type === 'regular' ? 'pb-reg' : ''}` }, v.name)))
-          : el('span', { class: 'pb-sub' }, 'No one yet'));
-      card.addEventListener('click', () => pickVolunteer(t));
-      return asTrainee(card, t.id); // press and hold: photo and key details
+        el('span', { class: 'pb-drop' },
+          withVols.map((v) => pill(v.name, v.userId, () => change('remove', v, t), false, v.type === 'regular' ? 'pb-pill-reg' : '')),
+          el('span', { class: 'pb-drop-foot' }, withVols.length ? null : el('span', { class: 'pb-hint' }, 'Drop a volunteer here'), add)));
+      c.addEventListener('click', () => pickVolunteer(t));
+      c.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pickVolunteer(t); } });
+      return asTrainee(c, t.id); // press and hold: photo and key details
     };
-    const unpairedBtn = el('button', { type: 'button', class: `pb-unpaired ${unpaired.length ? 'pb-pulse' : ''}`, 'aria-pressed': String(state.unpairedOnly) },
-      `${unpaired.length} unpaired`);
-    unpairedBtn.addEventListener('click', () => { state.unpairedOnly = !state.unpairedOnly; draw(); });
-    const traineeToggle = el('button', { type: 'button', class: 'pb-filter' }, state.traineeFilter === 'warn' ? o.warnLabel : 'All');
-    traineeToggle.addEventListener('click', () => { state.traineeFilter = state.traineeFilter === 'warn' ? 'all' : 'warn'; draw(); });
-    const volToggle = el('button', { type: 'button', class: 'pb-filter' }, state.unpairedOnly ? 'Unpaired' : 'All');
-    volToggle.addEventListener('click', () => { state.unpairedOnly = !state.unpairedOnly; draw(); });
+    const unpairedBtn = el('button', { type: 'button', class: `pb-unpaired ${unpairedVols.length ? 'pb-pulse' : 'pb-all-paired'}`, 'aria-pressed': String(state.vf === 'unpaired') },
+      unpairedVols.length ? `${unpairedVols.length} unpaired` : ['✓ All paired']);
+    unpairedBtn.addEventListener('click', () => { state.vf = state.vf === 'unpaired' ? 'all' : 'unpaired'; draw(); });
+    const empty = (filter, query, text) => el('p', { class: 'p-2 text-xs muted' }, query || filter !== 'all' ? 'No one matches.' : text);
 
     mount(host,
       el('div', { class: 'mb-3 flex flex-wrap items-center gap-2' }, unpairedBtn,
-        el('span', { class: 'text-xs muted' }, 'Tap a card to pair. Press and hold for their details.')),
+        el('span', { class: 'pb-legend' }, el('span', { class: 'pb-dot pb-dot-paired' }), 'Paired'),
+        el('span', { class: 'pb-legend' }, el('span', { class: 'pb-dot pb-dot-unpaired' }), 'Not yet'),
+        el('span', { class: 'text-xs muted' }, 'Drag a card onto the other column, or tap it. ✕ unpairs. Press and hold for details.')),
       el('div', { class: 'pb' },
         el('section', { class: 'pb-col pb-vol', 'aria-label': o.volunteerLabel },
-          el('div', { class: 'pb-head' }, `${o.volunteerLabel} (${o.volunteers.length})`, volToggle),
-          el('div', { class: 'pb-list' }, vols.length ? vols.map(volCard) : el('p', { class: 'p-2 text-xs muted' }, state.vq || state.unpairedOnly ? 'No one matches.' : o.emptyVolunteers))),
+          el('div', { class: 'pb-head' }, el('span', {}, `${o.volunteerLabel} (${o.volunteers.length})`),
+            filterSeg(state.vf, o.volunteerLabel.toLowerCase(), (k) => { state.vf = k; draw(); })),
+          el('div', { class: 'pb-list' }, vols.length ? vols.map(volCard) : empty(state.vf, state.vq, o.emptyVolunteers))),
         el('section', { class: 'pb-col pb-tr', 'aria-label': 'Trainees' },
-          el('div', { class: 'pb-head' }, `Trainees (${o.trainees.length})`, traineeToggle),
-          el('div', { class: 'pb-list' }, trainees.length ? trainees.map(traineeCard) : el('p', { class: 'p-2 text-xs muted' }, 'No trainee matches.')))));
+          el('div', { class: 'pb-head', title: `${unpairedTrainees.length} ${o.warnLabel.toLowerCase()}` }, el('span', {}, `Trainees (${o.trainees.length})`),
+            filterSeg(state.tf, 'trainees', (k) => { state.tf = k; draw(); })),
+          el('div', { class: 'pb-list' }, trainees.length ? trainees.map(traineeCard) : empty(state.tf, state.tq, 'No trainees.')))));
+    redrawers.forEach((fn) => fn());
+    if (state.flash) {
+      const f = state.flash;
+      setTimeout(() => { if (state.flash === f) { state.flash = null; host.querySelectorAll('.pb-flash, .pb-pill-new').forEach((n) => n.classList.remove('pb-flash', 'pb-pill-new')); } }, 1200);
+    }
   };
 
   const searches = el('div', { class: 'mb-3 grid grid-cols-2 gap-2' },
     searchBox(`Search ${o.volunteerLabel.toLowerCase()}`, (q) => { state.vq = q; draw(); }, `Search ${o.volunteerLabel.toLowerCase()}`),
     searchBox('Search trainees', (q) => { state.tq = q; draw(); }, 'Search trainees'));
+  const stopDrag = pairDrag(host, (from, to) => {
+    const vKey = from.role === 'vol' ? from.key : to.key;
+    const tId = from.role === 'tr' ? from.key : to.key;
+    const v = volByKey(vKey);
+    if (v) change('add', v, traineeById(tId));
+  });
   draw();
   return {
     el: el('div', {}, searches, host),
-    update(next) { Object.assign(o, next); draw(); },
+    update(next) { if (!pending) { Object.assign(o, next); draw(); } },
+    destroy: stopDrag,
   };
 }
 
-/** A printable / screenshot-friendly list: Volunteer | Trainee (like the WERONE groupings export). */
+/** A printable / screenshot-friendly list: Volunteer | Trainees (like the WERONE groupings export). */
 function pairingList(rows, title) {
   return el('div', {},
     el('h2', { class: 'mb-2 text-lg font-extrabold' }, title),
@@ -182,7 +271,9 @@ function pairingList(rows, title) {
         el('tbody', { class: 'divide-y divide-slate-100 dark:divide-neutral-800' },
           rows.map((r) => el('tr', {},
             el('td', { class: 'px-4 py-2.5 font-bold' }, personName(r.volunteer, r.userId), r.type === 'regular' ? el('span', { class: 'ml-1 text-xs font-medium text-purple-700 dark:text-purple-300' }, '(Regular)') : null),
-            el('td', { class: 'px-4 py-2.5' }, r.trainee ? traineeName(r.trainee, r.traineeId) : el('span', { class: 'font-bold text-red-600' }, 'Unpaired'))))))));
+            el('td', { class: 'px-4 py-2.5' }, r.trainees.length
+              ? r.trainees.map((t, i) => [i ? ', ' : '', traineeName(t.name, t.id)])
+              : el('span', { class: 'font-bold text-red-600' }, 'Unpaired'))))))));
 }
 
 /* ---------------- one session ---------------- */
@@ -192,21 +283,25 @@ export function renderSessionPairing(root, app, ctx, sessionId) {
   let showAll = false;
   let showList = false;
   let latest = null;
+  ctx.onLeave(() => { if (board) board.destroy(); });
 
   const options = (d) => {
     const s = d.session;
     const attending = new Set(s.traineeIds || []);
-    const volunteers = d.bookings.filter((b) => b.status !== 'cancelled').map((b) => ({
-      key: b.bookingId,
-      bookingId: b.bookingId,
-      ...b.volunteer,
-      traineeId: b.trainee ? b.trainee.id : '',
-      traineeName: b.trainee ? b.trainee.name : '',
-      tag: b.pairing,
-      note: b.volunteer.standingTraineeName && (!b.trainee || b.trainee.id !== b.volunteer.standingTraineeId)
-        ? `Regular trainee: ${b.volunteer.standingTraineeName}` : '',
-    }));
-    const paired = new Set(volunteers.map((v) => v.traineeId).filter(Boolean));
+    const volunteers = d.bookings.filter((b) => b.status !== 'cancelled').map((b) => {
+      const fixed = b.volunteer.standingTrainees || [];
+      const trainees = b.trainees || (b.trainee ? [b.trainee] : []);
+      const missing = fixed.filter((f) => !trainees.some((t) => t.id === f.id));
+      return {
+        key: b.bookingId,
+        bookingId: b.bookingId,
+        ...b.volunteer,
+        trainees: trainees.map((t) => ({ id: t.id, name: t.name })),
+        tag: b.pairing,
+        note: missing.length ? `Regular trainee${fixed.length > 1 ? 's' : ''}: ${fixed.map((f) => f.name).join(', ')}` : '',
+      };
+    });
+    const paired = new Set(volunteers.flatMap((v) => v.trainees.map((t) => t.id)));
     let trainees = d.trainees;
     if (attending.size && !showAll) trainees = trainees.filter((t) => attending.has(t.id) || paired.has(t.id));
     trainees = trainees.map((t) => ({
@@ -219,31 +314,25 @@ export function renderSessionPairing(root, app, ctx, sessionId) {
       trainees,
       history: d.history || {},
       volunteerLabel: 'Volunteers',
-      warnLabel: 'Needs someone',
+      warnLabel: 'Unpaired',
       emptyVolunteers: 'No one has said they\'re coming yet.',
-      onPair: (v, t) => save({ bookingId: v.bookingId, traineeId: t.id }),
-      onUnpair: (v) => save({ bookingId: v.bookingId, traineeId: '' }),
+      save: (op, v, t) => call('updateBooking', op === 'add' ? { bookingId: v.bookingId, addTraineeId: t.id } : { bookingId: v.bookingId, removeTraineeId: t.id })
+        .then((res) => { app.cacheDetail(sessionId, res.detail); app.dropAdminHome(); return res; }),
+      settled: (res) => { if (ctx.alive() && res && res.detail) draw(res.detail); },
+      reload: () => load(),
     };
-  };
-
-  const save = async (payload) => {
-    const res = await call('updateBooking', payload);
-    app.cacheDetail(sessionId, res.detail);
-    app.dropAdminHome();
-    toast(res.message);
-    if (ctx.alive()) draw(res.detail);
   };
 
   const draw = (d) => {
     latest = d;
     const s = d.session;
     const o = options(d);
-    const unpaired = o.volunteers.filter((v) => !v.traineeId).length;
+    const unpaired = o.volunteers.filter((v) => !v.trainees.length).length;
     const allBtn = s.traineeIds && s.traineeIds.length
       ? el('button', { class: 'btn btn-secondary btn-sm', onclick: () => { showAll = !showAll; draw(latest); } }, showAll ? 'Only trainees attending' : 'Show all trainees') : null;
     const listBtn = el('button', { class: 'btn btn-secondary btn-sm', onclick: () => { showList = !showList; draw(latest); } }, icon('list', 'size-4'), showList ? 'Back to the board' : 'Pairing list');
     if (board && !showList) board.update(o);
-    else board = pairBoard(o);
+    else { if (board) board.destroy(); board = pairBoard(o); }
     mount(root,
       backLink(`#/session/${sessionId}`, s.title),
       el('div', { class: 'mb-4 flex flex-wrap items-end justify-between gap-3' },
@@ -252,17 +341,18 @@ export function renderSessionPairing(root, app, ctx, sessionId) {
           el('p', { class: 'mt-1 text-sm muted' }, `${fmtDay(s.date, d.today)}, ${fmtTimes(s)} · ${plural(o.volunteers.length, 'volunteer')}, ${unpaired} unpaired`)),
         el('div', { class: 'flex flex-wrap gap-2' }, allBtn, listBtn)),
       showList
-        ? pairingList(o.volunteers.map((v) => ({ volunteer: v.name, userId: v.userId, type: v.type, trainee: v.traineeName, traineeId: v.traineeId })), `${s.title}, ${fmtDay(s.date, d.today)}`)
+        ? pairingList(o.volunteers.map((v) => ({ volunteer: v.name, userId: v.userId, type: v.type, trainees: v.trainees })), `${s.title}, ${fmtDay(s.date, d.today)}`)
         : board.el);
   };
 
+  const load = () => call('sessionDetail', { sessionId }).then((d) => {
+    app.cacheDetail(sessionId, d);
+    if (ctx.alive()) draw(d);
+  });
   const cached = app.cachedDetail(sessionId);
   if (cached) draw(cached);
   else mount(root, loading());
-  return call('sessionDetail', { sessionId }).then((d) => {
-    app.cacheDetail(sessionId, d);
-    if (ctx.alive()) draw(d);
-  }).catch((err) => { if (ctx.alive() && !cached) mount(root, errorBlock(err, () => app.rerender())); });
+  return load().catch((err) => { if (ctx.alive() && !cached) mount(root, errorBlock(err, () => app.rerender())); });
 }
 
 /* ---------------- the Pairing menu: sessions, and regulars' fixed trainees ---------------- */
@@ -321,7 +411,7 @@ export function renderStandingPairings(root, app, ctx, tab) {
   mount(root,
     el('h1', { class: 'page-title mb-1' }, 'Pairing'),
     el('p', { class: 'mb-4 text-sm muted' }, regular
-      ? 'Give each regular volunteer a fixed trainee. They are paired with that trainee every time they say they\'re coming, until you change it here.'
+      ? 'Give each regular volunteer one or more fixed trainees. They are paired with them every time they say they\'re coming, until you change it here.'
       : 'Volunteers (new / ad hoc) are paired by an admin for each session. Regulars with a fixed trainee are paired automatically.'),
     host);
 
@@ -344,8 +434,9 @@ export function renderStandingPairings(root, app, ctx, tab) {
   }
 
   let board = null;
+  ctx.onLeave(() => { if (board) board.destroy(); });
   const options = (d) => ({
-    volunteers: d.regulars.map((r) => ({ key: r.userId, ...r, type: 'regular', tag: 'standing' })),
+    volunteers: d.regulars.map((r) => ({ key: r.userId, ...r, type: 'regular', tag: 'standing', trainees: r.trainees || (r.traineeId ? [{ id: r.traineeId, name: r.traineeName }] : []) })),
     trainees: d.trainees.map((t) => ({
       ...t,
       note: t.preferredName && t.preferredName !== t.name ? t.preferredName : '',
@@ -354,17 +445,13 @@ export function renderStandingPairings(root, app, ctx, tab) {
     history: d.history || {},
     newFirst: true,
     volunteerLabel: 'Regulars',
-    warnLabel: 'No regular',
+    warnLabel: 'Without a regular',
     emptyVolunteers: 'No regular volunteers yet. Volunteers become regulars after 10 sessions, or promote them under Volunteers.',
-    onPair: (v, t) => save({ userId: v.userId, traineeId: t.id }),
-    onUnpair: (v) => save({ userId: v.userId, traineeId: '' }),
+    save: (op, v, t) => call('setStandingPairing', op === 'add' ? { userId: v.userId, addTraineeId: t.id } : { userId: v.userId, removeTraineeId: t.id })
+      .then((res) => { app.dropAdminHome(); return res; }),
+    settled: (res) => { if (ctx.alive() && res) draw(res); },
+    reload: () => load(),
   });
-  const save = async (payload) => {
-    const res = await call('setStandingPairing', payload);
-    toast(res.message);
-    app.dropAdminHome();
-    if (ctx.alive()) draw(res);
-  };
   const draw = (d) => {
     const c = d.counts;
     if (board) board.update(options(d));
@@ -372,10 +459,11 @@ export function renderStandingPairings(root, app, ctx, tab) {
     mount(host,
       el('div', { class: 'mb-3 flex flex-wrap gap-1.5' },
         badge(`${c.regulars} regular${c.regulars === 1 ? '' : 's'}`, 'emerald'),
+        c.unpairedRegulars ? badge(`${c.unpairedRegulars} without a trainee`, 'red') : null,
         c.traineesWithoutRegular ? badge(`${c.traineesWithoutRegular} trainee${c.traineesWithoutRegular === 1 ? '' : 's'} without a regular`, 'amber', 'alert') : badge('Every trainee has a regular', 'emerald', 'tick')),
       board.el);
   };
+  const load = () => call('listStandingPairings').then((d) => { if (ctx.alive()) draw(d); });
   mount(host, loading());
-  return call('listStandingPairings').then((d) => { if (ctx.alive()) draw(d); })
-    .catch((err) => { if (ctx.alive()) mount(host, errorBlock(err, () => app.rerender())); });
+  return load().catch((err) => { if (ctx.alive()) mount(host, errorBlock(err, () => app.rerender())); });
 }

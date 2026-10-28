@@ -14,7 +14,7 @@ newest version of the app and 🌗 switches dark mode.
 | Profile | Who | What's different |
 | --- | --- | --- |
 | **Volunteer** | Everyone starts here (new / ad hoc) | An admin pairs you with a trainee for each session. You see your trainee's details that admins allow. |
-| **Regular** | After 10 attended sessions (automatic), or when an admin promotes you | You can read about any trainee. An admin can give you a fixed trainee, who you're paired with every time you sign up. |
+| **Regular** | After 10 attended sessions (automatic), or when an admin promotes you | You can read about any trainee. An admin can give you one or more fixed trainees, who you're paired with every time you sign up. |
 | **Admin** | Regular volunteers with admin access (becoming an admin makes someone a regular) | The Admin menu, on top of everything above. |
 
 ## For every volunteer
@@ -36,7 +36,7 @@ newest version of the app and 🌗 switches dark mode.
 
 | I want to… | Tap |
 | --- | --- |
-| See my fixed trainee | **Home**, at the top: press and hold for details, tap for their full page |
+| See my fixed trainees | **Home**, at the top: press and hold for details, tap for their full page |
 | Read about any trainee | **Trainees** → search → tap a name |
 | Send an update about any trainee | Their page → **Send update** |
 
@@ -57,9 +57,9 @@ computer) to see a volunteer's Telegram and phone, or a trainee's photo and key 
 | See what needs attention | **Dashboard**: new and regular volunteers, trainees without a regular, who still needs pairing |
 | Add sessions | **Sessions** → **New session** → pick the date. It's a Regular session, 2:30–5:30 pm at Woodlands, for both projects, WE and RSPID (change the dropdowns or untick a project if needed). **Add another date** adds the same session on several days at once |
 | See who's coming | **Sessions** → a session: everyone coming, their trainee, and no-shows after the day |
-| Pair volunteers for a session | **Sessions** → **Pair** on the session's row (or **Pairing**). Tap a volunteer, pick a trainee. Tap a trainee to add or move volunteers. The red **Unpaired** button shows only those still unpaired |
-| Share the pairings | Pairing board → **Pairing list**: a Volunteer → Trainee table to screenshot |
-| Give a regular their fixed trainee | **Pairing** → **Regular pairings** → tap the regular → pick the trainee. The pop-up shows who they've been with before, then trainees new for them. Their upcoming sessions follow the change |
+| Pair volunteers for a session | **Sessions** → **Pair** on the session's row (or **Pairing**). **Drag** a volunteer's card sideways onto a trainee's card (or the other way), or tap a card (or **+ Trn** / **+ Vol**) and tick trainees in the pop-up. A volunteer can have several trainees and a trainee several volunteers. The small **✕** beside a name unpairs them. Paired cards are green with a ✓, unpaired ones red. **All / Paired / Unpaired** above each column filters it |
+| Share the pairings | Pairing board → **Pairing list**: a Volunteer → Trainees table to screenshot |
+| Give a regular their fixed trainees | **Pairing** → **Regular pairings**: the same board. Drag the regular onto a trainee, or tap them and tick trainees (one or several). The pop-up shows who they've been with before, then trainees new for them. **✕** removes one. Their upcoming sessions follow the change |
 | Check who has been with whom | **Pairing** → **History**: sessions together for every pair, and each regular's fixed trainees over time (with dates). Also on a volunteer's page: Recent sessions and Regular trainees over time |
 | Clock people in | **Sessions** → **Scan** on today's session (or **Scan passes** at the top). If a phone is flat: **Clock in** on the session's row, then **Clock in** / **Clock out**, or add a walk-in |
 | Promote someone to regular | **Volunteers** → their name → **Promote to regular** (or **Move back to volunteer**) |
@@ -69,9 +69,9 @@ computer) to see a volunteer's Telegram and phone, or a trainee's photo and key 
 | Fix attendance, export hours | **Volunteers** → **Attendance** (fix a missed scan) and **Hours** (export CSV) |
 | Add or change a trainee's photo | **Trainees** → the trainee → **Add photo** / **Change photo** (from this device, or a Google Drive link) or **Remove** |
 | Choose what volunteers see about trainees | **Trainees** → **What volunteers see** (the default), or a trainee → **What volunteers see** (just them). **Set as default for everyone** copies one trainee's settings to all |
-| Review notes | **Trainees** → **Notes to review**: edit if needed, then **Share with future volunteers** or **Keep private** |
+| Review notes | **Trainees** → **Notes to review** (filter: session feedback or trainee updates): edit if needed, choose **Share with all future volunteers**, **Share with regular volunteers only**, **Share with selected volunteers** (search and tick several people) or **Keep private** (only admins can read it; it stays on the trainee's page), then **Save** |
 | Check who changed what | **Dashboard** → **Activity log**: filter by admin, date or words like "pairing" |
-| Change the guide | **Settings** → **Guide & projects**: **Edit** any section, **Add text**, or **Add infographic** (a picture or PDF from this device, or a Google Drive link). Use the arrows to move items; the ↻ button replaces an infographic's file. **Preview as a volunteer** shows the result |
+| Change the guide | **Settings** → **Guide & projects**: **Edit** any section, **Add text**, or **Add infographic** (a picture or PDF from this device, or a Google Drive link). Drag the ⠿ handle to move items (or focus it and use the arrow keys); the ↻ button replaces an infographic's file. **Preview as a volunteer** shows the result |
 | Edit projects and venues | **Settings** → **Guide & projects** (projects), **Venues** |
 | Change the admin password | **Settings** → **Admin password**: type the current one and the new one twice. Tell the other admins. Forgotten? Whoever looks after Apps Script runs `resetAdminPassword()` |
 
@@ -83,8 +83,12 @@ Fundraising, outings, overseas trips and house visits are kept from Version 1 un
 - **Pairing when someone says they're coming:** a regular with a fixed trainee is paired
   with them straight away. Everyone else shows as **Unpaired** until an admin pairs them.
   A pairing an admin sets for one session is never overwritten by a fixed-trainee change.
-- **One trainee per volunteer, several volunteers per trainee.** Trainees without a regular
-  are highlighted, because ideally each has at least one.
+- **Many to many:** a volunteer can have several trainees, and a trainee several volunteers.
+  Trainees without a regular are highlighted, because ideally each has at least one.
+- **Who reads a note:** each note is shared with all future volunteers, regulars only,
+  selected volunteers, or kept private (admins only). Admins change it any time on the
+  trainee's page (**Who can read**). **What volunteers see** also has a **Notes** section:
+  untick "Notes from volunteers" or "Notes from admins" to hide those from an audience.
 - **Becoming a regular:** counted from sessions you were clocked out of. Volunteers don't see the count; admins see it on the volunteer's page. If an admin set
   someone's profile by hand, the automatic rule leaves them alone.
 - **Pairings typed into the sheet:** rows in the Regular Pairings tab may use plain names

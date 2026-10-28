@@ -381,6 +381,24 @@ function moveContent_(p) {
   return contentForLeaders_();
 }
 
+/** Drag and drop: saves a whole new order. `ids` lists every item (guide sections, or active projects). */
+function reorderContent_(p) {
+  onlyFields_(p, ['kind', 'ids']);
+  const kind = oneOf_(p.kind, 'Kind', ['guide', 'projects']);
+  if (!Array.isArray(p.ids) || !p.ids.length || p.ids.length > 500) throw err_.validation('Send the new order as a list.');
+  const table = table_(kind);
+  const idKey = kind === 'guide' ? 'sectionId' : 'projectId';
+  const rows = sortBy_(table.rows().filter((r) => r[idKey] && (kind === 'guide' || r.status !== 'archived')), (r) => Number(r.order) || 0);
+  const ids = p.ids.map((x) => id_(x, 'Item'));
+  const known = rows.map((r) => r[idKey]);
+  if (ids.length !== known.length || ids.some((id) => known.indexOf(id) === -1) || new Set(ids).size !== ids.length) {
+    throw err_.conflict('The list changed while you were moving things. Reload the page and try again.');
+  }
+  const byId = byKey_(rows, idKey);
+  ids.forEach((id, i) => { if (Number(byId[id].order) !== i + 1) table.update(byId[id], { order: i + 1 }); });
+  return contentForLeaders_();
+}
+
 /** The guide, projects and venues as a volunteer reads them. */
 function guide_(p, user) {
   return {

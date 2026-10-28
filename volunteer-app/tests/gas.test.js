@@ -610,13 +610,17 @@ describe('feedback becomes trainee notes for future volunteers', () => {
     assert.equal(rt.records(SHEET, 'Feedback')[0]['Note Status'], 'shared');
   });
 
-  test('observations kept private never reach volunteers', () => {
+  test('observations kept private never reach volunteers, but are kept for admins', () => {
     const bookingId = attendWith(vol, 'T-0002', TODAY);
     ok(rt.call('submitFeedback', { bookingId, traineeObservation: 'Private worry about home situation.' }, vol.token));
     const [item] = ok(rt.call('reviewQueue', {}, leader)).items;
     ok(rt.call('reviewObservation', { feedbackId: item.feedbackId, decision: 'private' }, leader));
-    assert.equal(ok(rt.call('traineeDetail', { traineeId: 'T-0002' }, leader)).notes.length, 0);
+    const notes = ok(rt.call('traineeDetail', { traineeId: 'T-0002' }, leader)).notes;
+    assert.equal(notes.length, 1, 'kept on the profile instead of being thrown away');
+    assert.equal(notes[0].audience, 'private');
     assert.equal(rt.records(SHEET, 'Feedback')[0]['Note Status'], 'private');
+    assert.equal(rt.records(SHEET, 'Trainee Notes')[0]['Shared With'], 'private');
+    assert.equal(ok(rt.call('traineeInfo', { traineeId: 'T-0002' }, vol.token)).notes.length, 0);
   });
 
   test('leaders add and hide notes; trainee detail shows everything to leaders only', () => {

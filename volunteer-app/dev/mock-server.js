@@ -47,8 +47,13 @@ export function createDemoRuntime() {
   rt.evaluate("guideFileLinks_ = function (fileId) { const u = '/__drive/' + encodeURIComponent(fileId); return { imageUrl: u, previewUrl: u, openUrl: u }; };");
   rt.evaluate("driveImageUrl_ = function (fileId) { return '/__drive/' + encodeURIComponent(fileId); };");
 
+  // Answers to the registration form's other questions (Config.gs → REGISTRATION).
+  const answers = (more = {}) => ({
+    gender: 'Female', occupation: 'Student', organisation: 'NTU', languages: ['English', 'Mandarin'], shirtSize: 'M',
+    projects: ['Regular Service Project for the Intellectually Disabled (RSPID)'], experience: 'No', heardFrom: 'School', photoConsent: 'Yes', ...more,
+  });
   const reg = (name, email, password, extra = {}) => rt.call('register', {
-    name, email, password, birthday: '2000-01-15', phone: '+65 9000 0000', telegram: '', consent: true, ...extra,
+    name, email, password, birthday: '2000-01-15', phone: '+65 9000 0000', telegram: '', consent: true, answers: answers(), ...extra,
   }).data;
   const ada = reg('Ada Admin', DEMO.admin.email, DEMO.admin.password, { telegram: 'ada_admin' });
   rt.call('acknowledgeGuide', {}, ada.token);
@@ -70,10 +75,10 @@ export function createDemoRuntime() {
     data: fs.readFileSync(path.join(here, 'demo-infographic.png')).toString('base64'),
     body: 'A sample infographic. Admins can replace it with MINDS\'s own picture or PDF.',
   });
-  const rex = reg('Rex Regular', DEMO.regular.email, DEMO.regular.password, { telegram: 'rex_regular', phone: '+65 9333 4444' });
+  const rex = reg('Rex Regular', DEMO.regular.email, DEMO.regular.password, { telegram: 'rex_regular', phone: '+65 9333 4444', answers: answers({ gender: 'Male', occupation: 'Working', organisation: 'DBS Bank', experience: 'Yes' }) });
   const rina = reg('Rina Regular', 'rina@example.com', 'RegularDemo123', { telegram: 'rina_r' });
   const vera = reg('Vera Volunteer', DEMO.volunteer.email, DEMO.volunteer.password, { telegram: 'vera_volunteers' });
-  const sam = reg('Sam Siva', 'sam@example.com', 'VolunteerDemo123', { phone: '+65 9111 2222', telegram: 'sam_siva' });
+  const sam = reg('Sam Siva', 'sam@example.com', 'VolunteerDemo123', { phone: '+65 9111 2222', telegram: 'sam_siva', answers: answers({ gender: 'Male', languages: ['English', 'Tamil'] }) });
   // Everyone in the demo has read the Volunteer Guide; a newly registered account has not.
   [rex, rina, vera, sam].forEach((v) => rt.call('acknowledgeGuide', {}, v.token));
 
@@ -106,7 +111,9 @@ export function createDemoRuntime() {
   rt.setNow(`${day(-40)}T09:00:00+08:00`);
   call('setStandingPairing', { userId: rex.user.userId, traineeId: 'T-0005' });
   rt.setNow(null);
-  call('setStandingPairing', { userId: rina.user.userId, traineeId: 'T-0002' });
+  // Rina has two fixed trainees (a regular can have several).
+  call('setStandingPairing', { userId: rina.user.userId, addTraineeId: 'T-0002' });
+  call('setStandingPairing', { userId: rina.user.userId, addTraineeId: 'T-0006' });
 
   // History: Sam has attended 8 sessions plus yesterday's (9), so clocking him out today makes him a regular automatically.
   for (let i = 8; i >= 1; i -= 1) {
@@ -124,8 +131,12 @@ export function createDemoRuntime() {
   }, vera.token);
   rt.call('submitFeedback', { bookingId: samB, rating: 5, traineeObservation: 'Points to picture cards to choose colours. Give two choices at a time.' }, sam.token);
   const queue = call('reviewQueue', {}).items;
-  call('reviewObservation', { feedbackId: queue.find((q) => q.volunteerName === 'Sam Siva').feedbackId, decision: 'share' });
+  call('reviewObservation', { feedbackId: queue.find((q) => q.volunteerName === 'Sam Siva').feedbackId, audience: 'all' });
   call('addTraineeNote', { traineeId: 'T-0001', note: 'Uses a picture schedule. Show the next activity card before changing activity.' });
+  // Notes shared in the other ways: regulars only, chosen volunteers, and private (admins only).
+  call('addTraineeNote', { traineeId: 'T-0004', note: 'Caregiver prefers a call after 6 pm, not a text.', audience: 'regular' });
+  call('addTraineeNote', { traineeId: 'T-0004', note: 'Bring the blue headphones if the hall is noisy.', audience: 'selected', userIds: [sam.user.userId] });
+  call('addTraineeNote', { traineeId: 'T-0004', note: 'Family is applying for financial aid; don\'t mention it to the trainee.', audience: 'private' });
   rt.call('submitTraineeUpdate', { traineeId: 'T-0010', note: 'Met at the void deck on Saturday: has started a part-time job and is proud of it.' }, rex.token);
 
   // Today and coming up. Regulars are paired with their fixed trainee as soon as they say they're coming.
@@ -136,7 +147,8 @@ export function createDemoRuntime() {
   const carnival = mk('Sports carnival helpers', day(7), '08:00', '13:00', 20, 'Bring a water bottle and cap.', { traineeIds: ['T-0001', 'T-0002', 'T-0003', 'T-0004', 'T-0005'] });
   come(rex, art.sessionId);
   const veraArt = come(vera, art.sessionId);
-  call('updateBooking', { bookingId: veraArt, traineeId: 'T-0003' }); // an admin paired Vera
+  call('updateBooking', { bookingId: veraArt, addTraineeId: 'T-0003' }); // an admin paired Vera with two trainees
+  call('updateBooking', { bookingId: veraArt, addTraineeId: 'T-0007' });
   come(sam, art.sessionId); // still to pair: try Admin → Pairing
   rt.call('bookSessions', { sessionIds: [baking.sessionId, carnival.sessionId] }, rina.token);
   rt.call('bookSessions', { sessionIds: [baking.sessionId, carnival.sessionId] }, vera.token);

@@ -52,6 +52,21 @@ Mode" or the separate staff dashboard; those are replaced as follows.
   `web/js/quickview.js`, which set `data-person` / `data-trainee`); one document-level
   listener opens the quick card, so a new page gets the behaviour just by using the helpers.
   Volunteer contact details are fetched on demand and only for admins.
+- **Many-to-many pairing (after Mr Sadil's feedback).** A booking's Trainee ID cell lists
+  its trainees (`T-0001, T-0004`), the same format as a session's Trainees Attending, so the
+  sheet stays one row per sign-up and older single-ID rows still work (`bookingTrainees_` in
+  `Pairing.gs`). A regular can have several active Regular Pairings rows. The API adds and
+  removes one at a time (`addTraineeId` / `removeTraineeId`); `traineeId` still replaces
+  them all, for older app versions. The board saves each change in the background and
+  redraws from the server only when nothing else is waiting (`web/js/dnd.js` for the
+  drag, which uses touch events on phones like the outing app, pointer events for a mouse).
+- **Note sharing.** Every Trainee Notes row has an audience (`Shared With`: all, regular,
+  selected with user IDs, or private). "Keep private" now keeps the note for admins instead
+  of dropping it. The "What volunteers see" lists also hold `notes:volunteer` / `notes:admin`
+  keys (and a `notes:set` marker, so lists saved earlier keep showing notes).
+- **Registration questions are data** (`REGISTRATION` in `Config.gs`): each becomes a column
+  of the Volunteers tab, the form is served by `registrationForm`, and answers are checked
+  on the server (`registrationAnswers_` in `Profile.gs`).
 - **Pairing history** counts sessions a pair actually attended (a clock-in on the booking), not
   sign-ups, and keeps every Regular Pairings row (ended ones too) as each regular's trainees over
   time. Pairing screens get it per volunteer (`pairHistoryFor_` in `Pairing.gs`); the full list is
