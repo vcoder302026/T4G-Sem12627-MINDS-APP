@@ -94,7 +94,7 @@ function notesList(notes, isAdmin) {
     isAdmin && n.audience ? el('p', { class: 'mt-1' }, audienceBadge(n)) : null)));
 }
 
-/* ---------------- "Your trainee" on Home ---------------- */
+/* ---------------- "Paired trainee" on session cards ---------------- */
 
 /**
  * One line on Home: photo, name and a hint. Details stay out of the way:
@@ -105,9 +105,9 @@ export function traineeLine(trainee, pairing, label) {
   return asTrainee(el('a', { href: `#/info/${encodeURIComponent(trainee.id)}`, class: 'well mt-3 flex items-center gap-3 p-3 hover:shadow-sm' },
     traineeAvatar(trainee, 'sm'),
     el('span', { class: 'min-w-0 flex-1' },
-      el('span', { class: 'block text-xs font-bold uppercase tracking-wider muted' }, label || (pairing === 'standing' ? 'With your regular trainee' : 'Your trainee')),
+      el('span', { class: 'block text-xs font-bold uppercase tracking-wider muted' }, label || 'Paired trainee'),
       traineeName(trainee.name, trainee.id, 'block truncate font-bold text-slate-900 dark:text-white'),
-      el('span', { class: 'block text-xs muted' }, 'Press and hold for details')),
+      null),
     icon('chevron', 'size-5 text-slate-400')), trainee.id);
 }
 
@@ -118,7 +118,6 @@ function updateForm(trainee, onSent) {
     field('note', `Something the next volunteer should know about ${trainee.preferredName || trainee.name}`, {
       type: 'textarea', rows: 3, maxlength: 5000,
       placeholder: 'e.g. Calmer with a 5-minute warning before changing activity.',
-      hint: 'An admin reads it first.',
     }),
     el('button', { type: 'submit', class: 'btn btn-primary w-full' }, icon('send', 'size-4'), 'Send update'));
   form.addEventListener('submit', (e) => {

@@ -144,7 +144,7 @@ function pairBoard(o) {
               el('span', { class: 'pb-sub' }, [here ? 'Paired: tap to unpair' : '', t.note, others.length ? `With ${others.map((x) => x.name).join(', ')}` : 'No one yet'].filter(Boolean).join(' · '))),
             here ? icon('tick', 'size-5 text-emerald-600') : icon('plus', 'size-5 text-slate-400')), t.id);
         }),
-        shown.length > 60 ? el('p', { class: 'px-3 text-xs muted' }, `Showing 60 of ${shown.length}. Search to narrow it down.`) : null,
+        shown.length > 60 ? el('p', { class: 'px-3 text-xs muted' }, `Showing 60 of ${shown.length}.`) : null,
         !shown.length ? el('p', { class: 'p-3 text-sm muted' }, 'No trainee matches.') : null);
     };
     const done = el('button', { type: 'button', class: 'btn btn-primary btn-sm mt-3 w-full' }, 'Done');

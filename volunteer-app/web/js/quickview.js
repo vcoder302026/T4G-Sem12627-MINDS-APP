@@ -127,6 +127,7 @@ export function installQuickView(app) {
     if (timer && start && Math.hypot(e.clientX - start.x, e.clientY - start.y) > 10) cancel();
   }, true);
   ['pointerup', 'pointercancel', 'scroll'].forEach((type) => document.addEventListener(type, cancel, true));
+  window.addEventListener('app:leave', cancel);
   document.addEventListener('contextmenu', (e) => {
     const t = targetOf(e.target);
     if (!t) return;

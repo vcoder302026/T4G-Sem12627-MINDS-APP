@@ -345,7 +345,7 @@ export function renderNewSession(root, app, ctx) {
         el('div', {}, el('label', { class: 'label', for: 'f-titleChoice' }, 'Session'), titleSelect, titleOther),
         el('div', {}, el('label', { class: 'label', for: 'f-timeChoice' }, 'Time'), timeSelect, timeOther),
         el('div', {}, el('label', { class: 'label', for: 'f-venueChoice' }, 'Venue'), venueSelect,
-          el('p', { class: 'hint' }, 'Add or rename venues under Settings → Venues.')),
+          null),
         parts.project),
       el('details', { class: 'card group overflow-hidden' },
         el('summary', { class: 'section-head section-green cursor-pointer list-none select-none' }, 'More options (optional)',

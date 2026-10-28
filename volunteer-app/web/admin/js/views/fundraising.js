@@ -85,7 +85,7 @@ export function renderFundraiser(root, app, ctx, fundraiserId) {
         products.map((p, i) => el('div', { class: 'flex items-center justify-between gap-3 px-4 py-2' },
           el('span', {}, el('span', { class: 'block font-bold' }, p.name), el('span', { class: 'block text-xs muted' }, money(p.priceCents))),
           qty[i])))),
-      el('div', { class: 'flex items-center justify-between' }, el('span', { class: 'text-sm muted' }, 'Total (worked out again by the server)'), preview),
+      el('div', { class: 'flex items-center justify-between' }, el('span', { class: 'text-sm muted' }, 'Total'), preview),
       el('label', { class: 'flex items-center gap-3 text-sm font-bold' },
         el('input', { type: 'checkbox', name: 'paid', value: 'yes', class: 'size-5 accent-indigo-600' }), 'Already paid'),
       field('notes', 'Notes', { type: 'textarea', rows: 2, optional: true }),

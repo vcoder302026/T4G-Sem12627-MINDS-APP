@@ -179,3 +179,22 @@ body { padding-left: env(safe-area-inset-left, 0px); padding-right: env(safe-are
   .sub-link { padding: .4rem .55rem; font-size: .8rem; }
   .app-subnav { gap: .3rem; }
 }
+
+/* Dropdowns as a list sheet (js/controls.js). */
+.select-display { display: flex; align-items: center; justify-content: space-between; gap: .5rem; text-align: left; cursor: pointer; }
+.select-display:disabled { cursor: not-allowed; opacity: .6; }
+.select-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.select-chev { flex-shrink: 0; width: .55rem; height: .55rem; margin-right: .15rem; border-right: 2px solid #64748b; border-bottom: 2px solid #64748b; transform: translateY(-25%) rotate(45deg); }
+.list-sheet { display: flex; max-height: min(80vh, 36rem); flex-direction: column; }
+.list-rows { overflow-y: auto; overscroll-behavior: contain; margin: 0 -.5rem; }
+.list-row { display: flex; width: 100%; align-items: center; gap: .5rem; border-radius: .75rem; padding: .8rem .75rem; text-align: left; font-size: 1rem; font-weight: 600; color: #1e293b; }
+.list-row:hover, .list-row:focus-visible { background: #f1f5f9; outline: none; }
+.list-row.list-on { background: #eef2ff; color: #4338ca; font-weight: 800; }
+.list-row:disabled { opacity: .45; }
+.list-tick { width: 1.1rem; flex-shrink: 0; color: #4f46e5; font-weight: 900; }
+.list-text { min-width: 0; overflow-wrap: anywhere; }
+.list-empty { padding: 1rem .75rem; font-size: .875rem; color: #64748b; }
+.dark .list-row { color: #e5e5e5; }
+.dark .list-row:hover, .dark .list-row:focus-visible { background: #262626; }
+.dark .list-row.list-on { background: rgba(79, 70, 229, .25); color: #c7d2fe; }
+.dark .select-chev { border-color: #a3a3a3; }

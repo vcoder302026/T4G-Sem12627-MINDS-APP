@@ -204,6 +204,9 @@ Checked on 31 pages at 280 px (Galaxy Fold folded), 320, 360 (Galaxy S8), 375 (i
 runs off the screen and no titles are cut off (`volunteer-app/dev/check-phones.py`). Admin section
 buttons wrap onto two lines and scroll away with the page; only the header and tab bar stay pinned.
 Dates from MINDS's sheet read "29 Dec 2025" instead of "2025-12-29 20:26:09".
+Dropdowns open the app's own list sheet (✓ on the current choice, a search box for long lists such
+as the trainee list) and times open an HH · MM wheel, so they look and work the same on every phone,
+in Chrome's phone emulator and on computers, instead of each browser's own pop-up.
 
 ## 3. Try it in 10 minutes
 

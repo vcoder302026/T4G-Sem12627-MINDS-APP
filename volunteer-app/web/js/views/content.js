@@ -54,7 +54,7 @@ export function renderGuide(root, app, ctx) {
     let footer;
     if (read) {
       footer = el('div', { class: 'mt-6 space-y-3 text-center' },
-        el('p', { class: 'text-sm muted' }, `You read this guide on ${String(g.guideReadAt).slice(0, 10)}. Admins update it from time to time.`),
+        el('p', { class: 'text-sm muted' }, `Read on ${String(g.guideReadAt).slice(0, 10)}`),
         el('a', { href: app.isAdmin ? '#/guide-edit' : '#/sessions', class: 'btn btn-primary w-full' },
           app.isAdmin ? [icon('pencil'), 'Edit the guide'] : [icon('calendar'), 'Find a session']));
     } else {
@@ -77,7 +77,7 @@ export function renderGuide(root, app, ctx) {
         el('span', { class: 'flex size-12 shrink-0 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' }, icon('book', 'size-6')),
         el('div', {},
           el('h1', { class: 'page-title' }, 'Volunteer Guide'),
-          el('p', { class: 'text-sm muted' }, read ? 'Everything you need to know before a session.' : 'Please read this before booking your first session. It takes about 3 minutes.'))),
+          read ? null : el('p', { class: 'text-sm muted' }, 'Please read this before your first session.'))),
       el('div', { class: 'space-y-4' },
         first ? sectionCard(first, 0) : null,
         g.projects.length ? [

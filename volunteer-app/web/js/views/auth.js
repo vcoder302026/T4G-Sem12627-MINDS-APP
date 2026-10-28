@@ -40,11 +40,10 @@ export function renderLogin(root, app) {
     el('div', { class: 'mb-6 flex flex-col items-center text-center' },
       el('div', { class: 'mb-4 flex size-16 items-center justify-center rounded-2xl bg-indigo-100 text-indigo-600 dark:bg-indigo-900/50 dark:text-indigo-400' }, icon('qr', 'size-8')),
       el('h1', { class: 'mb-1 text-3xl font-extrabold text-slate-900 dark:text-white' }, 'Welcome'),
-      el('p', { class: 'font-medium muted' }, 'Book sessions, show your QR pass and track your hours.')),
+      null),
 
     el('div', { class: 'card border-t-4 border-t-emerald-500 p-6 text-center shadow-md' },
       el('h2', { class: 'mb-1 text-xl font-bold text-slate-900 dark:text-white' }, 'New volunteer?'),
-      el('p', { class: 'mb-5 text-sm muted' }, 'Create an account to book your first session.'),
       el('a', { href: '#/register', class: 'btn btn-success w-full text-lg' }, icon('userPlus'), 'Register now')),
 
     el('div', { class: 'card rounded-3xl p-6 shadow-md sm:p-8' },
@@ -81,7 +80,7 @@ function drawRegister(root, app, questions) {
         hint: 'You sign in with this. Not your school email.',
       }),
       field('phone', 'Contact No', { type: 'tel', autocomplete: 'tel', inputmode: 'tel', placeholder: '+65 91234567', hint: PHONE_HINT }),
-      field('telegram', 'Telegram handle', { optional: true, autocapitalize: 'none', placeholder: '@yourhandle', hint: 'Admins message volunteers on Telegram.' })),
+      field('telegram', 'Telegram handle', { optional: true, autocapitalize: 'none', placeholder: '@yourhandle' })),
     questionSections(questions),
     section('Password and consent', 'indigo',
       field('password', 'Password', { type: 'password', autocomplete: 'new-password', hint: 'At least 8 characters.' }),
@@ -138,7 +137,6 @@ function drawRegister(root, app, questions) {
   mount(root,
     backLink('#/login', 'Back to sign in'),
     el('h1', { class: 'page-title' }, 'Volunteer Registration'),
-    el('p', { class: 'mb-6 mt-1 muted' }, 'About three minutes.'),
     form,
     el('div', { class: 'h-24' }));
 }

@@ -5,6 +5,9 @@
 //                              day / month / year wheels, Cancel and Confirm.
 //                              The real input stays (hidden) and keeps its value,
 //                              min, max and events, so forms read it as before.
+//   <select>                 → the app's own list sheet (✓ on the current option,
+//                              search for long lists), the same on every phone
+//   <input type="time">      → an HH · MM wheel, like the template's Rolodex
 //   <input type="password">  → a show / hide eye button, as in the House Visit
 //                              and Overseas Trip Planner logins (form fields made
 //                              by ui.js field() already have one: data-eye).
@@ -51,7 +54,7 @@ function openWheel(input, display) {
   for (let y = minY; y <= maxY; y += 1) years.push(y);
   if (!years.includes(sel.y)) sel.y = Math.min(Math.max(sel.y, minY), maxY);
 
-  const close = () => { overlay.remove(); document.removeEventListener('keydown', onKey, true); display.focus(); };
+  const close = () => { if (!overlay.isConnected) return; overlay.remove(); document.removeEventListener('keydown', onKey, true); if (display.isConnected) display.focus({ preventScroll: true }); };
   const onKey = (e) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(); } };
 
   const wheel = (key, items, label) => {
@@ -154,6 +157,7 @@ function openWheel(input, display) {
   const host = display.closest('dialog[open]') || document.body;
   host.append(overlay);
   document.addEventListener('keydown', onKey, true);
+  window.addEventListener('hashchange', close, { once: true }); // Back, or any page change, closes it
   [dayWheel, monthWheel, yearWheel].forEach((w) => { w.fill(); w.show(); });
   dayWheel.col.focus({ preventScroll: true });
 }
@@ -214,14 +218,188 @@ function enhancePassword(input) {
   wrap.append(btn);
 }
 
+/* ---------------- dropdowns (<select>) as a list sheet ---------------- */
+// Phones (and Chrome's phone emulator) draw native dropdowns differently, some
+// as a tiny box in a corner. This shows every <select> as the app's own list:
+// a sheet with the options, a ✓ on the current one, and a search box for long
+// lists. The real <select> stays (hidden) with its value and events.
+
+const nativeSelectValue = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value');
+const nativeSelectIndex = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'selectedIndex');
+
+function openList(select, display) {
+  const opts = [...select.options].filter((o) => !o.hidden);
+  const labelEl = select.id ? document.querySelector(`label[for="${CSS.escape(select.id)}"]`) : null;
+  const title = (labelEl && labelEl.textContent.trim()) || select.getAttribute('aria-label') || 'Choose';
+  const close = () => { if (!overlay.isConnected) return; overlay.remove(); document.removeEventListener('keydown', onKey, true); if (display.isConnected) display.focus({ preventScroll: true }); };
+  const onKey = (e) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(); } };
+  const choose = (value) => {
+    nativeSelectValue.set.call(select, value);
+    select.dispatchEvent(new Event('input', { bubbles: true }));
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+    close();
+  };
+  const list = make('div', { class: 'list-rows', role: 'listbox', 'aria-label': title });
+  const draw = (q = '') => {
+    const words = q.toLowerCase().split(/\s+/).filter(Boolean);
+    const shown = opts.filter((o) => words.every((w) => o.text.toLowerCase().includes(w)));
+    list.replaceChildren(...shown.map((o) => {
+      const on = o.value === select.value;
+      return make('button', {
+        type: 'button', class: `list-row${on ? ' list-on' : ''}`, role: 'option', 'aria-selected': String(on), disabled: o.disabled || null,
+        onclick: () => choose(o.value),
+      }, make('span', { class: 'list-tick', 'aria-hidden': 'true' }, on ? '✓' : ''), make('span', { class: 'list-text' }, o.text));
+    }));
+    if (!shown.length) list.append(make('p', { class: 'list-empty' }, 'No matches.'));
+  };
+  const search = opts.length > 8 ? make('input', { type: 'search', class: 'input search-input mb-3', placeholder: 'Search…', 'aria-label': `Search: ${title}` }) : null;
+  if (search) search.addEventListener('input', () => draw(search.value));
+  const sheet = make('div', { class: 'wheel-sheet list-sheet', role: 'dialog', 'aria-modal': 'true', 'aria-label': title },
+    make('div', { class: 'wheel-head' },
+      make('h3', { class: 'wheel-title' }, title),
+      make('button', { type: 'button', class: 'wheel-x', 'aria-label': 'Close', onclick: close }, '✕')),
+    search, list);
+  const overlay = make('div', { class: 'wheel-overlay', onclick: (e) => { if (e.target === overlay) close(); } }, sheet);
+  (display.closest('dialog[open]') || document.body).append(overlay);
+  document.addEventListener('keydown', onKey, true);
+  window.addEventListener('hashchange', close, { once: true }); // Back, or any page change, closes it
+  draw();
+  const current = list.querySelector('.list-on');
+  if (current) current.scrollIntoView({ block: 'center' });
+  (search || current || list.querySelector('.list-row'))?.focus({ preventScroll: true });
+}
+
+function enhanceSelect(select) {
+  if (select.dataset.list || select.multiple || select.size > 1) return;
+  select.dataset.list = '1';
+  const display = make('button', {
+    type: 'button', class: `${select.className} select-display`, 'aria-haspopup': 'listbox',
+    'aria-label': select.getAttribute('aria-label') || null,
+  });
+  const sync = () => {
+    const o = select.options[nativeSelectIndex.get.call(select)];
+    display.replaceChildren(make('span', { class: 'select-text' }, o ? o.text : ''), make('span', { class: 'select-chev', 'aria-hidden': 'true' }));
+    display.disabled = select.disabled;
+  };
+  // Code that sets the value directly (select.value = …) updates the button too.
+  Object.defineProperty(select, 'value', { configurable: true, get() { return nativeSelectValue.get.call(this); }, set(v) { nativeSelectValue.set.call(this, v); sync(); } });
+  Object.defineProperty(select, 'selectedIndex', { configurable: true, get() { return nativeSelectIndex.get.call(this); }, set(v) { nativeSelectIndex.set.call(this, v); sync(); } });
+  select.addEventListener('change', sync);
+  new MutationObserver(sync).observe(select, { childList: true, subtree: true, attributes: true, attributeFilter: ['selected', 'disabled'] });
+  select.hidden = true;
+  select.after(display);
+  display.addEventListener('click', () => openList(select, display));
+  select.focus = () => display.focus();
+  if (select.id) {
+    display.id = `${select.id}-picker`;
+    const label = document.querySelector(`label[for="${CSS.escape(select.id)}"]`);
+    if (label) label.addEventListener('click', (e) => { e.preventDefault(); openList(select, display); });
+  }
+  sync();
+}
+
+/* ---------------- time wheel (HH · MM), like the template's Rolodex ---------------- */
+
+/** "14:30" → "2:30 pm". */
+function formatTime(v) {
+  const m = /^(\d{1,2}):(\d{2})/.exec(v || '');
+  if (!m) return '';
+  const h = Number(m[1]);
+  return `${h % 12 || 12}:${m[2]} ${h < 12 ? 'am' : 'pm'}`;
+}
+
+function openTimeWheel(input, display) {
+  const m = /^(\d{1,2}):(\d{2})/.exec(input.value || '') || [null, '14', '30'];
+  const sel = { h: Number(m[1]), m: Number(m[2]) };
+  const minutes = Array.from({ length: 12 }, (_, i) => i * 5);
+  if (minutes.indexOf(sel.m) === -1) { minutes.push(sel.m); minutes.sort((a, b) => a - b); }
+  const close = () => { if (!overlay.isConnected) return; overlay.remove(); document.removeEventListener('keydown', onKey, true); if (display.isConnected) display.focus({ preventScroll: true }); };
+  const onKey = (e) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(); } };
+  const column = (key, values, text, label) => {
+    const col = make('div', { class: 'wheel-col', role: 'listbox', 'aria-label': label, tabindex: '0' },
+      make('div', { class: 'wheel-pad' }),
+      values.map((v, i) => make('div', { class: 'wheel-item', 'data-value': v, onclick: () => col.scrollTo({ top: i * ROW, behavior: 'smooth' }) }, text(v))),
+      make('div', { class: 'wheel-pad' }));
+    const mark = () => col.querySelectorAll('.wheel-item').forEach((n) => n.classList.toggle('wheel-on', Number(n.dataset.value) === sel[key]));
+    let timer = null;
+    let last = -1;
+    col.addEventListener('scroll', () => {
+      const row = Math.round(col.scrollTop / ROW);
+      if (last !== -1 && row !== last && navigator.vibrate) navigator.vibrate(10);
+      last = row;
+      clearTimeout(timer);
+      timer = setTimeout(() => { sel[key] = values[Math.max(0, Math.min(values.length - 1, row))]; mark(); }, 80);
+    }, { passive: true });
+    col.addEventListener('keydown', (e) => {
+      if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+      e.preventDefault();
+      col.scrollBy({ top: e.key === 'ArrowDown' ? ROW : -ROW, behavior: 'smooth' });
+    });
+    return { col, show: () => { col.scrollTop = Math.max(0, values.indexOf(sel[key])) * ROW; mark(); } };
+  };
+  const hours = column('h', Array.from({ length: 24 }, (_, i) => i), (v) => `${v % 12 || 12} ${v < 12 ? 'am' : 'pm'}`, 'Hour');
+  const mins = column('m', minutes, (v) => pad(v), 'Minutes');
+  const set = (v) => {
+    input.value = v;
+    syncTime(input, display);
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+    close();
+  };
+  const clearBtn = input.required ? null : make('button', { type: 'button', class: 'btn btn-secondary', onclick: () => set('') }, 'Clear');
+  const sheet = make('div', { class: 'wheel-sheet', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Select time' },
+    make('div', { class: 'wheel-head' },
+      make('h3', { class: 'wheel-title' }, 'Select time'),
+      make('button', { type: 'button', class: 'wheel-x', 'aria-label': 'Close', onclick: close }, '✕')),
+    make('div', { class: 'wheel-box' }, make('div', { class: 'wheel-band', 'aria-hidden': 'true' }), hours.col, mins.col),
+    make('div', { class: 'wheel-actions' },
+      clearBtn,
+      make('button', { type: 'button', class: 'btn btn-secondary', onclick: close }, 'Cancel'),
+      make('button', { type: 'button', class: 'btn btn-primary', onclick: () => set(`${pad(sel.h)}:${pad(sel.m)}`) }, 'Confirm')));
+  const overlay = make('div', { class: 'wheel-overlay', onclick: (e) => { if (e.target === overlay) close(); } }, sheet);
+  (display.closest('dialog[open]') || document.body).append(overlay);
+  document.addEventListener('keydown', onKey, true);
+  window.addEventListener('hashchange', close, { once: true }); // Back, or any page change, closes it
+  hours.show();
+  mins.show();
+  hours.col.focus({ preventScroll: true });
+}
+
+function syncTime(input, display) {
+  display.textContent = input.value ? formatTime(input.value) : (input.placeholder || 'Select time');
+  display.classList.toggle('wheel-empty', !input.value);
+}
+
+function enhanceTime(input) {
+  if (input.dataset.wheel) return;
+  input.dataset.wheel = '1';
+  const display = make('button', { type: 'button', class: 'input wheel-display', 'aria-haspopup': 'dialog', 'aria-label': input.getAttribute('aria-label') || null });
+  input.hidden = true;
+  input.after(display);
+  syncTime(input, display);
+  display.addEventListener('click', () => openTimeWheel(input, display));
+  input.addEventListener('change', () => syncTime(input, display));
+  input.addEventListener('input', () => syncTime(input, display));
+  input.focus = () => display.focus();
+  if (input.id) {
+    display.id = `${input.id}-picker`;
+    const label = document.querySelector(`label[for="${CSS.escape(input.id)}"]`);
+    if (label) label.addEventListener('click', (e) => { e.preventDefault(); openTimeWheel(input, display); });
+  }
+}
+
 /* ---------------- apply everywhere ---------------- */
 
 function enhance(root) {
   if (!root || !root.querySelectorAll) return;
   if (root.matches && root.matches('input[type=date]')) enhanceDate(root);
   if (root.matches && root.matches('input[type=password]')) enhancePassword(root);
+  if (root.matches && root.matches('input[type=time]')) enhanceTime(root);
+  if (root.matches && root.matches('select')) enhanceSelect(root);
   root.querySelectorAll('input[type=date]:not([data-wheel])').forEach(enhanceDate);
+  root.querySelectorAll('input[type=time]:not([data-wheel])').forEach(enhanceTime);
   root.querySelectorAll('input[type=password]:not([data-eye])').forEach(enhancePassword);
+  root.querySelectorAll('select:not([data-list])').forEach(enhanceSelect);
 }
 
 export function installControls() {

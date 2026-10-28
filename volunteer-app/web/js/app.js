@@ -305,12 +305,31 @@ const navTitle = document.getElementById('nav-title');
 const navBack = document.getElementById('nav-back');
 const brandLink = document.querySelector('.brand-link');
 mount(navBack, icon('back', 'size-4'));
+// How many pages deep the person is in the app (kept on each history entry), so
+// ← can go back to the page they actually came from.
+let navDepth = history.state && typeof history.state.depth === 'number' ? history.state.depth : 0;
+let replacingNext = false;
+if (!history.state || typeof history.state.depth !== 'number') history.replaceState({ depth: navDepth }, '');
+window.addEventListener('hashchange', () => {
+  if (history.state && typeof history.state.depth === 'number') navDepth = history.state.depth; // Back / Forward
+  else {
+    navDepth = replacingNext ? navDepth : navDepth + 1;
+    replacingNext = false;
+    history.replaceState({ depth: navDepth }, '');
+  }
+});
+/** Goes to a page instead of the current one (no extra step for ← to go back through). */
+function replaceWith(hash) {
+  replacingNext = true;
+  location.replace(hash);
+}
+
 navBack.addEventListener('click', () => {
-  // The page's own "back" link knows where up is; otherwise go back, or Home.
+  // Back to the page they came from (e.g. Home or Sessions); opened fresh from a
+  // link, there's none, so go up (the page's own back link) or Home.
+  if (navDepth > 0) { history.back(); return; }
   const link = view.querySelector('a.back-link');
-  if (link) location.hash = link.getAttribute('href');
-  else if (history.length > 1) history.back();
-  else go('#/home');
+  go(link ? link.getAttribute('href') : '#/home');
 });
 
 /** The page's title goes in the header (and its own big title is hidden, so it isn't shown twice). */
@@ -437,8 +456,15 @@ function go(hash, force = false) {
 }
 
 function route() {
-  // A pop-up belongs to the page it was opened on.
+  // A pop-up belongs to the page it was opened on. Anything left on top of the
+  // page (pop-ups, list sheets, date/time wheels, a dragged card) would block
+  // taps and scrolling on the next page, so it all goes, and scrolling is unlocked.
   document.querySelectorAll('dialog[open]').forEach((d) => { try { d.close(); } catch { /* ignore */ } });
+  document.querySelectorAll('.wheel-overlay, .dnd-ghost').forEach((n) => n.remove());
+  document.querySelectorAll('.dnd-source, .dnd-over').forEach((n) => n.classList.remove('dnd-source', 'dnd-over'));
+  document.body.style.overflow = '';
+  document.documentElement.style.overflow = '';
+  window.dispatchEvent(new Event('app:leave')); // e.g. a pending press-and-hold (quickview.js)
   leaving.forEach((fn) => { try { fn(); } catch { /* ignore */ } });
   leaving = [];
   events = {};
@@ -460,6 +486,12 @@ function route() {
       if (name !== 'login') history.replaceState(null, '', '#/login');
       renderLogin(view, app);
     }
+    return;
+  }
+  // Admins opening a trainee from the volunteer screens (Home, Sessions) go straight
+  // to the admin trainee page, where they can edit; ← still goes back where they were.
+  if (name === 'info' && app.isAdmin && param) {
+    replaceWith(`#/trainee/${encodeURIComponent(param)}`);
     return;
   }
   const r = ROUTES[name];
