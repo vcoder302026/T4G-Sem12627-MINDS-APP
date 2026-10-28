@@ -27,8 +27,11 @@ export const DEMO = {
 // MINDS's mock House Visit form responses (100 fictional trainees), from tests/fixtures.
 const HOUSE_VISIT = JSON.parse(fs.readFileSync(path.join(here, '..', 'tests', 'fixtures', 'house-visit-mock.json'), 'utf8'));
 
-export function createDemoRuntime() {
+export function createDemoRuntime({ secret } = {}) {
   const rt = createGasRuntime();
+  // A chosen APP_SECRET (dev/make-exp-database.mjs): passwords are stored under it, so the
+  // demo accounts work in a real Apps Script project that has the same APP_SECRET.
+  if (secret) rt.props.set('APP_SECRET', secret);
   rt.createSpreadsheet('demo-sheet', 'MINDS Volunteer Data (local demo)');
   // Trainees live in their own file, the House Visit form's response sheet,
   // linked by URL like in production. Fictional people only.
@@ -202,7 +205,10 @@ const escapeHtml = (v) => String(v instanceof Date ? v.toISOString() : v)
 function contactsPage(rt) {
   const groups = Object.fromEntries([...rt.contacts.groups.values()].map((g) => [g.resourceName, g.name]));
   const rows = [...rt.contacts.people.values()].map((c) => `<tr>
-    <td>${escapeHtml((c.names[0] || {}).unstructuredName || '')}</td>
+    <td>${escapeHtml((c.names[0] || {}).givenName || (c.names[0] || {}).unstructuredName || '')}</td>
+    <td>${escapeHtml((c.names[0] || {}).familyName || '')}</td>
+    <td>${escapeHtml(((c.nicknames || [])[0] || {}).value || '')}</td>
+    <td>${escapeHtml((() => { const d = ((c.birthdays || [])[0] || {}).date; return d ? `${d.year}-${String(d.month).padStart(2, '0')}-${String(d.day).padStart(2, '0')}` : ''; })())}</td>
     <td>${escapeHtml(c.emailAddresses.map((x) => x.value).join(', '))}</td>
     <td>${escapeHtml(c.phoneNumbers.map((x) => x.value).join(', '))}</td>
     <td style="white-space:pre-line">${escapeHtml((c.biographies[0] || {}).value || '')}</td>
@@ -213,7 +219,7 @@ function contactsPage(rt) {
 <h1>Google Contacts (local stand-in)</h1>
 <p>What the app would save in the Google account it runs as. Register a volunteer, or add one as an admin, then refresh this page.
 In Exp and production these go to the real Google Contacts instead.</p>
-<table><tr><th>Name</th><th>Email</th><th>Phone</th><th>Notes</th><th>Label</th><th>ID</th></tr>${rows || '<tr><td colspan="6">No contacts yet.</td></tr>'}</table>`;
+<table><tr><th>First name</th><th>Last name</th><th>Nickname</th><th>Birthday</th><th>Email</th><th>Phone</th><th>Notes</th><th>Label</th><th>ID</th></tr>${rows || '<tr><td colspan="9">No contacts yet.</td></tr>'}</table>`;
 }
 
 function sheetPage(rt) {

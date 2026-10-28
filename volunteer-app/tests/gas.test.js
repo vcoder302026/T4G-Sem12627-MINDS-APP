@@ -929,9 +929,9 @@ describe('Google Contacts sync', () => {
     const res = ok(rt.call('register', volunteerPayload({ name: 'Nora Tan', email: 'nora@example.com', phone: '9123 4567', telegram: '@nora_tan' })));
     assert.equal(res.contact.status, 'saved');
     const [c] = contacts();
-    assert.equal(c.names[0].unstructuredName, 'Nora Tan');
+    assert.equal(c.names[0].givenName, 'Nora Tan', 'an older-style single name goes in First name');
     assert.equal(c.emailAddresses[0].value, 'nora@example.com');
-    assert.equal(c.phoneNumbers[0].value, '+65 91234567');
+    assert.equal(c.phoneNumbers[0].value, '91234567', 'the 8-digit number');
     assert.match(c.biographies[0].value, /^Telegram: @nora_tan\nEmergency contact: \+65 81234567 \(Mother\)\nMINDS volunteer/);
     const group = [...rt.contacts.groups.values()].find((g) => g.name === 'MINDS Volunteers (Exp)');
     assert.ok(group, 'the label is created');
@@ -948,16 +948,19 @@ describe('Google Contacts sync', () => {
     assert.equal(contacts().length, 1);
     ok(rt.call('updatePerson', { userId: added.person.userId, phone: '8765 4321', telegram: 'omar_l2' }, leader));
     assert.equal(contacts().length, 1, 'no duplicate');
-    assert.equal(contacts()[0].phoneNumbers[0].value, '+65 87654321');
+    assert.equal(contacts()[0].phoneNumbers[0].value, '87654321');
     assert.match(contacts()[0].biographies[0].value, /@omar_l2/);
+    // The birthday is in the contact too
+    ok(rt.call('updatePerson', { userId: added.person.userId, birthday: '2001-02-03' }, leader));
+    assert.deepEqual(contacts()[0].birthdays[0].date, { year: 2001, month: 2, day: 3 });
     // Changes that aren't contact details don't call Google
     const calls = rt.contacts.state.calls.length;
-    ok(rt.call('updatePerson', { userId: added.person.userId, birthday: '2001-02-03' }, leader));
+    ok(rt.call('updatePerson', { userId: added.person.userId, emergencyName: 'Aunt May' }, leader));
     assert.equal(rt.contacts.state.calls.length, calls);
     // A volunteer editing their own phone updates their contact too
     ok(rt.call('syncContact', { userId: vol.user.userId }, leader));
     ok(rt.call('updateProfile', { phone: '9000 1111' }, vol.token));
-    assert.equal(contacts().find((c) => c.emailAddresses[0].value === 'v1@example.com').phoneNumbers[0].value, '+65 90001111');
+    assert.equal(contacts().find((c) => c.emailAddresses[0].value === 'v1@example.com').phoneNumbers[0].value, '90001111');
   });
 
   test('if Google fails, the volunteer is still saved and the row says why; it can be retried', () => {
@@ -1062,13 +1065,28 @@ describe('Version 3: registration checks, deactivation, project names', () => {
     assert.ok(!/Renamed project/.test(rt.run('setup')), 'nothing to do the second time');
   });
 
-  test('Google Contacts: "Short Name (Full Name)", project and emergency contact in the notes', () => {
+  test('Google Contacts: first and last name, nickname, birthday, 8-digit phone; project and emergency contact in the notes', () => {
     rt.props.set('CONTACTS_SYNC', 'on');
-    ok(rt.call('register', volunteerPayload({ name: 'Tan Mei Ling', email: 'meiling@example.com', answers: formAnswers() })));
+    const payload = volunteerPayload({ email: 'meiling@example.com', phone: '+65 9123 4567', birthday: '2003-04-05', answers: formAnswers() });
+    delete payload.name;
+    const res = ok(rt.call('register', { ...payload, firstName: 'Mei Ling', lastName: 'Tan' }));
+    assert.equal(res.user.name, 'Mei Ling Tan', 'the Full Name, first then last (CONFIG.FULL_NAME_ORDER)');
+    assert.equal(res.user.firstName, 'Mei Ling');
+    assert.equal(res.user.lastName, 'Tan');
     const c = [...rt.contacts.people.values()][0];
-    assert.equal(c.names[0].unstructuredName, 'Mei (Tan Mei Ling)');
+    assert.deepEqual(c.names[0], { givenName: 'Mei Ling', familyName: 'Tan' });
+    assert.equal(c.nicknames[0].value, 'Mei', 'the short name');
+    assert.deepEqual(c.birthdays[0].date, { year: 2003, month: 4, day: 5 });
+    assert.equal(c.phoneNumbers[0].value, '91234567');
     assert.match(c.biographies[0].value, /Project: RSPID \(WGS\)\nEmergency contact: \+65 98765432 \(Father\)/);
+    assert.match(c.biographies[0].value, /MINDS volunteer\.$/, 'ends with "MINDS volunteer."');
+    assert.ok(!/Saved by/.test(c.biographies[0].value));
     assert.ok(!c.biographies[0].value.includes('123A') && !c.biographies[0].value.includes('Woodlands Ave'), 'no NRIC or address in contacts');
+    // Editing the names updates the Full Name and the contact.
+    const token = res.token;
+    ok(rt.call('updateProfile', { firstName: 'Meiling', lastName: 'Tan' }, token));
+    assert.equal(rt.records(SHEET, 'Volunteers').find((r) => r.Email === 'meiling@example.com')['Full Name'], 'Meiling Tan');
+    assert.equal([...rt.contacts.people.values()][0].names[0].givenName, 'Meiling');
   });
 });
 

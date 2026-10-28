@@ -72,7 +72,7 @@ trainee several volunteers (ideally at least one regular; the app flags trainees
 
 | Feature | What it does |
 | --- | --- |
-| **1. Register and profile** | Sign up with MINDS's **Consolidated Volunteer Records** form, question for question: Full Name, Date of Birth, **Sign-in email**, Contact No (+65 and 8 digits), Short Name, NRIC (last 4), Address, Project (from the standard project list: RSPID (CTDC), RSPID (WGS), West End, and the RSPID Alumni options), the RSPID-only questions (Course and Year, Matriculation Number, School Email), Start Year, T-Shirt Size, committee roles, dietary restrictions, spoken languages, and the emergency contact. Telegram is an optional extra. Personal particulars (NRIC, address, matric number, emergency contact) are seen only by the volunteer and admins. Edit details later under **Me**. The questions are a list in `gas/Config.gs` → `REGISTRATION`. |
+| **1. Register and profile** | Sign up with MINDS's **Consolidated Volunteer Records** form, question for question: First Name and Last Name (asked separately so they fill Google Contacts), Date of Birth, **Sign-in email**, Contact No (+65 and 8 digits), Short Name, NRIC (last 4), Address, Project (from the standard project list: RSPID (CTDC), RSPID (WGS), West End, and the RSPID Alumni options), the RSPID-only questions (Course and Year, Matriculation Number, School Email), Start Year, T-Shirt Size, committee roles, dietary restrictions, spoken languages, and the emergency contact. Telegram is an optional extra. Personal particulars (NRIC, address, matric number, emergency contact) are seen only by the volunteer and admins. Edit details later under **Me**. The questions are a list in `gas/Config.gs` → `REGISTRATION`. |
 | **2. Volunteer Guide** | New volunteers read a short guide (text, plus pictures or PDFs) and tap **I've read the guide** before their first sign-up. |
 | **3. Upcoming sessions** | Tick every session you can come to and tap **I'm coming**: confirmed straight away (**You're coming**). **Can't make it** takes you off one. |
 | **4. Paired trainee** | Once paired, each session card on Home shows the **Paired trainee**. Regulars also see **Your regular trainee** at the top. **Press and hold** a name for a quick card (photo, short name, gender, language, and the details volunteers may see); tap it for the trainee's page, with those facts beside the photo and the rest grouped like MINDS's House Visit form. |
@@ -276,6 +276,10 @@ port each script's first lines name, then:
 This is the path from the local demo to a live app backed by Google. The backend code in
 `volunteer-app/gas/` is the same code the tests run, so no code changes are needed. You
 only connect it to Google.
+
+> **Setting up Exp from scratch?** [docs/EXP-SETUP.md](docs/EXP-SETUP.md) is a step-by-step guide
+> with a ready-made mock volunteer database (`dev/make-exp-database.py`) that matches MINDS's mock
+> House Visit sheet.
 
 ### The three environments
 

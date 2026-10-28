@@ -54,21 +54,27 @@ function contactBody_(u, group) {
     u.telegram ? `Telegram: @${u.telegram}` : 'Telegram: not given',
     u.project ? `Project: ${u.project}` : '',
     u.emergencyPhone ? `Emergency contact: ${u.emergencyPhone}${u.emergencyRelation ? ` (${u.emergencyRelation})` : ''}` : '',
-    `MINDS volunteer${u.role === 'admin' ? ' (admin)' : volunteerType_(u) === 'regular' ? ' (regular)' : ''}. Saved by the MINDS Volunteer app.`,
+    `MINDS volunteer${u.role === 'admin' ? ' (admin)' : volunteerType_(u) === 'regular' ? ' (regular)' : ''}.`,
   ].filter(Boolean).join('\n');
-  // "Wei Ling (Tan Wei Ling)": the short name volunteers go by, then the full name.
+  // First and last name into Google's own fields (older records only have the Full Name: it
+  // goes in First name); the short name volunteers go by is the contact's nickname.
+  const first = String(u.firstName || '').trim();
+  const last = String(u.lastName || '').trim();
   const short = String(u.shortName || '').trim();
-  const display = short && short.toLowerCase() !== String(u.name).toLowerCase() ? `${short} (${u.name})` : u.name;
+  const b = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(u.birthday || ''));
+  const digits = String(u.phone || '').replace(/\D/g, '');
   return {
-    names: [{ unstructuredName: display }],
+    names: [first ? { givenName: first, familyName: last } : { givenName: String(u.name || '').trim() }],
+    nicknames: short ? [{ value: short }] : [],
+    birthdays: b ? [{ date: { year: Number(b[1]), month: Number(b[2]), day: Number(b[3]) } }] : [],
     emailAddresses: u.email ? [{ value: u.email, type: 'home' }] : [],
-    phoneNumbers: u.phone ? [{ value: u.phone, type: 'mobile' }] : [],
+    phoneNumbers: digits ? [{ value: digits.slice(-8), type: 'mobile' }] : [], // the 8-digit number, e.g. 92334014
     biographies: [{ value: notes, contentType: 'TEXT_PLAIN' }],
     memberships: [{ contactGroupMembership: { contactGroupResourceName: group } }],
   };
 }
 
-const CONTACT_FIELDS_ = 'names,emailAddresses,phoneNumbers,biographies,memberships';
+const CONTACT_FIELDS_ = 'names,nicknames,birthdays,emailAddresses,phoneNumbers,biographies,memberships';
 
 /** Saves or updates one volunteer's contact. Throws on failure (see syncContactSafe_). */
 function syncContact_(userId) {
@@ -125,7 +131,7 @@ function syncContactSafe_(userId) {
 /** Which volunteer a request should sync, if any (called after the request succeeds; Main.gs). */
 function contactSyncTarget_(action, payload, user, out) {
   const answers = payload.answers && typeof payload.answers === 'object' ? payload.answers : {};
-  const touches = ['name', 'email', 'phone', 'telegram'].some((k) => payload[k] !== undefined)
+  const touches = ['name', 'firstName', 'lastName', 'birthday', 'email', 'phone', 'telegram'].some((k) => payload[k] !== undefined)
     || ['shortName', 'project', 'emergencyPhone', 'emergencyRelation'].some((k) => answers[k] !== undefined);
   if (action === 'register') return out && out.user ? out.user.userId : '';
   if (action === 'createVolunteer') return out && out.person ? out.person.userId : '';

@@ -49,7 +49,7 @@ Every person and record in the demo is fictional.
 | # | Google Form question | In the app | Check |
 | --- | --- | --- | --- |
 | 1 | Short Name \* | Personal particulars | Required; used in "Welcome, …" and Google Contacts |
-| 2 | Full Name \* | Your account | Required |
+| 2 | Full Name \* | Your account (**First Name** and **Last Name**) | Required; asked as two boxes so they fill Google Contacts' First and Last name; the app joins them into the Full Name (`FULL_NAME_ORDER` in `Config.gs`) |
 | 3 | NRIC (Last 4 Alphanumeric, e.g. 123A) \* | Personal particulars 🔒 | 3 digits and a letter, saved in capitals |
 | 4 | Project \* (RSPID (CTDC), RSPID (WGS), West End, RSPID (CTDC) Alumni, RSPID (WGS) Alumni) | Project | One choice, from the standard Projects list (Settings → Guide & projects) plus "Alumni" for the RSPID projects |
 | 5 | Course and Year [RSPID Volunteers] | Project | Asked only for RSPID projects |
@@ -113,9 +113,11 @@ and pairing boards. Hours, attendance, notes and pairing history are kept.
 
 ### 2.4 Smaller changes
 
-- Google Contacts (when sync is on): saved as **"Short Name (Full Name)"**, e.g. "Mei (Tan Mei
-  Ling)", with Project and the emergency contact in the notes. Editing the short name, project
-  or emergency contact updates the contact.
+- Google Contacts (when sync is on): **First name** and **Last name** in Google's own fields, the
+  short name as the **nickname**, the **birthday**, the phone as its **8 digits** (e.g. 92334014),
+  and Telegram, Project and the emergency contact in the notes. Editing any of these updates the
+  contact. Older records with only a Full Name put it in First name until someone splits it
+  (Edit details).
 - Home greets volunteers by their short name: "Welcome, Mei!".
 - The volunteer list knows each person's upcoming sign-ups, so the deactivation warning gives
   the exact number.

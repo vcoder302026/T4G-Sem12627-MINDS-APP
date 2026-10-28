@@ -42,7 +42,7 @@ The same labels are used everywhere in the app:
 
 | I want to… | Tap |
 | --- | --- |
-| Join | **Register now** and fill in MINDS's volunteer form (the same questions as its Google Form). Your **Sign-in email** is how you sign in. Choose your **Project**; RSPID projects also ask for course, matriculation number and school email. Type your password twice (**Re-enter password**), agree to the data notice, **Create account** |
+| Join | **Register now** and fill in MINDS's volunteer form (the same questions as its Google Form, with your **First Name** and **Last Name** in separate boxes). Your **Sign-in email** is how you sign in. Choose your **Project**; RSPID projects also ask for course, matriculation number and school email. Type your password twice (**Re-enter password**), agree to the data notice, **Create account** |
 | Get started | Read the Volunteer Guide that opens, then **I've read the guide** (once, before your first sign-up) |
 | Say I'm coming | **Sessions** → tick every session you can come to → **I'm coming**. It's confirmed straight away: the card shows **You're coming** |
 | Can't make it | **Home** → Coming up → **Can't make it** (on the day, tell an admin instead) |
@@ -123,5 +123,6 @@ decides how they fit.
   the short name, gender and language beside the photo. Admins always see everything.
 - **Pairings typed into the sheet:** rows in the Regular Pairings tab may use plain names; the
   app matches them to the right people.
-- **Google Contacts:** if sync is on, volunteers are saved as "Short Name (Full Name)" when they
+- **Google Contacts:** if sync is on, volunteers are saved with their first and last name, short
+  name (as the nickname), birthday and 8-digit phone when they
   register or are added. **Update Google contact** on their page refreshes it.

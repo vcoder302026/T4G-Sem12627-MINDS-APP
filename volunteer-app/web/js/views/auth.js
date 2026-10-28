@@ -73,7 +73,9 @@ function drawRegister(root, app, questions) {
   const form = el('form', { novalidate: true, class: 'space-y-6' },
     error,
     section('Your account', 'blue',
-      field('name', 'Full Name', { autocomplete: 'name', hint: 'As in your NRIC.' }),
+      // Asked separately so they fill First name and Last name in Google Contacts.
+      field('firstName', 'First Name', { autocomplete: 'given-name', hint: 'As in your NRIC.' }),
+      field('lastName', 'Last Name', { autocomplete: 'family-name' }),
       field('birthday', 'Date of Birth', { type: 'date', max: todaySG(), autocomplete: 'bday' }),
       field('email', 'Sign-in email', {
         type: 'email', autocomplete: 'email', inputmode: 'email',
@@ -97,7 +99,8 @@ function drawRegister(root, app, questions) {
     const d = formData(form);
     const extra = readAnswers(form, questions ? questions.fields : []);
     const problem =
-      (!d.name && 'Enter your full name.') ||
+      (!d.firstName && 'Enter your first name.') ||
+      (!d.lastName && 'Enter your last name.') ||
       (!d.birthday && 'Enter your date of birth.') ||
       (!d.email && 'Enter your email.') ||
       (!isEmail(d.email) && 'Check your email address: it should look like name@example.com.') ||
@@ -116,7 +119,8 @@ function drawRegister(root, app, questions) {
     busy(submit, 'Creating account…', async () => {
       try {
         const res = await call('register', {
-          name: d.name,
+          firstName: d.firstName,
+          lastName: d.lastName,
           birthday: d.birthday,
           email: d.email,
           phone: d.phone,
