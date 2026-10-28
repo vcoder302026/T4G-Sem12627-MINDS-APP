@@ -134,7 +134,7 @@ export function renderVolunteers(root, app, ctx) {
     typeSelect.addEventListener('change', () => { type = typeSelect.value; drawList(); });
     mount(host,
       statGrid(
-        stat('Volunteers', active.filter((p) => p.volunteerType !== 'regular').length, { tone: 'indigo', sub: `Become regulars after ${res.regularAfter || 10} sessions` }),
+        stat('Volunteers', active.filter((p) => p.volunteerType !== 'regular').length, { tone: 'indigo' }),
         stat('Regulars', active.filter((p) => p.volunteerType === 'regular').length, { tone: 'emerald' }),
         stat('Admins', active.filter((p) => p.role === 'admin').length, { tone: 'purple' }),
         stat('Deactivated', people.length - active.length)),
@@ -227,7 +227,7 @@ export function renderVolunteer(root, app, ctx, userId) {
       backTo('#/volunteers', 'Volunteers'),
       pageHead(p.name, p.email, typeBadges(p), p.status === 'inactive' ? badge('Deactivated', 'red') : null, p.hasAccount ? null : badge('No login yet', 'amber')),
       statGrid(stat('Hours', hours(d.stats.hours), { tone: 'indigo' }),
-        stat('Sessions attended', d.stats.attended, { tone: 'emerald', sub: regular ? 'Regular volunteer' : `${Math.max(0, d.regularAfter - d.stats.attended)} more to become a regular` }),
+        stat('Sessions attended', d.stats.attended, { tone: 'emerald', sub: regular ? undefined : `${Math.max(0, d.regularAfter - d.stats.attended)} more to become a regular` }),
         stat('No-shows', d.stats.noShows, { tone: d.stats.noShows ? 'red' : 'slate' }),
         stat('Coming up', d.stats.upcoming)),
       el('div', { class: 'mt-6 grid gap-6 lg:grid-cols-2' },

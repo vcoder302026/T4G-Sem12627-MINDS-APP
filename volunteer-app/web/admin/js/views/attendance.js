@@ -96,7 +96,7 @@ export function renderAttendance(root, app, ctx) {
       statGrid(
         stat('Records', d.totals.records),
         stat('Completed', d.totals.completed, { tone: 'emerald' }),
-        stat('In progress', d.totals.inProgress, { tone: d.totals.inProgress ? 'amber' : 'slate', sub: 'Not counted in hours yet' }),
+        stat('In progress', d.totals.inProgress, { tone: d.totals.inProgress ? 'amber' : 'slate' }),
         stat('Hours', hours(d.totals.hours), { tone: 'indigo' })),
       el('div', { class: 'mt-6' }, panel('Attendance records',
         el('button', { class: 'btn btn-primary btn-sm', onclick: addRecord }, icon('plus', 'size-4'), 'Add by hand'),
