@@ -618,9 +618,9 @@ const REGISTRATION = {
     { key: 'address', header: 'Address', label: 'Address', type: 'text', required: true, private: true, section: 'Personal particulars' },
     { key: 'project', header: 'Project', label: 'Project', type: 'choice', options: 'projects', alumni: ['RSPID (CTDC)', 'RSPID (WGS)'], required: true, section: 'Project' },
     // ↑ the Projects list (Settings → Guide & projects), then "<project> Alumni" for those in `alumni`.
-    { key: 'courseYear', header: 'Course and Year', label: 'Course and Year [upcoming] (e.g. MAE, Y2)', type: 'text', showIf: RSPID_ONLY, section: 'Project', hint: 'RSPID volunteers.' },
-    { key: 'matricNo', header: 'Matriculation Number', label: 'Matriculation Number', type: 'matric', showIf: RSPID_ONLY, private: true, section: 'Project', hint: 'RSPID volunteers.' },
-    { key: 'schoolEmail', header: 'School Email', label: 'School Email', type: 'email', showIf: RSPID_ONLY, section: 'Project', hint: 'RSPID volunteers.' },
+    { key: 'courseYear', header: 'Course and Year', label: 'Course and Year [upcoming] (e.g. MAE, Y2)', type: 'text', showIf: RSPID_ONLY, section: 'Project' },
+    { key: 'matricNo', header: 'Matriculation Number', label: 'Matriculation Number', type: 'matric', showIf: RSPID_ONLY, private: true, section: 'Project' },
+    { key: 'schoolEmail', header: 'School Email', label: 'School Email', type: 'email', showIf: RSPID_ONLY, section: 'Project' },
     { key: 'startYear', header: 'Start Year', label: 'Start Year (in RSPID or West End, whichever is earlier)', type: 'year', required: true, section: 'Project', placeholder: 'YYYY' },
     { key: 'shirtSize', header: 'T-Shirt Size', label: 'T-Shirt Size', type: 'choice', options: ['XS', 'S', 'M', 'L', 'XL', 'XXL'], required: true, section: 'Other information' },
     { key: 'committee', header: 'Events / Project Committee Participation', label: 'Events\' / Project Committee Participation (roles/appointment, include year)', type: 'textarea', section: 'Other information', hint: 'e.g. 2017 - ACID Logs.' },

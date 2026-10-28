@@ -70,7 +70,7 @@ export function stat(label, value, { tone = 'slate', sub, href } = {}) {
 }
 
 export function statGrid(...tiles) {
-  return el('div', { class: 'grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6' }, tiles);
+  return el('div', { class: 'stat-grid grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6' }, tiles);
 }
 
 /** Card with a title row (and optional buttons on the right). */

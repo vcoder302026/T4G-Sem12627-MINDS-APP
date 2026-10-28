@@ -266,13 +266,17 @@ export function renderSessions(root, app, ctx) {
         drawList();
       });
     }
+    // "You're coming" sits above the title, so it never squeezes the text on a phone.
+    const coming = s.myStatus ? action : null;
+    if (coming) action = null;
     const rowEl = el(s.myStatus || full ? 'div' : 'label', { class: `flex items-start justify-between gap-3 p-4 ${chosen.has(s.sessionId) ? 'select-ring' : ''} ${s.myStatus || full ? '' : 'cursor-pointer'}` },
-      el('div', { class: 'min-w-0' },
+      el('div', { class: 'min-w-0 flex-1' },
+        coming ? el('div', { class: 'mb-1.5' }, coming) : null,
         el('h3', { class: 'font-bold text-slate-900 dark:text-white' }, s.title),
         el('p', { class: 'text-sm text-slate-700 dark:text-neutral-300' }, `${fmtTimes(s)}, `, venueLink(s)),
         s.notes ? el('p', { class: 'mt-1 text-sm muted' }, s.notes) : null,
         spots || (s.projects && s.projects.length) ? el('div', { class: 'mt-2 flex flex-wrap gap-1.5' }, projectBadges(s.projects), spots) : null),
-      el('span', { class: 'shrink-0' }, action));
+      action ? el('span', { class: 'shrink-0' }, action) : null);
     return rowEl;
   };
   const drawList = () => {
