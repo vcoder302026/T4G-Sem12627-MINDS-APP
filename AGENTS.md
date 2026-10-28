@@ -18,3 +18,67 @@ Implement the first local MINDS staff prototype described in PLAN.md. Read the e
 ## Validation and reporting
 Run the tests and browser walkthrough required by PLAN.md during implementation. If a browser tool is unavailable, complete feasible automated checks and explicitly identify the manual checks still unperformed; do not claim them as passed.
 Finish with a concise report of implemented workflows, startup commands, demo credentials, validation results and remaining limitations. Keep README accurate to the final app.
+
+## Volunteer app (`volunteer-app/`): stay consistent with MINDS's other apps
+
+Always keep the design and functions similar to MINDS's existing apps (read-only references):
+
+- Trainee House Visit: https://github.com/vcoder302026/Trainee-House-Visit
+- CSL Attendance: https://github.com/vcoder302026/CSL-Attendance-Exp
+- Overseas Trip Planner: https://github.com/vcoder302026/Overseas-Trip-Planner-Exp
+
+Before adding or changing a screen, check how these apps do the same thing and follow them.
+Patterns already shared (keep them; reuse the helpers rather than writing new ones):
+
+| Pattern | Reference app | In the volunteer app |
+| --- | --- | --- |
+| Sticky header: environment banner (purple "Experimentation" for Exp, red "Testing" for Dev), ↻ update app, 🌗 dark mode | All three | `web/index.html`, `web/js/app.js` |
+| Indigo primary (#4F46E5), green secondary; gray-50 / black backgrounds; Tailwind; dark mode by class | House Visit | `web/src/input.css` |
+| Coloured, collapsible section headers (uppercase), guide text under questions | House Visit | `ui.js` `section`, `hvSections` |
+| Wheel ("Rolodex") date picker sheet: day / month / year, Cancel / Confirm | House Visit | `web/js/controls.js` (every `<input type="date">`, automatically) |
+| Show / hide eye on password boxes | House Visit, Overseas | `ui.js` `field()`; `controls.js` for any other password box |
+| Fixed bottom action bar for the main button | House Visit | `.action-bar` |
+| Top-centre toasts, green / red | House Visit | `ui.js` `toast` |
+| Pairing: green Volunteers / blue Trainees columns, search with clear ✕, pulsing "N Unpaired", All filters, quick-pair pop-up, person info pop-up, "Saved / Saving…" | Overseas (and MYG Outing) | `web/js/views/pairing.js`, `dnd.js`, `quickview.js` |
+| Search boxes with a clear (✕) button | Overseas | `ui.js` `searchBox` |
+| Camera QR scanning, choose-mode style admin layout, "Update app" | CSL Attendance | `web/js/qr.js`, `views/leader.js` |
+| Google Apps Script backend; Prod / Dev / Exp; GitHub Actions + clasp deploy keeping the same Web App URL | All three | `volunteer-app/gas/`, `.github/workflows/` |
+
+### MINDS's web app template ("Template Prompts for Creating WebApps")
+
+MINDS keeps a template for all its web apps (Google Doc "Template Prompts for Creating WebApps",
+in the Team 39 Tech for Good x MINDS Drive). Follow it for new work. Where this app follows it, and
+where it differs on purpose:
+
+| Template rule | In this app |
+| --- | --- |
+| Installable PWA, desktop and mobile, Tailwind, modern minimalist UI for non-technical users | Yes |
+| 🌗 dark/light toggle top right; dark mode black-based, not blue | Yes |
+| Update App icon that animates, beside 🌗, clears non-user caches; reload does the same | Yes (↻; the service worker cache is re-versioned on every deploy) |
+| Header: refresh · 🌗 · home (back arrow and page title on the left); logout at the far right when there's a login | Yes (↻ · 🌗 · 🏠 · sign out; back links on pages) |
+| Dev = red "Testing" bar, Exp = purple "Experimentation" bar, Prod = none | Yes |
+| GAS backend, Execute as Me, Anyone (anonymous); data in Sheets and Drive | Yes |
+| GitHub Pages frontend; GitHub Actions + clasp deploy keeping the same Web App URL; secrets `CLASPRC_JSON`, `GAS_SCRIPT_ID`, `GAS_DEPLOYMENT_ID` | Yes (`.github/workflows/volunteer-app-gas.yml`, same credential conversion) |
+| Google permission prompts instead of "failed to fetch" | Yes: a clear message and a link to Google's permission page (`web/js/api.js`) |
+| Fuzzy search everywhere | Yes (`ui.js` `fuzzyFilter`) |
+| Header: ← back + page title left; square ↻ · 🌗 · 🏠 (· sign out) right | Yes (`web/index.html`, `app.js` `syncHeaderTitle`) |
+| Dashboard layout: action cards left (big primary button, select + coloured outlined buttons), list of upcoming items right with a compact table and icon buttons | Admin home (`views/admin.js` `renderAdminHub`), modelled on the Comm Dashboard |
+| Works on every phone: check 280 px (Galaxy Fold folded) to 430 px (iPhone Pro Max) and phones held sideways | `python3 volunteer-app/dev/check-phones.py` must print "all clean"; keep inputs at 16 px text (no iPhone zoom), leave room for notches (`safe-area-inset-*`), and keep only the header and tab bar pinned |
+| Keep text short: no explanation lines under titles, no hint text under options or obvious fields; admins know the workflow | Yes. Only add text that carries information, gives a format, or prevents a mistake (and keep it to a few words) |
+| Warnings before major actions | Short: "Warning: You are <action>. Do you wish to continue?" (`ui.js` `majorActionPrompt`) |
+| Linking Google Sheets from the app (create new, search Drive, paste URL; verify tabs) | Yes, as in CSL Attendance's "Manage Google Sheet": Admin → Settings → Google Sheets (`gas/DataSources.gs`) |
+| Advanced Settings page for one-time setup/migration, with a data-loss warning, inside the admin area | Yes: Admin → Settings → Advanced settings (`gas/Maintenance.gs`). **Add future one-time jobs there.** |
+| Show/hide eye on every password field; Enter submits; wrong-password message near the field | Yes |
+| Passwords in Script Properties | The shared admin password, yes (hashed). Volunteer passwords are per person, hashed in the hidden `_Auth` tab |
+| Skeletons over spinners | Yes (`ui.js` `loading`) |
+| Rolodex date picker; drag-and-drop engine (touch + mouse) | Yes (`web/js/controls.js`, `web/js/dnd.js`) |
+| Delta payloads (send only changed fields); `LockService` on every write | Yes |
+| **Differences, on purpose** | |
+| Multi-page app (one .html per area) | One page with hash routes (`#/sessions`); the phone's Back button still works. A rewrite into pages would be large; revisit if MINDS asks |
+| One backend file `Code.gs`; folders `/frontend`, `/backend`; environment only in `backend/config.js` | `volunteer-app/gas/*.gs` (several files, pushed together by clasp), `volunteer-app/web/`; environment from the GitHub variable `APP_ENVIRONMENT` and script properties |
+| Default passwords `P@ssw0rd` | Not used: `setup()` generates a random admin password (safer for personal data) |
+| CacheService write-through caching, polling with stale-payload rejection | Not yet: worth adding if many admins use the pairing board at once |
+| One-click code backup to a Google Doc | Not yet (see TODO.md) |
+
+If a request conflicts with these apps, follow the request and note the difference in
+`volunteer-app/DESIGN-NOTES.md`.

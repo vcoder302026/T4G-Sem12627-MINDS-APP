@@ -6,7 +6,7 @@ import { dateRangeText, day, hours, load, pageHead, panel, plural, stat, statGri
 
 export function renderOverview(root, app, ctx) {
   const host = el('div', {});
-  mount(root, pageHead('Dashboard', 'Everything here comes from the same Google Sheet volunteers use.'), host);
+  mount(root, pageHead('Dashboard', ''), host);
   return load(host, ctx, () => call('dashboardOverview'), (d) => {
     const c = d.counts;
     mount(host,

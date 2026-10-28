@@ -15,6 +15,7 @@ function publicUser_(u) {
   return {
     userId: u.userId,
     name: u.name,
+    shortName: u.shortName || '', // "Short Name" from the registration form: used in greetings
     email: u.email,
     phone: u.phone,
     telegram: u.telegram,
@@ -189,6 +190,11 @@ function listPeople_() {
   const standing = {};
   standingRows_().forEach((x) => { (standing[x.userId] = standing[x.userId] || []).push(x); });
   const noShows = noShowsByUser_();
+  const upcoming = {}; // for the warning before deactivating someone
+  const today = todayStr_();
+  table_('bookings').rows().forEach((b) => {
+    if (b.status !== 'cancelled' && String(b.sessionDate) >= today) upcoming[b.userId] = (upcoming[b.userId] || 0) + 1;
+  });
   const people = table_('users').rows()
     .filter((u) => u.userId)
     .map((u) => Object.assign(publicUser_(u), {
@@ -197,6 +203,7 @@ function listPeople_() {
       hours: Math.round(((hours[u.userId] || {}).hours || 0) * 100) / 100,
       sessions: (hours[u.userId] || {}).sessions || 0,
       noShows: noShows[u.userId] || 0,
+      upcoming: upcoming[u.userId] || 0,
       regularTrainees: (standing[u.userId] || []).map((x) => ({ id: String(x.traineeId), name: x.traineeName })),
       regularTraineeName: (standing[u.userId] || []).map((x) => x.traineeName).join(', '),
       regularTraineeId: standing[u.userId] ? String(standing[u.userId][0].traineeId) : '', // the first, for older screens

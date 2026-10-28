@@ -97,7 +97,7 @@ describe('linking to an existing sheet', () => {
     rt.run('setup');
     assert.deepEqual(rt.records(SHEET, 'Venues').map((v) => v.Venue), [SCHOOL]);
     assert.equal(rt.records(SHEET, 'Volunteer Guide').length, 5);
-    assert.deepEqual(rt.records(SHEET, 'Projects').map((p) => p.Project), ['West End (WE)', 'Regular Service Project for the Intellectually Disabled (RSPID)']);
+    assert.deepEqual(rt.records(SHEET, 'Projects').map((p) => p.Project), ['West End', 'RSPID (WGS)']);
     const before = JSON.stringify(rt.tab(SHEET, 'Trainees').dump());
     assert.match(rt.run('checkConfig'), /"Trainees" is ready/);
     assert.equal(JSON.stringify(rt.tab(SHEET, 'Trainees').dump()), before);
@@ -215,12 +215,12 @@ describe('volunteer guide for new volunteers', () => {
     fails(rt.call('createSession', { title: 'X', date: TODAY, startTime: '10:00', endTime: '11:00', venue: SCHOOL, project: 'Nope' }, leader), 'VALIDATION_ERROR');
     fails(rt.call('saveProject', { name: 'A, B' }, leader), 'VALIDATION_ERROR');
     // A session can be for several projects
-    const both = createSession({ project: ['West End (WE)', 'Regular Service Project for the Intellectually Disabled (RSPID)'] });
-    assert.deepEqual(both.projects, ['West End (WE)', 'Regular Service Project for the Intellectually Disabled (RSPID)']);
+    const both = createSession({ project: ['West End', 'RSPID (WGS)'] });
+    assert.deepEqual(both.projects, ['West End', 'RSPID (WGS)']);
     assert.equal(rt.records(SHEET, 'Sessions').find((r) => r['Session ID'] === both.sessionId).Project,
-      'West End (WE), Regular Service Project for the Intellectually Disabled (RSPID)');
-    const one = ok(rt.call('updateSession', { sessionId: both.sessionId, project: ['West End (WE)'] }, leader));
-    assert.deepEqual(one.detail.session.projects, ['West End (WE)']);
+      'West End, RSPID (WGS)');
+    const one = ok(rt.call('updateSession', { sessionId: both.sessionId, project: ['West End'] }, leader));
+    assert.deepEqual(one.detail.session.projects, ['West End']);
     c = ok(rt.call('saveProject', { projectId: outing.projectId, status: 'archived' }, leader));
     assert.equal(ok(rt.call('guide', {}, vol.token)).projects.some((p) => p.name === 'Weekend outings'), false);
   });
@@ -744,7 +744,7 @@ describe('adding sessions', () => {
   test('the form defaults come from Config.gs: Regular session, 2:30 to 5:30 pm, Woodlands', () => {
     const o = ok(rt.call('adminHome', {}, leader)).sessionOptions;
     assert.deepEqual(o.titles, ['Regular session']);
-    assert.deepEqual(o.projects, ['West End (WE)', 'Regular Service Project for the Intellectually Disabled (RSPID)']);
+    assert.deepEqual(o.projects, ['West End', 'RSPID (WGS)']);
     assert.deepEqual(o.times[0], { label: '2:30 pm – 5:30 pm', startTime: '14:30', endTime: '17:30' });
     assert.equal(o.venue, SCHOOL);
   });
@@ -752,9 +752,9 @@ describe('adding sessions', () => {
   test('setup adds the default projects to an existing Projects tab, keeping what is there', () => {
     rt.fillTab(SHEET, 'Projects', [['Project ID', 'Project', 'Status'], ['P-OLD', 'School activity support', 'active']]);
     const report = rt.run('setup');
-    assert.match(report, /Added project\(s\): West End \(WE\)/);
+    assert.match(report, /Added project\(s\): West End/);
     const names = rt.records(SHEET, 'Projects').map((p) => p.Project);
-    assert.deepEqual(names.sort(), ['Regular Service Project for the Intellectually Disabled (RSPID)', 'School activity support', 'West End (WE)']);
+    assert.deepEqual(names.sort(), ['RSPID (WGS)', 'School activity support', 'West End']);
   });
 
   test('the same session on several dates at once; past and duplicate dates are skipped', () => {
@@ -931,7 +931,7 @@ describe('Google Contacts sync', () => {
     assert.equal(c.names[0].unstructuredName, 'Nora Tan');
     assert.equal(c.emailAddresses[0].value, 'nora@example.com');
     assert.equal(c.phoneNumbers[0].value, '+65 91234567');
-    assert.match(c.biographies[0].value, /^Telegram: @nora_tan\nMINDS volunteer/);
+    assert.match(c.biographies[0].value, /^Telegram: @nora_tan\nEmergency contact: \+65 81234567 \(Mother\)\nMINDS volunteer/);
     const group = [...rt.contacts.groups.values()].find((g) => g.name === 'MINDS Volunteers (Exp)');
     assert.ok(group, 'the label is created');
     assert.equal(c.memberships[0].contactGroupMembership.contactGroupResourceName, group.resourceName);
@@ -990,5 +990,159 @@ describe('Google Contacts sync', () => {
     assert.match(rt.run('syncAllContacts'), /saved 2 volunteer\(s\)/); // the admin and Vol One
     assert.match(rt.run('syncAllContacts'), /saved 0 volunteer\(s\)/);
     assert.equal(contacts().length, 2);
+  });
+});
+
+describe('Version 3: registration checks, deactivation, project names', () => {
+  const formAnswers = (more = {}) => ({
+    shortName: 'Mei', nric4: '123A', address: 'Blk 2 Woodlands Ave 2', project: 'RSPID (WGS)', startYear: '2024', shirtSize: 'S',
+    emergencyRelation: 'Father', emergencyPhone: '+65 9876 5432', ...more,
+  });
+  const reg = (email, answers) => rt.call('register', volunteerPayload({ email, answers }));
+
+  test('formats: NRIC last 4, year, emergency number, school email, matric number', () => {
+    [['nric4', '1234'], ['nric4', '12AB'], ['nric4', 'S1234567A'], ['startYear', '24'], ['startYear', '2099'], ['startYear', 'abcd'],
+      ['emergencyPhone', '1234'], ['schoolEmail', 'mei@ntu'], ['matricNo', 'U-12']].forEach(([key, value], i) => {
+      fails(reg(`bad${i}@example.com`, formAnswers({ [key]: value })), 'VALIDATION_ERROR');
+    });
+    const ok1 = ok(reg('mei@example.com', formAnswers({ nric4: ' 123a ', matricNo: 'u2312345a', schoolEmail: 'MEI001@E.NTU.EDU.SG', courseYear: 'MAE, Y2' })));
+    const row = rt.records(SHEET, 'Volunteers').find((r) => r.Email === 'mei@example.com');
+    assert.equal(row['NRIC (Last 4)'], '123A');
+    assert.equal(row['Matriculation Number'], 'U2312345A');
+    assert.equal(row['School Email'], 'mei001@e.ntu.edu.sg');
+    assert.ok(ok1.user.answers.some((a) => a.key === 'matricNo' && a.private), 'RSPID questions shown for RSPID volunteers; matric is private');
+    // Moving to West End clears the RSPID-only answers
+    ok(rt.call('updateProfile', { answers: { project: 'West End' } }, ok1.token));
+    const after = rt.records(SHEET, 'Volunteers').find((r) => r.Email === 'mei@example.com');
+    assert.deepEqual([after['Matriculation Number'], after['School Email'], after['Course and Year']], ['', '', '']);
+  });
+
+  test('required: short name, NRIC, address, project, start year, T-shirt, emergency contact', () => {
+    ['shortName', 'nric4', 'address', 'project', 'startYear', 'shirtSize', 'emergencyRelation', 'emergencyPhone'].forEach((key, i) => {
+      const e = fails(reg(`req${i}@example.com`, formAnswers({ [key]: '' })), 'VALIDATION_ERROR');
+      assert.match(e.message, /Please answer/, key);
+    });
+  });
+
+  test('deactivating someone takes them off upcoming sessions; their history is kept', () => {
+    const s1 = createSession({ date: '2026-10-17' });
+    const s2 = createSession({ date: '2026-10-24' });
+    book(s1.sessionId);
+    book(s2.sessionId);
+    const past = createSession({ date: TODAY });
+    const b = book(past.sessionId);
+    rt.setNow(at('10:00'));
+    ok(rt.call('manualClock', { bookingId: b }, leader));
+    rt.setNow(at('12:00'));
+    ok(rt.call('manualClock', { bookingId: b }, leader));
+    rt.setNow(at('09:00', '2026-10-15'));
+    const res = ok(rt.call('updatePerson', { userId: vol.user.userId, status: 'inactive' }, leader));
+    assert.match(res.message, /Taken off 2 upcoming sessions/);
+    const rows = rt.records(SHEET, 'Bookings').filter((r) => r['User ID'] === vol.user.userId);
+    assert.deepEqual(rows.map((r) => r.Status).sort(), ['cancelled', 'cancelled', 'confirmed'], 'the past one is kept as it was');
+    assert.equal(rt.records(SHEET, 'Attendance').filter((r) => r['User ID'] === vol.user.userId).length, 1, 'hours are kept');
+    assert.equal(ok(rt.call('sessionDetail', { sessionId: s2.sessionId }, leader)).stats.booked, 0);
+  });
+
+  test('setup renames the projects to the form\'s names, in sessions too, once', () => {
+    rt.fillTab(SHEET, 'Projects', [['Project ID', 'Project', 'Status'],
+      ['P-1', 'West End (WE)', 'active'], ['P-2', 'Regular Service Project for the Intellectually Disabled (RSPID)', 'active']]);
+    rt.run('setup');
+    const s = createSession();
+    const tab = rt.tab(SHEET, 'Sessions');
+    const header = tab.getRange(1, 1, 1, tab.getLastColumn()).getValues()[0];
+    tab.getRange(2, header.indexOf('Project') + 1).setValue('West End (WE), Regular Service Project for the Intellectually Disabled (RSPID)');
+    rt.fillTab(SHEET, 'Projects', [['Project ID', 'Project', 'Status'],
+      ['P-1', 'West End (WE)', 'active'], ['P-2', 'Regular Service Project for the Intellectually Disabled (RSPID)', 'active']]);
+    const report = rt.run('setup');
+    assert.match(report, /Renamed project\(s\) "West End \(WE\)" → "West End".*updated 1 session/);
+    assert.deepEqual(rt.records(SHEET, 'Projects').filter((p) => p.Status !== 'archived').map((p) => p.Project).sort(), ['RSPID (WGS)', 'West End']);
+    assert.equal(rt.records(SHEET, 'Sessions').find((r) => r['Session ID'] === s.sessionId).Project, 'West End, RSPID (WGS)');
+    assert.ok(!/Renamed project/.test(rt.run('setup')), 'nothing to do the second time');
+  });
+
+  test('Google Contacts: "Short Name (Full Name)", project and emergency contact in the notes', () => {
+    rt.props.set('CONTACTS_SYNC', 'on');
+    ok(rt.call('register', volunteerPayload({ name: 'Tan Mei Ling', email: 'meiling@example.com', answers: formAnswers() })));
+    const c = [...rt.contacts.people.values()][0];
+    assert.equal(c.names[0].unstructuredName, 'Mei (Tan Mei Ling)');
+    assert.match(c.biographies[0].value, /Project: RSPID \(WGS\)\nEmergency contact: \+65 98765432 \(Father\)/);
+    assert.ok(!c.biographies[0].value.includes('123A') && !c.biographies[0].value.includes('Woodlands Ave'), 'no NRIC or address in contacts');
+  });
+});
+
+describe('Advanced Settings (one-time functions from the app)', () => {
+  test('admins list and run them; ones that change data need the admin password; all are logged', () => {
+    const list = ok(rt.call('maintenanceTasks', {}, leader)).tasks.map((t) => `${t.key}:${t.changesData}`);
+    assert.deepEqual(list, ['checkConfig:false', 'setup:true', 'syncAllContacts:true']);
+    assert.match(ok(rt.call('runMaintenance', { task: 'checkConfig' }, leader)).report, /Main sheet/);
+    fails(rt.call('runMaintenance', { task: 'setup' }, leader), 'PASSWORD_REQUIRED');
+    const res = ok(rt.call('runMaintenance', { task: 'setup', adminPassword: ADMIN_PW }, leader));
+    assert.match(res.message, /Run setup: done/);
+    fails(rt.call('runMaintenance', { task: 'syncAllContacts', adminPassword: ADMIN_PW }, leader), 'CONFLICT'); // sync is off
+    rt.props.set('CONTACTS_SYNC', 'on');
+    assert.match(ok(rt.call('runMaintenance', { task: 'syncAllContacts', adminPassword: ADMIN_PW }, leader)).report, /saved 2 volunteer/);
+    fails(rt.call('runMaintenance', { task: 'deleteEverything', adminPassword: ADMIN_PW }, leader), 'VALIDATION_ERROR');
+    fails(rt.call('runMaintenance', { task: 'checkConfig' }, vol.token), 'FORBIDDEN');
+    const log = JSON.stringify(rt.records(SHEET, 'Admin Activity Log'));
+    assert.match(log, /Ran an Advanced Settings function.*Run setup/);
+    assert.ok(!log.includes(ADMIN_PW));
+  });
+});
+
+describe('Settings → Google Sheets (link the databases from the app)', () => {
+  const pw = { adminPassword: ADMIN_PW };
+  test('lists the three databases; trainees and house visits start in the volunteer sheet', () => {
+    const d = ok(rt.call('dataSources', {}, leader)).sources;
+    assert.deepEqual(d.map((s) => s.key), ['volunteers', 'trainees', 'visits']);
+    assert.equal(d[0].linked.id, SHEET);
+    assert.equal(d[0].check.ok, true);
+    assert.equal(d[2].linked.sharesVolunteerSheet, true);
+    fails(rt.call('dataSources', {}, vol.token), 'FORBIDDEN');
+  });
+
+  test('search Google Drive, then link a trainee sheet by its URL; the app checks it first', () => {
+    const other = rt.createSpreadsheet('trainee-book', 'MINDS Trainee List 2027');
+    rt.fillTab('trainee-book', 'Form Responses 1', [['Trainee’s Full Name', 'Gender'], ['Kim Lee', 'Female']]);
+    rt.fillTab('trainee-book', 'Notes', [['Something'], ['x']]);
+    const found = ok(rt.call('searchSheets', { query: 'trainee list' }, leader)).results;
+    assert.deepEqual(found.map((f) => f.name), ['MINDS Trainee List 2027']);
+    fails(rt.call('connectDataSource', { source: 'trainees', ref: other.getUrl() }, leader), 'PASSWORD_REQUIRED');
+    const res = ok(rt.call('connectDataSource', { source: 'trainees', ref: other.getUrl(), ...pw }, leader));
+    assert.match(res.message, /Linked "MINDS Trainee List 2027" as the trainee database/);
+    assert.equal(res.sources[1].linked.tab, 'Form Responses 1', 'finds the tab with the name column');
+    assert.match(rt.props.get('TRAINEE_SPREADSHEET_ID'), /trainee-book\/edit#gid=\d+/);
+    assert.deepEqual(ok(rt.call('listTrainees', {}, leader)).trainees.map((t) => t.name), ['Kim Lee']);
+    // a sheet without a name column, or one the app can't open, is refused
+    rt.createSpreadsheet('empty-book', 'Empty');
+    rt.fillTab('empty-book', 'Sheet1', [['Hello']]);
+    assert.match(fails(rt.call('connectDataSource', { source: 'trainees', ref: 'empty-book', ...pw }, leader), 'VALIDATION_ERROR').message, /missing: a tab with a "Name"/);
+    fails(rt.call('connectDataSource', { source: 'trainees', ref: 'https://docs.google.com/spreadsheets/d/nope/edit', ...pw }, leader), 'VALIDATION_ERROR');
+  });
+
+  test('the volunteer database: a sheet without your account is refused; "Create new sheet" copies the current one', () => {
+    rt.createSpreadsheet('stranger', 'Someone else');
+    fails(rt.call('connectDataSource', { source: 'volunteers', ref: 'stranger', ...pw }, leader), 'VALIDATION_ERROR'); // no app tabs at all
+    const res = ok(rt.call('createDataSource', { source: 'volunteers', name: 'MINDS Volunteers (copy)', ...pw }, leader));
+    assert.match(res.message, /Created "MINDS Volunteers \(copy\)"/);
+    assert.notEqual(rt.props.get('SPREADSHEET_ID'), SHEET);
+    assert.equal(ok(rt.call('me', {}, leader)).user.role, 'admin', 'still signed in: the copy has everyone\'s sign-ins');
+    assert.equal(res.sources[0].linked.name, 'MINDS Volunteers (copy)');
+    // link the original back: it has this admin's account, so it's allowed
+    ok(rt.call('connectDataSource', { source: 'volunteers', ref: SHEET, ...pw }, leader));
+    assert.match(rt.props.get('SPREADSHEET_ID'), new RegExp(SHEET));
+  });
+
+  test('a house visit database of its own, then back to the volunteer database', () => {
+    const res = ok(rt.call('createDataSource', { source: 'visits', ...pw }, leader));
+    const id = res.sources[2].linked.id;
+    assert.equal(res.sources[2].linked.sharesVolunteerSheet, false);
+    assert.ok(rt.spreadsheet(id).getSheetByName('House Visits'), 'setup added the tab');
+    ok(rt.call('createVisit', { traineeId: 'T-0001', userId: vol.user.userId, date: '2026-10-10', family: 'Well' }, leader));
+    assert.equal(rt.records(id, 'House Visits').length, 1, 'saved in the house visit sheet');
+    const back = ok(rt.call('unlinkDataSource', { source: 'visits', ...pw }, leader));
+    assert.equal(back.sources[2].linked.sharesVolunteerSheet, true);
+    const log = rt.records(SHEET, 'Admin Activity Log').map((r) => r.Action).join(' | ');
+    assert.match(log, /Created and linked a Google Sheet.*Unlinked a Google Sheet|Unlinked a Google Sheet/);
   });
 });

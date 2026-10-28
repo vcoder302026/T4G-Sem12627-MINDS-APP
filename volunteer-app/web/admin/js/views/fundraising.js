@@ -24,7 +24,7 @@ export function renderFundraisers(root, app, ctx) {
     toast(res.message);
     location.hash = `#/fundraiser/${res.fundraiser.fundraiserId}`;
   });
-  mount(root, pageHead('Fundraising', 'Fundraisers, what they sell, and every order taken.',
+  mount(root, pageHead('Fundraising', '',
     el('button', { class: 'btn btn-primary', onclick: create }, icon('plus', 'size-4'), 'New fundraiser')), host);
   return load(host, ctx, () => call('listFundraisers'), (d) => {
     const all = d.fundraisers;
@@ -43,7 +43,7 @@ export function renderFundraisers(root, app, ctx) {
         { label: 'Orders', cell: (f) => String(f.sales.orders), class: 'text-right' },
         { label: 'Sales', cell: (f) => money(f.sales.totalCents), class: 'text-right whitespace-nowrap' },
         { label: 'Paid', cell: (f) => money(f.sales.paidCents), class: 'text-right whitespace-nowrap' },
-      ], all, { empty: 'No fundraisers yet. Create one to add products and take orders.', href: (f) => `#/fundraiser/${f.fundraiserId}` }))));
+      ], all, { empty: 'No fundraisers yet.', href: (f) => `#/fundraiser/${f.fundraiserId}` }))));
   });
 }
 

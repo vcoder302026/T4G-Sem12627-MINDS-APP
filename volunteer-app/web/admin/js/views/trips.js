@@ -30,7 +30,7 @@ export function renderTrips(root, app, ctx) {
     toast(res.message);
     location.hash = `#/trip/${res.trip.tripId}`;
   });
-  mount(root, pageHead('Overseas trips', 'Who is going, what still needs doing, and what it costs.',
+  mount(root, pageHead('Overseas trips', '',
     el('button', { class: 'btn btn-primary', onclick: create }, icon('plus', 'size-4'), 'New trip')), host);
   return load(host, ctx, () => call('listTrips'), (d) => {
     const current = d.trips.filter((t) => t.endDate >= d.today && t.status !== 'cancelled');
@@ -68,7 +68,7 @@ export function renderTrip(root, app, ctx, tripId) {
     const free = data.options.trainees.filter((t) => !on.has(t.id));
     if (!free.length) { toast('Every active trainee is already on this trip.', 'warn'); return; }
     formModal('Register a trainee', [
-      el('p', { class: 'text-sm muted' }, 'Their medical and dietary notes are copied from their profile now. Later profile edits will not change this trip\'s copy.'),
+      null,
       traineePicker(free),
       volunteerPicker(data.options.volunteers, { label: 'Volunteer', optional: true }),
       field('notes', 'Notes for this trip', { type: 'textarea', rows: 2, optional: true }),

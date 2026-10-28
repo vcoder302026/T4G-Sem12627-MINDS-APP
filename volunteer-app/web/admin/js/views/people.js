@@ -4,7 +4,7 @@ import { personName, traineeName } from '../../../js/quickview.js';
 import { audienceBadge, shareChooser } from '../../../js/views/trainees.js';
 import { call } from '../../../js/api.js';
 import {
-  badge, busy, el, fuzzyFilter, hvSections, labelled, modal, mount, passwordPrompt, searchBox, toast, traineeAvatar, typeBadges,
+  badge, busy, el, fuzzyFilter, hvSections, labelled, majorActionPrompt, modal, mount, passwordPrompt, searchBox, toast, traineeAvatar, typeBadges,
 } from '../../../js/ui.js';
 import {
   backTo, dateRangeText, day, field, formModal, hours, icon, load, pageHead, panel, plural, row, selectField, stat, statGrid, table,
@@ -19,19 +19,22 @@ const PROFILE = [
   ['phone', 'Phone', { type: 'tel', inputmode: 'tel', placeholder: '+65 91234567', hint: '+65 followed by 8 digits.' }],
   ['birthday', 'Birthday', { type: 'date' }],
   ['telegram', 'Telegram', { placeholder: 'username, without @' }],
+  // The registration form's emergency contact: relationship and number (no name).
+  ['emergencyRelation', 'Relationship', { placeholder: 'e.g. Mother' }],
+  ['emergencyPhone', 'Emergency Contact No.', { type: 'tel', inputmode: 'tel', placeholder: '+65 91234567', hint: '+65 followed by 8 digits.' }],
 ];
 
 function profileFields(p = {}) {
   const f = ([key, label, attrs]) => field(key, label, { ...attrs, value: p[key] || '' });
   return [row(f(PROFILE[0]), f(PROFILE[1])), row(f(PROFILE[2]), f(PROFILE[3])), f(PROFILE[4]),
-    el('p', { class: 'group-label mt-2!' }, 'Emergency contact'), row(f(PROFILE[5]), f(PROFILE[6])), f(PROFILE[7])];
+    el('p', { class: 'group-label mt-2!' }, 'Emergency contact'), row(f(PROFILE[5]), f(PROFILE[6]))];
 }
 
 function showTempPassword(name, email, password) {
   modal('Temporary password', el('div', { class: 'space-y-4' },
-    el('p', {}, `Give ${name} this temporary password. They sign in with ${email} and change it under Me.`),
+    el('p', {}, `${name} signs in with ${email}.`),
     el('p', { class: 'well select-all p-4 text-center font-mono text-2xl font-bold tracking-wider' }, password),
-    el('p', { class: 'text-xs muted' }, 'It is shown only once. If it gets lost, use Reset password on their page.')));
+    el('p', { class: 'text-xs muted' }, 'Shown only once.')));
 }
 
 /**
@@ -52,6 +55,12 @@ async function withAdminPassword(action, payload) {
 
 const updatePerson = (payload) => withAdminPassword('updatePerson', payload);
 
+/* ---------------- warnings before major changes ---------------- */
+
+/** Short warnings before major changes. */
+const adminWarning = (name) => majorActionPrompt({ action: `making ${name} an admin`, confirmLabel: 'Continue', needsPassword: true });
+const deactivateWarning = (p) => majorActionPrompt({ action: `deactivating ${p.name}`, confirmLabel: 'Continue', needsPassword: p.role === 'admin' });
+
 export function renderVolunteers(root, app, ctx) {
   let people = null;
   let query = '';
@@ -65,11 +74,15 @@ export function renderVolunteers(root, app, ctx) {
     selectField('role', 'Admin access', [{ value: 'volunteer', label: 'No' }, { value: 'admin', label: 'Yes: can use the Admin menu' }], 'volunteer'),
     el('label', { class: 'flex items-start gap-3 text-sm' },
       el('input', { type: 'checkbox', name: 'createLogin', value: 'yes', checked: true, class: 'mt-0.5 size-5 accent-indigo-600' }),
-      el('span', {}, el('span', { class: 'block font-bold' }, 'Create a login now'),
-        el('span', { class: 'block muted' }, 'You get a temporary password to give them. Untick to only add them to the list; they can register in the app later with this email.'))),
+      el('span', { class: 'font-bold' }, 'Create a login now')),
   ], 'Add volunteer', async (d) => {
     const payload = { ...d, createLogin: d.createLogin === 'yes' };
     Object.keys(payload).forEach((k) => { if (payload[k] === '') delete payload[k]; });
+    if (payload.role === 'admin') {
+      const ok = await majorActionPrompt({ action: `adding ${payload.name || 'this person'} as an admin`, needsPassword: true });
+      if (!ok) throw new Error('Not added: admin access needs your confirmation.');
+      payload.adminPassword = ok.password;
+    }
     const res = await withAdminPassword('createVolunteer', payload);
     toast(res.contact ? `${res.message} ${res.contact.status === 'saved' ? 'Saved to Google Contacts.' : `Not saved to Google Contacts: ${res.contact.message}`}` : res.message,
       res.contact && res.contact.status !== 'saved' ? 'warn' : 'ok');
@@ -84,10 +97,14 @@ export function renderVolunteers(root, app, ctx) {
     rows = fuzzyFilter(rows, query, (p) => [p.name, p.email, p.phone, p.telegram, p.role === 'admin' ? 'admin' : '', p.volunteerType, p.regularTraineeName]);
     const statusButton = (p) => {
       const b = el('button', { class: p.status === 'inactive' ? 'btn btn-success btn-sm' : 'btn btn-danger btn-sm' }, p.status === 'inactive' ? 'Reactivate' : 'Deactivate');
-      b.addEventListener('click', () => {
-        if (p.status !== 'inactive' && !window.confirm(`Deactivate ${p.name}? They are signed out and can't sign in until reactivated. Their hours stay in the sheet.`)) return;
+      b.addEventListener('click', async () => {
+        const ok = p.status === 'inactive'
+          ? await majorActionPrompt({ action: `reactivating ${p.name}`, needsPassword: p.role === 'admin' })
+          : await deactivateWarning(p);
+        if (!ok) return;
+        const adminPassword = ok.password || undefined;
         busy(b, '', async () => {
-          const res = await updatePerson({ userId: p.userId, status: p.status === 'inactive' ? 'active' : 'inactive' }, p.name);
+          const res = await updatePerson({ userId: p.userId, status: p.status === 'inactive' ? 'active' : 'inactive', adminPassword });
           toast(res.message);
           refresh();
         });
@@ -130,7 +147,7 @@ export function renderVolunteers(root, app, ctx) {
   };
 
   const refresh = () => load(host, ctx, () => call('listPeople'), draw);
-  mount(root, pageHead('Volunteers', 'Everyone who volunteers. Admins are volunteers too, with the Admin menu on top.'), host);
+  mount(root, pageHead('Volunteers', ''), host);
   return refresh();
 }
 
@@ -157,8 +174,8 @@ export function renderVolunteer(root, app, ctx, userId) {
     });
     const regular = p.volunteerType === 'regular';
     const typeBtn = el('button', { class: 'btn btn-secondary btn-sm' }, icon('sparkle', 'size-4'), regular ? 'Move back to volunteer (ad hoc)' : 'Promote to regular');
-    typeBtn.addEventListener('click', () => {
-      if (regular && !window.confirm(`Make ${p.name} a volunteer (ad hoc) again? Their regular pairing ends.`)) return;
+    typeBtn.addEventListener('click', async () => {
+      if (!(await majorActionPrompt({ action: regular ? `moving ${p.name} back to volunteer (ad hoc)` : `promoting ${p.name} to regular` }))) return;
       busy(typeBtn, 'Saving…', async () => {
         const res = await call('setVolunteerType', { userId, volunteerType: regular ? 'volunteer' : 'regular' });
         toast(res.message);
@@ -177,15 +194,28 @@ export function renderVolunteer(root, app, ctx, userId) {
         refresh();
       }));
     }
-    roleBtn.addEventListener('click', () => save(roleBtn, { role: p.role === 'admin' ? 'volunteer' : 'admin' }));
+    roleBtn.addEventListener('click', async () => {
+      if (p.role === 'admin') {
+        const off = await majorActionPrompt({ action: `removing ${p.name}'s admin access`, needsPassword: true });
+        if (off) save(roleBtn, { role: 'volunteer', adminPassword: off.password });
+        return;
+      }
+      const ok = await adminWarning(p.name); // a major change: warn first
+      if (ok) save(roleBtn, { role: 'admin', adminPassword: ok.password });
+    });
     const statusBtn = el('button', { class: p.status === 'inactive' ? 'btn btn-success btn-sm' : 'btn btn-danger btn-sm' }, p.status === 'inactive' ? 'Reactivate' : 'Deactivate');
-    statusBtn.addEventListener('click', () => {
-      if (p.status !== 'inactive' && !window.confirm(`Deactivate ${p.name}? They are signed out and can't sign in until reactivated. Their hours stay in the sheet.`)) return;
-      save(statusBtn, { status: p.status === 'inactive' ? 'active' : 'inactive' });
+    statusBtn.addEventListener('click', async () => {
+      if (p.status === 'inactive') {
+        const back = await majorActionPrompt({ action: `reactivating ${p.name}`, needsPassword: p.role === 'admin' });
+        if (back) save(statusBtn, { status: 'active', adminPassword: back.password || undefined });
+        return;
+      }
+      const ok = await deactivateWarning(p);
+      if (ok) save(statusBtn, { status: 'inactive', adminPassword: ok.password || undefined });
     });
     const resetBtn = el('button', { class: 'btn btn-secondary btn-sm' }, 'Reset password');
-    resetBtn.addEventListener('click', () => {
-      if (!window.confirm(`Make a new temporary password for ${p.name}? Their old password stops working.`)) return;
+    resetBtn.addEventListener('click', async () => {
+      if (!(await majorActionPrompt({ action: `resetting ${p.name}'s password` }))) return;
       busy(resetBtn, 'Resetting…', async () => {
         const res = await call('resetPassword', { userId });
         showTempPassword(p.name, p.email, res.tempPassword);
@@ -210,8 +240,9 @@ export function renderVolunteer(root, app, ctx, userId) {
             d.typeSetBy ? dl('Profile set by', d.typeSetBy) : null,
             d.contact && d.contact.on ? dl('Google Contacts', d.contact.saved ? d.contact.status
               : d.contact.status ? el('span', { class: 'font-bold text-red-600 dark:text-red-400' }, d.contact.status) : 'Not saved yet') : null,
-            // Emergency contacts aren't collected any more; details from before are still shown.
-            p.emergencyName || p.emergencyPhone ? dl('Emergency contact (old)', [p.emergencyName, p.emergencyRelation ? `(${p.emergencyRelation})` : '', p.emergencyPhone].filter(Boolean).join(' ')) : null,
+            // The emergency contact is a registration question now (relationship and number, below);
+            // a name given in Version 1 is still shown.
+            p.emergencyName ? dl('Emergency contact name (Version 1)', p.emergencyName) : null,
             // The registration form's other questions (Config.gs → REGISTRATION).
             (p.answers || []).filter((a) => a.value).map((a) => dl(a.label, a.value)),
             dl('Registered', p.createdAt),
@@ -231,7 +262,7 @@ export function renderVolunteer(root, app, ctx, userId) {
               { label: 'To', cell: (x) => (x.active ? badge('Now', 'emerald') : x.to ? day(x.to) : ''), class: 'whitespace-nowrap' },
             ], d.regularHistory)) : null,
           panel('Profile and access', null, el('div', { class: 'flex flex-wrap gap-2 p-4' }, typeBtn, roleBtn, resetBtn, statusBtn, contactBtn),
-            el('p', { class: 'px-4 pb-4 text-xs muted' }, 'Making, removing, deactivating or reactivating an admin asks for the admin password (Settings → Admin password). Every change is in the Activity log.')))));
+            null))));
   };
   mount(root, host);
   return refresh();
@@ -286,10 +317,10 @@ function photoForm(t, onSaved) {
   let source = 'upload';
   const fileInput = el('input', { type: 'file', accept: PHOTO_TYPES.join(','), class: 'input py-2', 'aria-label': 'Choose a photo' });
   const uploadBox = el('div', { class: 'space-y-1' }, fileInput,
-    el('p', { class: 'hint' }, `A JPG or PNG up to ${PHOTO_MAX_MB} MB. On a phone you can take one with the camera. It's saved in a "Trainee photos" folder in the app's Google Drive.`));
+    el('p', { class: 'hint' }, `JPG or PNG, up to ${PHOTO_MAX_MB} MB.`));
   const driveBox = el('div', { hidden: true }, field('driveUrl', 'Google Drive link', {
     placeholder: 'https://drive.google.com/file/d/…/view',
-    hint: 'In Google Drive: right-click the photo → Share → Copy link.',
+    hint: 'Right-click → Share → Copy link.',
   }));
   const choice = (value, label) => {
     const input = el('input', { type: 'radio', name: 'source', value, checked: value === source });
@@ -302,7 +333,7 @@ function photoForm(t, onSaved) {
     el('fieldset', { class: 'space-y-1' }, el('legend', { class: 'label' }, 'Where is the photo?'),
       choice('upload', 'From this device'), choice('drive', 'Already in Google Drive')),
     uploadBox, driveBox,
-    el('p', { class: 'hint' }, 'Volunteers paired with this trainee, and regular volunteers, will see the photo. Check the caregiver has agreed.'),
+    el('p', { class: 'hint' }, 'Check the caregiver has agreed.'),
     submit);
   const dlg = modal(t.photoUrl ? `Change ${t.name}'s photo` : `Add a photo of ${t.name}`, form);
   form.addEventListener('submit', (e) => {
@@ -383,7 +414,7 @@ export function renderTrainees(root, app, ctx) {
         el('a', { href: '#/pairings/regular', class: 'btn btn-secondary btn-sm' }, icon('sparkle', 'size-4'), 'Regular pairings')),
       // Only for a simple trainee list; a House Visit form sheet has its own columns.
       missing.length > 3 ? null : missing.length ? el('p', { class: 'alert alert-info mt-4' },
-        `The trainee sheet has no ${missing.map((c) => `"${c.label}"`).join(', ')} column yet. It is added automatically the first time you fill it in.`) : null,
+        `No ${missing.map((c) => `"${c.label}"`).join(', ')} column yet.`) : null,
       el('div', { class: 'mt-6' }, panel('Trainee list',
         el('button', { class: 'btn btn-primary btn-sm', onclick: addTrainee }, icon('plus', 'size-4'), 'Add trainee'),
         toolbar(labelled('Show', showSelect),
@@ -392,7 +423,7 @@ export function renderTrainees(root, app, ctx) {
     drawList();
   };
 
-  mount(root, pageHead('Trainees', 'MINDS\'s trainee list (e.g. the House Visit form responses). Rows are never deleted: mark someone inactive instead.'), host);
+  mount(root, pageHead('Trainees', ''), host);
   return load(host, ctx, () => call('listTraineeRecords'), draw);
 }
 
@@ -453,8 +484,8 @@ export function renderTrainee(root, app, ctx, traineeId) {
     const photoBtn = el('button', { class: 'btn btn-secondary btn-sm', onclick: () => photoForm(t, refresh) }, icon('pencil', 'size-4'), t.photoUrl ? 'Change photo' : 'Add photo');
     const removePhoto = t.photoUrl ? el('button', { class: 'btn btn-danger btn-sm' }, 'Remove') : null;
     if (removePhoto) {
-      removePhoto.addEventListener('click', () => {
-        if (!window.confirm(`Remove ${t.name}'s photo? The file stays in Google Drive.`)) return;
+      removePhoto.addEventListener('click', async () => {
+        if (!(await majorActionPrompt({ action: `removing ${t.name}'s photo` }))) return;
         busy(removePhoto, '', async () => { const res = await call('setTraineePhoto', { traineeId: t.id, remove: true }); toast(res.message); refresh(); });
       });
     }
@@ -465,11 +496,12 @@ export function renderTrainee(root, app, ctx, traineeId) {
         el('div', { class: 'flex flex-wrap gap-2' }, photoBtn, removePhoto)),
       pageHead(t.name, `${t.id}${t.fields.preferredName && t.fields.preferredName !== t.name ? ` · goes by ${t.fields.preferredName}` : ''}`,
         t.active ? badge('Active', 'emerald') : badge('Inactive', 'slate'),
+        el('a', { href: `#/visit-new/${encodeURIComponent(t.id)}`, class: 'btn btn-primary btn-sm' }, icon('plus', 'size-4'), 'New house visit'),
         el('a', { href: `#/visibility/${encodeURIComponent(t.id)}`, class: 'btn btn-secondary btn-sm' }, icon('eye', 'size-4'),
           d.visibility.volunteer || d.visibility.regular ? 'What volunteers see (own settings)' : 'What volunteers see'),
         el('button', { class: 'btn btn-secondary btn-sm', onclick: edit }, icon('pencil', 'size-4'), 'Edit')),
       el('div', { class: `alert ${d.regulars.length ? 'alert-success' : 'alert-warn'} mb-6 flex flex-wrap items-center justify-between gap-2` },
-        el('span', {}, d.regulars.length ? ['Regular volunteers: ', d.regulars.map((r, i) => [i ? ', ' : '', personName(r.name, r.userId, 'font-bold')])] : 'No regular volunteer yet. Ideally every trainee has at least one.'),
+        el('span', {}, d.regulars.length ? ['Regular volunteers: ', d.regulars.map((r, i) => [i ? ', ' : '', personName(r.name, r.userId, 'font-bold')])] : 'No regular volunteer yet.'),
         el('a', { href: '#/pairings/regular', class: 'link' }, 'Regular pairings')),
       // Details grouped and coloured like MINDS's House Visit form.
       el('div', { class: 'grid gap-x-6 lg:grid-cols-2 [&>details:first-child]:mt-0 lg:[&>details:nth-child(2)]:mt-0' },

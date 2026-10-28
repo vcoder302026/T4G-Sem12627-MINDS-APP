@@ -28,7 +28,7 @@ export function renderOutings(root, app, ctx) {
     toast(res.message);
     location.hash = `#/outing/${res.outing.outingId}`;
   });
-  mount(root, pageHead('Outings', 'Plan outings, pair each trainee with a volunteer, and check everyone onto the bus.',
+  mount(root, pageHead('Outings', '',
     el('button', { class: 'btn btn-primary', onclick: create }, icon('plus', 'size-4'), 'New outing')), host);
   return load(host, ctx, () => call('listOutings'), (d) => {
     const upcoming = d.outings.filter((o) => o.date >= d.today && o.status !== 'cancelled');

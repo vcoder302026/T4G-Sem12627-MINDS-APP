@@ -52,10 +52,15 @@ function contactGroup_() {
 function contactBody_(u, group) {
   const notes = [
     u.telegram ? `Telegram: @${u.telegram}` : 'Telegram: not given',
+    u.project ? `Project: ${u.project}` : '',
+    u.emergencyPhone ? `Emergency contact: ${u.emergencyPhone}${u.emergencyRelation ? ` (${u.emergencyRelation})` : ''}` : '',
     `MINDS volunteer${u.role === 'admin' ? ' (admin)' : volunteerType_(u) === 'regular' ? ' (regular)' : ''}. Saved by the MINDS Volunteer app.`,
-  ].join('\n');
+  ].filter(Boolean).join('\n');
+  // "Wei Ling (Tan Wei Ling)": the short name volunteers go by, then the full name.
+  const short = String(u.shortName || '').trim();
+  const display = short && short.toLowerCase() !== String(u.name).toLowerCase() ? `${short} (${u.name})` : u.name;
   return {
-    names: [{ unstructuredName: u.name }],
+    names: [{ unstructuredName: display }],
     emailAddresses: u.email ? [{ value: u.email, type: 'home' }] : [],
     phoneNumbers: u.phone ? [{ value: u.phone, type: 'mobile' }] : [],
     biographies: [{ value: notes, contentType: 'TEXT_PLAIN' }],
@@ -119,7 +124,9 @@ function syncContactSafe_(userId) {
 
 /** Which volunteer a request should sync, if any (called after the request succeeds; Main.gs). */
 function contactSyncTarget_(action, payload, user, out) {
-  const touches = ['name', 'email', 'phone', 'telegram'].some((k) => payload[k] !== undefined);
+  const answers = payload.answers && typeof payload.answers === 'object' ? payload.answers : {};
+  const touches = ['name', 'email', 'phone', 'telegram'].some((k) => payload[k] !== undefined)
+    || ['shortName', 'project', 'emergencyPhone', 'emergencyRelation'].some((k) => answers[k] !== undefined);
   if (action === 'register') return out && out.user ? out.user.userId : '';
   if (action === 'createVolunteer') return out && out.person ? out.person.userId : '';
   if (action === 'updateProfile' && touches) return user.userId;
@@ -166,8 +173,13 @@ function testContactsAccess() {
 
 /** Run from the editor: saves every active volunteer not yet saved (or whose last try failed). */
 function syncAllContacts() {
-  if (!contactsOn_()) throw new Error('Set the script property CONTACTS_SYNC to "on" first.');
-  return withLock_(() => {
+  return withLock_(syncAllContactsInternal_);
+}
+
+/** The work of syncAllContacts(), for callers already holding the lock (Advanced Settings). */
+function syncAllContactsInternal_() {
+  if (!contactsOn_()) throw err_.conflict('Google Contacts sync is off. Set the script property CONTACTS_SYNC to "on" first.');
+  return (() => {
     let saved = 0;
     let failed = 0;
     table_('users').rows().forEach((u) => {
@@ -180,5 +192,5 @@ function syncAllContacts() {
     const text = `Google Contacts: saved ${saved} volunteer(s)${failed ? `, ${failed} failed (see the "Google Contact" column)` : ''}.`;
     console.log(text);
     return text;
-  });
+  })();
 }

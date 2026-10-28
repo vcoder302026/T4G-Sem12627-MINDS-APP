@@ -8,6 +8,7 @@ import { CONFIG } from './config.js';
 import { el, mount, sgPhone, toast } from './ui.js';
 import { icon } from '../admin/js/kit.js';
 import { installQuickView } from './quickview.js';
+import { installControls } from './controls.js';
 import { renderLogin, renderRegister } from './views/auth.js';
 import * as Ad from './views/admin.js';
 import * as C from './views/content.js';
@@ -210,8 +211,8 @@ const ADMIN_SECTIONS = [
   { key: 'pairings', label: 'Pairing', icon: 'sparkle', pages: [['pairings', 'Sessions to pair'], ['pairings/regular', 'Regular pairings'], ['pairings/history', 'History']], also: ['pair'] },
   { key: 'volunteers', label: 'Volunteers', icon: 'users', pages: [['volunteers', 'People'], ['attendance', 'Attendance'], ['hours', 'Hours']], also: ['volunteer'] },
   { key: 'trainees', label: 'Trainees', icon: 'heart', pages: [['trainees', 'Trainees'], ['review', 'Notes to review'], ['visibility', 'What volunteers see']], also: ['trainee'] },
-  { key: 'guide-edit', label: 'Settings', icon: 'pencil', pages: [['guide-edit', 'Guide & projects'], ['venues', 'Venues'], ['admin-password', 'Admin password']] },
-  { key: 'fundraising', label: 'More', icon: 'list', note: 'Placeholders', pages: [['fundraising', 'Fundraising'], ['outings', 'Outings'], ['trips', 'Overseas trips'], ['visits', 'House visits']], also: ['fundraiser', 'outing', 'trip'] },
+  { key: 'guide-edit', label: 'Settings', icon: 'pencil', pages: [['guide-edit', 'Guide & projects'], ['venues', 'Venues'], ['admin-password', 'Admin password'], ['sheets', 'Google Sheets'], ['advanced', 'Advanced settings']] },
+  { key: 'fundraising', label: 'More', icon: 'list', note: 'Placeholders', pages: [['fundraising', 'Fundraising'], ['outings', 'Outings'], ['trips', 'Overseas trips'], ['visits', 'House visits']], also: ['fundraiser', 'outing', 'trip', 'visit-new'] },
 ];
 const sectionRoutes = (sec) => [sec.key, ...(sec.pages || []).map(([r]) => r.split('/')[0]), ...(sec.also || [])];
 const sectionOf = (name) => ADMIN_SECTIONS.find((sec) => sectionRoutes(sec).includes(name)) || null;
@@ -250,6 +251,8 @@ const ROUTES = {
   'guide-edit': { fn: C.renderGuideEdit, admin: true, narrow: true },
   venues: { fn: C.renderVenues, admin: true, narrow: true },
   'admin-password': { fn: Ad.renderAdminPassword, admin: true, narrow: true },
+  advanced: { fn: Ad.renderAdvanced, admin: true, narrow: true },
+  sheets: { fn: Ad.renderSheets, admin: true, narrow: true },
   fundraising: { fn: DF.renderFundraisers, admin: true },
   fundraiser: { fn: DF.renderFundraiser, admin: true },
   outings: { fn: DO.renderOutings, admin: true },
@@ -257,6 +260,7 @@ const ROUTES = {
   trips: { fn: DT.renderTrips, admin: true },
   trip: { fn: DT.renderTrip, admin: true },
   visits: { fn: DV.renderVisits, admin: true },
+  'visit-new': { fn: DV.renderVisitForm, admin: true, title: 'New visit' },
 };
 
 function toggleTheme() {
@@ -291,8 +295,32 @@ let currentRoute = '';
 let currentFull = '';
 
 function headerButton(label, iconName, onClick, extra = '') {
-  return el('button', { type: 'button', class: `icon-btn ${extra}`, title: label, 'aria-label': label, onclick: onClick }, icon(iconName));
+  return el('button', { type: 'button', class: `nav-sq ${extra}`, title: label, 'aria-label': label, onclick: onClick }, icon(iconName, 'size-4'));
 }
+
+/* ---------------- header: ← back and the page title ---------------- */
+
+const navContext = document.getElementById('nav-context');
+const navTitle = document.getElementById('nav-title');
+const navBack = document.getElementById('nav-back');
+const brandLink = document.querySelector('.brand-link');
+mount(navBack, icon('back', 'size-4'));
+navBack.addEventListener('click', () => {
+  // The page's own "back" link knows where up is; otherwise go back, or Home.
+  const link = view.querySelector('a.back-link');
+  if (link) location.hash = link.getAttribute('href');
+  else if (history.length > 1) history.back();
+  else go('#/home');
+});
+
+/** The page's title goes in the header (and its own big title is hidden, so it isn't shown twice). */
+function syncHeaderTitle(fallback) {
+  const h1 = view.querySelector('h1.page-title');
+  if (h1) h1.classList.add('title-in-header');
+  navTitle.textContent = h1 ? h1.textContent.trim() : fallback;
+}
+new MutationObserver(() => { if (!navContext.hidden) syncHeaderTitle(navTitle.dataset.fallback || ''); })
+  .observe(view, { childList: true, subtree: true });
 
 const isActive = (item, name) => item.key === name || (item.also || []).includes(name);
 
@@ -320,9 +348,20 @@ function renderChrome(name, full = name) {
   brandSub.textContent = !signedIn ? 'Volunteer portal'
     : [admin ? 'Admin' : null, isRegular(u) ? 'Regular' : 'Volunteer'].filter(Boolean).join(' · ');
 
+  // Signed in: ← back and the page title instead of the app name.
+  navContext.hidden = !signedIn;
+  brandLink.hidden = signedIn;
+  navBack.hidden = name === 'home';
+  const fallback = (ROUTES[name] && ROUTES[name].title) || (sectionOf(name) || {}).label
+    || (VOLUNTEER_ITEMS.find((t) => t.key === name || (t.also || []).includes(name)) || {}).label || 'MINDS Volunteers';
+  navTitle.dataset.fallback = fallback;
+  if (signedIn) syncHeaderTitle(fallback);
+
   mount(headerActions,
     headerButton('Update app', 'refresh', (e) => updateApp(e.currentTarget)),
-    el('button', { type: 'button', class: 'icon-btn text-xl', title: 'Toggle dark mode', 'aria-label': 'Toggle dark mode', onclick: toggleTheme }, '🌗'),
+    el('button', { type: 'button', class: 'nav-sq', title: 'Toggle dark mode', 'aria-label': 'Toggle dark mode', onclick: toggleTheme }, '🌗'),
+    // Home, as in MINDS's standard header (refresh · theme · home), then sign out at the far right.
+    signedIn ? headerButton('Home', 'home', () => go('#/home')) : null,
     signedIn ? headerButton('Sign out', 'logout', () => app.signOut(), 'text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300') : null);
 
   tabs.hidden = !signedIn;
@@ -473,6 +512,7 @@ if ('serviceWorker' in navigator && location.protocol === 'https:') {
 
 setOffline(navigator.onLine === false);
 installQuickView(app);
+installControls(); // wheel date picker and password eye, as in MINDS's other apps
 // Phone boxes tidy themselves to "+65 91234567" when you leave them; emails to lowercase.
 document.addEventListener('focusout', (e) => {
   const t = e.target;

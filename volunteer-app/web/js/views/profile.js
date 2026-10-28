@@ -5,7 +5,7 @@ import { call } from '../api.js';
 import {
   backLink, badge, busy, el, errorBlock, field, fmtDay, fmtHours, formData, icon, initials, isEmail, loading, mount, PHONE_HINT, section, sgPhone, toast, todaySG,
 } from '../ui.js';
-import { answerText, questionSections, readAnswers } from './questions.js';
+import { answerText, questionSections, readAnswers, wireConditions } from './questions.js';
 
 const FIELDS = ['name', 'birthday', 'email', 'phone', 'telegram']; // no emergency contact: MINDS only needs Telegram
 
@@ -25,16 +25,16 @@ function detailsForm(person, { self, submit, extra, questions }) {
   const passwordBox = self ? el('div', { hidden: true },
     field('currentPassword', 'Current password', {
       type: 'password', autocomplete: 'current-password',
-      hint: 'Needed because you sign in with your email. Your password stays the same.',
+      hint: 'Needed to change your email.',
     })) : null;
   const form = el('form', { novalidate: true, class: 'space-y-6' },
     error,
     section(self ? 'About you' : 'Details', 'blue',
-      field('name', 'Full name', { autocomplete: self ? 'name' : 'off', value: person.name }),
-      field('birthday', 'Birthday', { type: 'date', max: todaySG(), value: person.birthday }),
+      field('name', 'Full Name', { autocomplete: self ? 'name' : 'off', value: person.name }),
+      field('birthday', 'D.O.B', { type: 'date', max: todaySG(), value: person.birthday }),
       field('email', 'Email', {
         type: 'email', inputmode: 'email', autocomplete: self ? 'email' : 'off', value: person.email,
-        hint: self ? 'You sign in with this email.' : 'They sign in with this email. Let them know if you change it.',
+        hint: self ? 'You sign in with this email.' : 'They sign in with this.',
       }),
       passwordBox,
       field('phone', 'Phone', { type: 'tel', inputmode: 'tel', value: person.phone, placeholder: '+65 91234567', hint: PHONE_HINT }),
@@ -97,6 +97,7 @@ export function renderEditMe(root, app, ctx) {
     const bar = el('div', { class: 'action-bar' }, el('div', { class: 'mx-auto flex max-w-2xl gap-3' },
       el('a', { href: '#/me', class: 'btn btn-secondary' }, 'Cancel'), save));
     const { form, changes, showError } = detailsForm(person, { self: true, submit: bar, questions });
+    if (questions) wireConditions(form, questions.fields); // e.g. the RSPID-only questions
     form.addEventListener('submit', (e) => {
       e.preventDefault();
       showError('');
@@ -125,7 +126,6 @@ export function renderEditMe(root, app, ctx) {
     mount(root,
       backLink('#/me', 'Me'),
       el('h1', { class: 'page-title' }, 'Edit my details'),
-      el('p', { class: 'mb-6 mt-1 muted' }, 'Keep these up to date so admins can reach you on the day.'),
       form,
       el('div', { class: 'h-24' }));
   };

@@ -38,6 +38,26 @@ function spreadsheet_() {
   return DB_.books.main;
 }
 
+/** The house visit database: VISITS_SPREADSHEET_ID, or the volunteer sheet when not set. */
+function visitsSpreadsheet_() {
+  if (!DB_.books.visits) {
+    const ref = parseSheetRef_(PropertiesService.getScriptProperties().getProperty(CONFIG.PROP_VISITS_SPREADSHEET_ID));
+    DB_.books.visits = ref ? SpreadsheetApp.openById(ref.id) : spreadsheet_();
+  }
+  return DB_.books.visits;
+}
+
+/** The spreadsheet an app table lives in (Config.gs → TABLES.<key>.book). */
+function bookFor_(def) {
+  return def.book === 'visits' ? visitsSpreadsheet_() : spreadsheet_();
+}
+
+/** After linking a different sheet: open everything again. */
+function resetBooks_() {
+  DB_.books = {};
+  DB_.cache = {};
+}
+
 function traineeSheetRef_() {
   return parseSheetRef_(PropertiesService.getScriptProperties().getProperty(CONFIG.PROP_TRAINEE_SPREADSHEET_ID));
 }
@@ -81,7 +101,7 @@ function primaryHeader_(value) {
 /** Table for an app-owned tab: table_('users'), table_('bookings'), … */
 function table_(key) {
   const def = CONFIG.TABLES[key];
-  return new Table(spreadsheet_(), def.tab, def.columns, def.numeric || [], `app:${key}`);
+  return new Table(bookFor_(def), def.tab, def.columns, def.numeric || [], `app:${key}`);
 }
 
 /** Table over the existing trainee tab (see Config.gs → TRAINEES). */

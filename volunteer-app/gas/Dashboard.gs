@@ -326,7 +326,7 @@ function createVolunteer_(p, admin) {
     person: personOut_(user, createLogin),
     tempPassword,
     message: createLogin
-      ? `${user.name} added. Give them their temporary password; they can change it under Me.`
+      ? `${user.name} added.`
       : `${user.name} added. They can register in the app with ${user.email} to get a login.`,
   };
 }

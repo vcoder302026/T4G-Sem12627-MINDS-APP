@@ -40,8 +40,9 @@ function setupInternal_(dryRun) {
   Object.keys(CONFIG.TABLES).forEach((key) => {
     const def = CONFIG.TABLES[key];
     const headers = Object.keys(def.columns).map((k) => def.columns[k]);
-    report.push(describeTab_(ss, def.tab, headers, dryRun, { hidden: def.hidden }));
+    report.push(describeTab_(bookFor_(def), def.tab, headers, dryRun, { hidden: def.hidden }));
   });
+  if (visitsSpreadsheet_().getId() !== ss.getId()) report.push(`House visit sheet: "${visitsSpreadsheet_().getName()}"`);
 
   const t = CONFIG.TRAINEES;
   const tss = traineeSpreadsheet_();

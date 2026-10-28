@@ -28,7 +28,7 @@
   <aside id="sidebar" class="app-sidebar" aria-label="Menu"></aside>
 
   <div class="app-shell">
-    <div class="sticky top-0 z-30 shadow-sm">
+    <div class="sticky top-0 z-30 shadow-sm safe-top">
       <div id="env-bar" class="w-full py-0.5 text-center text-xs font-bold uppercase tracking-widest text-white" hidden></div>
       <div id="offline-bar" class="w-full bg-slate-900 px-4 py-1 text-center text-xs font-bold text-white dark:bg-neutral-800" role="status" hidden>
         You're offline. Showing what was saved on this phone.
@@ -42,13 +42,21 @@
               <span id="brand-sub" class="block truncate text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-neutral-400">Welcome</span>
             </span>
           </a>
-          <div id="header-actions" class="flex shrink-0 items-center gap-0.5"></div>
+          <!-- Signed in: ← back and the page title (as the Comm Dashboard / Overseas Trip Planner headers). -->
+          <div id="nav-context" class="flex min-w-0 flex-1 items-center gap-2" hidden>
+            <button id="nav-back" type="button" class="nav-sq" aria-label="Back" title="Back"></button>
+            <h1 id="nav-title" class="truncate text-base font-extrabold text-slate-900 sm:text-lg dark:text-white"></h1>
+          </div>
+          <div id="header-actions" class="flex shrink-0 items-center gap-1.5 border-l border-slate-200 pl-2 dark:border-neutral-800"></div>
         </div>
         <nav id="tabs" class="app-tabs px-4 pb-3" aria-label="Main" hidden>
           <div id="tabs-list" class="seg"></div>
         </nav>
-        <nav id="subnav" class="app-subnav" aria-label="Admin pages" hidden></nav>
       </header>
+    </div>
+    <!-- Admin sections: below the sticky header, so they scroll away and leave room on small phones. -->
+    <div id="subnav-wrap" class="border-b border-slate-200 bg-white pt-3 dark:border-neutral-900 dark:bg-neutral-950">
+      <nav id="subnav" class="app-subnav" aria-label="Admin pages" hidden></nav>
     </div>
 
     <nav id="pagetabs" class="app-main page-tabs" aria-label="Pages in this section" hidden></nav>

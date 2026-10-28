@@ -28,16 +28,10 @@ Sources: the October meeting minutes with MINDS, `VERSION-2.md` §2 and §5, and
   setups), or set it in the app under Admin → Trainees → What volunteers see.
 
 ### 1.2 Registration fields
-- [ ] Get MINDS's volunteer registration Google Form (it's in the shared Drive)
-- [x] Sign-up form asks the form's extra questions, defined as data in `REGISTRATION` (`gas/Config.gs`)
-  (STEVEN-UPDATE.md). **The list is a best guess**: the Google Form itself isn't in this repo
-- [ ] Check every question, option and "required" flag against the real Google Form, then edit
-  `REGISTRATION.fields`, run `setup()` (adds the columns) and publish a new version
-- [x] Emergency contact removed from sign-up, Me and Edit my details (old details stay in the sheet and on the admin page)
-- [ ] Should Telegram be required at sign-up, now that it's the main way to reach volunteers? (It's optional today)
-- **Where:** `gas/Auth.gs` (`register_`), `gas/Profile.gs` (`PROFILE_FIELDS`, `profilePatch_`),
-  `gas/Config.gs` (`TABLES.users`), `web/js/views/auth.js`, `web/js/views/profile.js`, and
-  the volunteer edit form in `web/admin/js/views/people.js`.
+- [x] Sign-up follows MINDS's "Consolidated Volunteer Records" Google Form, question for question
+  (VERSION-3.md); emergency contact (relationship and number) is back, as the form requires it
+- [ ] MINDS to confirm Telegram stays as an extra question (it isn't in their Google Form)
+- [ ] Add NRIC (last 4), address and emergency contact to the personal data notice wording (PDPA)
 
 ### 1.3 Sessions and outings
 - [x] Adding a session is just picking dates: "Regular session", 2:30–5:30 pm, Woodlands are
@@ -74,7 +68,7 @@ Sources: the October meeting minutes with MINDS, `VERSION-2.md` §2 and §5, and
   `MINDS Volunteers (Exp)`, run `testContactsAccess()`, publish a new version (README → Google Contacts sync)
 - [ ] MINDS to confirm the production Google account, and add a sentence about saving contacts
   to the registration consent notice (PDPA)
-- [ ] Decide what happens to a contact when a volunteer is deactivated (today: nothing)
+- [ ] Decide what happens to a Google contact when a volunteer is deactivated (today: kept; their upcoming sessions are cancelled)
 
 ### 2.3 Attendance for special events and committee roles
 - [ ] A page to record who helped at a special event or held a committee role, and their hours
@@ -93,7 +87,7 @@ Sources: the October meeting minutes with MINDS, `VERSION-2.md` §2 and §5, and
   from `gas/Setup.gs`.
 
 ### 2.7 Test-round tools
-- [ ] `snapshot()`: copy the Exp sheet before a test round (planned in README Part 3, Stage 9)
+- [x] Copy the volunteer database before a test round: Admin → Settings → Google Sheets → Create New Sheet
 - [ ] `MAINTENANCE_MODE`: a switch that pauses sign-ups and scanning while fixing a problem
 
 ---
@@ -153,3 +147,12 @@ Sources: the October meeting minutes with MINDS, `VERSION-2.md` §2 and §5, and
 - **Separate admin login:** the minutes suggested a separate admin profile; later guidance was
   admin access on a volunteer's own account, protected by a shared admin password to make or remove an admin, and an
   activity log. Revisit only if MINDS asks.
+
+## 6. From MINDS's web app template (not built yet)
+
+- [ ] One-click code backup to a Google Doc (Admin → Settings), as the template describes
+- [ ] CacheService write-through caching and stale-payload rejection, if many admins use the
+  pairing board at the same time
+- [ ] Decide with MINDS whether the single-page layout is acceptable, or whether they want the
+  template's one-page-per-area structure (large change)
+

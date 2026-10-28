@@ -4,6 +4,16 @@ This explains the two changes asked for, why they're built as a new
 `volunteer-app/` folder rather than as edits to the Node prototype in the
 repository root, and what to do if you must keep the Node app instead.
 
+## Consistent with MINDS's other apps (standing rule)
+
+The app keeps the design and functions of MINDS's existing apps: Trainee House Visit, CSL
+Attendance and the Overseas Trip Planner. The full list of shared patterns, and where each
+lives in this code, is in the repository's `AGENTS.md` ("Volunteer app: stay consistent with
+MINDS's other apps"). Shared controls are applied app-wide so new screens get them for free:
+`web/js/controls.js` turns every date box into the House Visit wheel picker and adds a show /
+hide eye to any password box; `ui.js` `searchBox` has the Overseas clear (✕) button; the pairing
+board shows the Overseas "Saved / Saving…" state.
+
 ## Version 2 (October 2026): what changed in the design
 
 Version 2 follows the October stakeholder meeting with MINDS. Sections further down

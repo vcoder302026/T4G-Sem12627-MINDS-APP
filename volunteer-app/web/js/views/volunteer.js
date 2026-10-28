@@ -5,8 +5,7 @@
 import { call, isNetworkError } from '../api.js';
 import { drawQr } from '../qr.js';
 import {
-  backLink, badge, busy, clockTime, el, errorBlock, field, fmtDay, fmtHours, fmtTimes, formData, fuzzyFilter, icon,
-  initials, likert, loading, mapsLink, mount, projectBadges, searchBox, section, statusBadge, toast, todaySG, typeBadges,
+  backLink, badge, busy, clockTime, el, errorBlock, field, fmtDay, fmtHours, fmtTimes, formData, fuzzyFilter, icon, initials, likert, loading, majorActionPrompt, mapsLink, mount, projectBadges, searchBox, section, statusBadge, toast, todaySG, typeBadges,
 } from '../ui.js';
 import { traineeLine } from './trainees.js';
 import { traineeName } from '../quickview.js';
@@ -80,8 +79,8 @@ function attendanceBox(a) {
 function cancelButton(app, booking, redraw) {
   if (!booking.canCancel) return null;
   const btn = el('button', { class: 'text-sm font-bold text-red-600 hover:underline dark:text-red-400' }, "Can't make it");
-  btn.addEventListener('click', () => {
-    if (!confirm(`Take yourself off ${booking.session.title}?`)) return;
+  btn.addEventListener('click', async () => {
+    if (!(await majorActionPrompt({ action: `taking yourself off ${booking.session.title}` }))) return;
     busy(btn, 'Saving…', async () => {
       const res = await call('cancelBooking', { bookingId: booking.bookingId });
       app.saveHome(res.home);
@@ -103,7 +102,7 @@ export function renderHome(root, app, ctx) {
     const admin = app.cachedAdminHome();
     mount(root,
       el('div', { class: 'flex flex-wrap items-center gap-2' },
-        el('h1', { class: 'page-title' }, `Welcome, ${firstName(h.user.name)}!`),
+        el('h1', { class: 'page-title' }, `Welcome, ${h.user.shortName || firstName(h.user.name)}!`),
         el('span', { class: 'flex gap-1' }, typeBadges(h.user))),
       el('p', { class: 'mt-1 text-sm muted' }, h.totals.sessions
         ? `You've volunteered ${fmtHours(h.totals.hours)} over ${h.totals.sessions} session${h.totals.sessions === 1 ? '' : 's'}.`
@@ -300,7 +299,7 @@ export function renderSessions(root, app, ctx) {
   };
   mount(root,
     el('h1', { class: 'page-title' }, 'Upcoming sessions'),
-    el('p', { class: 'mb-4 mt-1 text-sm muted' }, "Tick every session you can come to, then tap I'm coming. No need to wait for anyone to confirm."),
+    el('p', { class: 'mb-4 mt-1 text-sm muted' }, "Tick the sessions you can come to."),
     searchBox('Search by activity, venue, project or day', (q) => { query = q; drawList(); }),
     host, bar);
   ctx.onLeave(() => bar.remove());
@@ -401,7 +400,7 @@ export function renderFeedback(root, app, ctx, bookingId) {
         field(`obs-${t.id}`, `Notes for future volunteers working with ${t.name}`, {
           type: 'textarea', optional: true, rows: 4, maxlength: 5000,
           placeholder: 'e.g. Calmer with a 5-minute warning before changing activity. Loved the colouring sheets.',
-          hint: `What helped, what to avoid, new skills or changes you noticed. An admin reads it first and decides who can read it (e.g. all future volunteers, or only regulars).`,
+          hint: 'An admin reads it first.',
         }))),
       el('div', { class: 'action-bar' }, el('div', { class: 'mx-auto flex max-w-2xl gap-3' },
         el('a', { href: '#/home', class: 'btn btn-secondary' }, 'Not now'), submit)));

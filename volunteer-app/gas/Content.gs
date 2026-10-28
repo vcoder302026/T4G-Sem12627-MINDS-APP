@@ -32,13 +32,13 @@ const DEFAULT_GUIDE = [
 // The projects at MINDS Woodlands Gardens School. Descriptions are a starting point for admins to edit.
 const DEFAULT_PROJECTS = [
   {
-    name: 'West End (WE)',
+    name: 'West End',
     description: 'Volunteer with trainees at the West End project: activities, games and life-skills practice.',
     schedule: 'Regular sessions, 2:30 pm to 5:30 pm',
     venue: 'MINDS Woodlands Gardens School',
   },
   {
-    name: 'Regular Service Project for the Intellectually Disabled (RSPID)',
+    name: 'RSPID (WGS)',
     description: 'Regular sessions with trainees: building friendships, confidence and everyday skills.',
     schedule: 'Regular sessions, 2:30 pm to 5:30 pm',
     venue: 'MINDS Woodlands Gardens School',
@@ -347,7 +347,7 @@ function addGuideFile_(p, admin) {
     guide.insert(Object.assign({ sectionId: newId_('G'), order, title: '', body: '' }, stamp));
   }
   return Object.assign(contentForLeaders_(), {
-    message: `${kind === 'pdf' ? 'PDF' : 'Image'} ${existing ? 'replaced' : 'added to the guide'}. Volunteers see it straight away.${warning}`,
+    message: `${kind === 'pdf' ? 'PDF' : 'Image'} ${existing ? 'replaced' : 'added to the guide'}.${warning}`,
   });
 }
 
@@ -426,6 +426,8 @@ function contentForLeaders_() {
 function seedContent_() {
   const added = [];
   resetDbCache_();
+  const renamed = renameProjects_();
+  if (renamed) added.push(renamed);
   if (!venueRows_().length) {
     CONFIG.DEFAULT_VENUES.forEach((name) => table_('venues').insert({
       venueId: newId_('V'), name, address: '', notes: '', status: 'active', createdBy: 'setup', createdAt: fmtDateTime_(now_()),
@@ -457,4 +459,35 @@ function seedContent_() {
   });
   if (missing.length) added.push(`Added project(s): ${missing.join(', ')}`);
   return added;
+}
+
+/**
+ * Renames projects to the names in the registration form (Config.gs →
+ * PROJECT_RENAMES), on the Projects tab and in every session that lists them.
+ * Safe to run again: does nothing once done. Returns a line for the setup report, or ''.
+ */
+function renameProjects_() {
+  const renames = CONFIG.PROJECT_RENAMES || {};
+  const projects = table_('projects');
+  const done = [];
+  Object.keys(renames).forEach((from) => {
+    const to = renames[from];
+    const old = projects.rows().find((x) => x.name === from);
+    if (!old) return;
+    if (projects.rows().some((x) => x.name === to)) projects.update(old, { status: 'archived' }); // both exist: keep the new one
+    else projects.update(old, { name: to, updatedBy: 'setup', updatedAt: fmtDateTime_(now_()) });
+    done.push(`"${from}" → "${to}"`);
+  });
+  if (!done.length) return '';
+  const sessions = table_('sessions');
+  let changed = 0;
+  sessions.rows().forEach((s) => {
+    const list = parseProjects_(s.project);
+    const next = list.map((n) => renames[n] || n).filter((n, i, all) => all.indexOf(n) === i);
+    if (next.join(', ') !== list.join(', ')) {
+      sessions.update(s, { project: next.join(', ') });
+      changed += 1;
+    }
+  });
+  return `Renamed project(s) ${done.join(', ')}${changed ? `, and updated ${changed} session(s)` : ''}`;
 }

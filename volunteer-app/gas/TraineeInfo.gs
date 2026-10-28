@@ -18,6 +18,16 @@ const AUDIENCES = ['volunteer', 'regular'];
 
 /* ---------------- sections ---------------- */
 
+/** Section titles in the House Visit Form's order (Config.gs → HOUSE_VISIT.sectionOrder); others after, "Other details" last. */
+function formSectionOrder_(titles) {
+  const want = HOUSE_VISIT.sectionOrder.map(normHeader_);
+  const rank = (t) => {
+    const i = want.indexOf(normHeader_(t));
+    return i >= 0 ? i : t === 'Other details' ? 999 : 500;
+  };
+  return titles.map((t, i) => ({ t, i })).sort((a, b) => rank(a.t) - rank(b.t) || a.i - b.i).map((x) => x.t);
+}
+
 function sectionMap_() {
   const tabName = CONFIG.TRAINEES.sectionMapTab;
   const out = {};
@@ -59,7 +69,7 @@ function traineeSections_() {
     if (hiddenSections.indexOf(normHeader_(title)) >= 0) return;
     (groups[title] = groups[title] || []).push(h);
   });
-  const order = map.order.filter((t) => groups[t]).concat(Object.keys(groups).filter((t) => map.order.indexOf(t) === -1));
+  const order = formSectionOrder_(map.order.filter((t) => groups[t]).concat(Object.keys(groups).filter((t) => map.order.indexOf(t) === -1)));
   const sections = order.map((title) => ({ title, headers: groups[title] }));
   DB_.cache.traineeSections = sections;
   return sections;
@@ -154,12 +164,25 @@ function notesShown_(traineeId, audience) {
 /* ---------------- building the views ---------------- */
 
 /** A trainee's details, grouped. `allowed` = list of field keys, or null for everything. */
+/**
+ * A sheet value as people read it: dates and form timestamps ("2025-12-29",
+ * "2025-12-29 20:26:09") become "29 Dec 2025"; everything else is unchanged.
+ */
+function displayValue_(value) {
+  const s = String(value === null || value === undefined ? '' : value).trim();
+  const m = /^(\d{4})-(\d{2})-(\d{2})(?:[ T]\d{1,2}:\d{2}(?::\d{2})?)?$/.exec(s);
+  if (!m) return s;
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const mon = months[Number(m[2]) - 1];
+  return mon ? `${Number(m[3])} ${mon} ${m[1]}` : s;
+}
+
 function traineeSectionsView_(row, allowed) {
   const table = traineeTable_();
   const ok = allowed ? allowed.reduce((m, k) => { m[k] = true; return m; }, {}) : null;
   return traineeSections_().map((s) => ({
     title: s.title,
-    fields: s.headers.filter((h) => !ok || ok[h.norm]).map((h) => ({ key: h.norm, label: h.header, value: table.rawValue(row, h.index) }))
+    fields: s.headers.filter((h) => !ok || ok[h.norm]).map((h) => ({ key: h.norm, label: h.header, value: displayValue_(table.rawValue(row, h.index)) }))
       .filter((f) => f.value !== ''),
   })).filter((s) => s.fields.length);
 }
