@@ -5,7 +5,7 @@
 
 import { call } from '../api.js';
 import {
-  backLink, badge, busy, el, errorBlock, field, fmtDay, fmtTimes, fuzzyFilter, hvSections, icon, loading, mount, multiPick, searchBox, toast, traineeAvatar,
+  backLink, badge, busy, el, errorBlock, field, fmtDay, fmtTimes, fuzzyFilter, hvSections, icon, loading, modal, mount, multiPick, searchBox, toast, traineeAvatar,
 } from '../ui.js';
 import { asTrainee, personName, traineeName } from '../quickview.js';
 
@@ -27,9 +27,43 @@ const AUDIENCE_BADGE = {
 /** A badge saying who can read a note (for admins). */
 export function audienceBadge(n) {
   const [text, tone] = AUDIENCE_BADGE[n.audience] || AUDIENCE_BADGE.all;
-  const b = badge(n.audience === 'selected' && n.sharedWith && n.sharedWith.length ? `Shared with ${n.sharedWith.map((x) => x.name).join(', ')}` : text, tone, n.audience === 'private' ? 'eyeOff' : 'eye');
+  const who = n.audience === 'selected' ? (n.sharedWith || []) : [];
+  const b = badge(n.audience === 'selected' ? 'Shared with selected volunteers' : text, tone, n.audience === 'private' ? 'eyeOff' : 'eye');
   b.classList.add('whitespace-normal');
+  if (who.length) {
+    // Press and hold (or right-click, or Enter) to see who was picked.
+    const names = who.map((x) => x.name).join(', ');
+    b.title = `Shared with ${names}`;
+    b.setAttribute('role', 'button');
+    b.setAttribute('tabindex', '0');
+    b.setAttribute('aria-label', `Shared with selected volunteers: ${names}. Press and hold to see them.`);
+    b.classList.add('hold-badge');
+    onHold(b, () => sharedWithCard(who));
+  }
   return b;
+}
+
+/** Calls open() on press and hold (half a second), right-click, or Enter / Space. */
+function onHold(target, open) {
+  let timer = null;
+  let start = null;
+  const cancel = () => { clearTimeout(timer); timer = null; };
+  target.addEventListener('pointerdown', (e) => {
+    if (e.button > 0) return;
+    start = { x: e.clientX, y: e.clientY };
+    cancel();
+    timer = setTimeout(() => { timer = null; if (navigator.vibrate) navigator.vibrate(20); open(); }, 500);
+  });
+  target.addEventListener('pointermove', (e) => { if (timer && start && Math.hypot(e.clientX - start.x, e.clientY - start.y) > 10) cancel(); });
+  ['pointerup', 'pointercancel', 'pointerleave'].forEach((t) => target.addEventListener(t, cancel));
+  target.addEventListener('contextmenu', (e) => { e.preventDefault(); cancel(); open(); });
+  target.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
+}
+
+/** Who a "selected volunteers" note is shared with. */
+function sharedWithCard(who) {
+  modal('Shared with', el('ul', { class: 'divide-y divide-slate-100 dark:divide-neutral-800' },
+    who.map((x) => el('li', { class: 'py-2.5 text-sm font-bold' }, personName(x.name, x.userId)))));
 }
 
 /**

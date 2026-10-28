@@ -237,7 +237,7 @@ export function renderAdminPassword(root) {
   const form = el('form', { class: 'card space-y-4 p-4', novalidate: true },
     field('currentPassword', 'Current admin password', 'off'),
     field('newPassword', 'New admin password', 'new-password'),
-    field('confirmPassword', 'New admin password again', 'new-password'),
+    field('confirmPassword', 'Re-enter password', 'new-password'),
     el('p', { class: 'hint' }, 'At least 8 characters.'),
     submit);
   form.addEventListener('submit', (e) => {

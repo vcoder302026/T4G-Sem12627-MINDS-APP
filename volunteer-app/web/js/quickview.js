@@ -9,7 +9,9 @@
 //   asTrainee(node, id)         same, for a trainee
 
 import { call } from './api.js';
-import { badge, el, errorBlock, hvLabel, icon, loading, modal, mount, traineeAvatar, typeBadges } from './ui.js';
+import {
+  badge, el, errorBlock, hvLabel, icon, likertView, loading, modal, mount, traineeAvatar, typeBadges,
+} from './ui.js';
 
 export function asPerson(node, userId) {
   if (userId) node.dataset.person = userId;
@@ -75,18 +77,19 @@ function traineeCard(traineeId, isAdmin) {
   const m = modal('Trainee', body);
   cached(`t:${traineeId}`, () => call('traineeInfo', { traineeId })).then((d) => {
     const t = d.trainee;
-    m.el.querySelector('h2').textContent = t.name;
+    m.el.querySelector('h2').textContent = t.name; // the full name
     mount(body, el('div', { class: 'space-y-3' },
       el('div', { class: 'flex items-center gap-3' },
         traineeAvatar(t, 'lg'),
-        el('div', { class: 'min-w-0 text-sm' },
-          t.preferredName && t.preferredName !== t.name ? el('p', {}, `Goes by ${t.preferredName}`) : null,
-          t.gender ? el('p', { class: 'muted' }, t.gender) : null,
-          d.regulars && d.regulars.length ? el('p', { class: 'muted' }, `Regular: ${d.regulars.join(', ')}`) : null)),
+        // Full name is the title; beside the photo, the short name and gender.
+        el('dl', { class: 'qv-facts min-w-0 text-sm' },
+          el('dt', {}, 'Short name'), el('dd', {}, t.preferredName || '—'),
+          el('dt', {}, 'Gender'), el('dd', {}, t.gender || '—'),
+          d.regulars && d.regulars.length ? [el('dt', {}, 'Regular'), el('dd', {}, d.regulars.join(', '))] : null)),
       // Labels shortened the way the House Visit form shows them (the question, then its guide).
       d.summary && d.summary.length ? el('dl', { class: 'space-y-2 text-sm' }, d.summary.map((f) => el('div', {},
         el('dt', { class: 'font-bold text-slate-700 dark:text-neutral-200' }, hvLabel(f.label).label),
-        el('dd', { class: 'whitespace-pre-line text-slate-600 dark:text-neutral-400' }, f.value)))) : null,
+        el('dd', { class: 'whitespace-pre-line text-slate-600 dark:text-neutral-400' }, likertView(f) || f.value)))) : null,
       d.notes && d.notes.length ? el('div', { class: 'well p-3 text-sm' },
         el('p', { class: 'text-xs font-bold uppercase tracking-wider muted' }, `Latest note${d.notes.length > 1 ? ` (of ${d.notes.length})` : ''}`),
         el('p', { class: 'mt-1 whitespace-pre-line' }, d.notes[0].note),

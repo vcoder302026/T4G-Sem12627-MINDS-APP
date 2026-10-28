@@ -74,17 +74,17 @@ function drawRegister(root, app, questions) {
     error,
     section('Your account', 'blue',
       field('name', 'Full Name', { autocomplete: 'name', hint: 'As in your NRIC.' }),
-      field('birthday', 'D.O.B', { type: 'date', max: todaySG(), autocomplete: 'bday' }),
-      field('email', 'Email [to receive newsletters]', {
+      field('birthday', 'Date of Birth', { type: 'date', max: todaySG(), autocomplete: 'bday' }),
+      field('email', 'Sign-in email', {
         type: 'email', autocomplete: 'email', inputmode: 'email',
-        hint: 'You sign in with this. Not your school email.',
+        hint: 'Sign in with this email.',
       }),
       field('phone', 'Contact No', { type: 'tel', autocomplete: 'tel', inputmode: 'tel', placeholder: '+65 91234567', hint: PHONE_HINT }),
       field('telegram', 'Telegram handle', { optional: true, autocapitalize: 'none', placeholder: '@yourhandle' })),
     questionSections(questions),
     section('Password and consent', 'indigo',
       field('password', 'Password', { type: 'password', autocomplete: 'new-password', hint: 'At least 8 characters.' }),
-      field('password2', 'Type it again', { type: 'password', autocomplete: 'new-password' }),
+      field('password2', 'Re-enter password', { type: 'password', autocomplete: 'new-password' }),
       el('label', { class: 'flex items-start gap-3 text-sm' }, consent,
         el('span', {}, 'I agree that MINDS may collect and use these details to arrange volunteering, record my hours, and contact me if needed, in line with the Personal Data Protection Act.'))),
     el('div', { class: 'action-bar' }, el('div', { class: 'mx-auto max-w-2xl' }, submit)));

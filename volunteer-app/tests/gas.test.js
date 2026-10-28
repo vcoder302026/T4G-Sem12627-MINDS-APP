@@ -97,7 +97,7 @@ describe('linking to an existing sheet', () => {
     rt.run('setup');
     assert.deepEqual(rt.records(SHEET, 'Venues').map((v) => v.Venue), [SCHOOL]);
     assert.equal(rt.records(SHEET, 'Volunteer Guide').length, 5);
-    assert.deepEqual(rt.records(SHEET, 'Projects').map((p) => p.Project), ['West End', 'RSPID (WGS)']);
+    assert.deepEqual(rt.records(SHEET, 'Projects').map((p) => p.Project), ['RSPID (CTDC)', 'RSPID (WGS)', 'West End']);
     const before = JSON.stringify(rt.tab(SHEET, 'Trainees').dump());
     assert.match(rt.run('checkConfig'), /"Trainees" is ready/);
     assert.equal(JSON.stringify(rt.tab(SHEET, 'Trainees').dump()), before);
@@ -118,7 +118,7 @@ describe('linking to an existing sheet', () => {
   });
 
   test('a volunteer already on the list is linked, not duplicated, and never inherits leader access', () => {
-    rt.fillTab(SHEET, 'Volunteers', [[], [], [], ['', 'Old Timer', '', 'old@example.com', '', '', '', '', '', 'admin']]);
+    rt.tab(SHEET, 'Volunteers').getRange(4, 1, 1, 10).setValues([['', 'Old Timer', '', 'old@example.com', '', '', '', '', '', 'admin']]); // a row added by hand
     const res = ok(rt.call('register', volunteerPayload({ name: 'Old Timer', email: 'old@example.com' })));
     const matches = rt.records(SHEET, 'Volunteers').filter((r) => r.Email === 'old@example.com');
     assert.equal(matches.length, 1);
@@ -185,7 +185,7 @@ describe('volunteer guide for new volunteers', () => {
     fails(rt.call('bookSession', { sessionId: s.sessionId }, fresh.token), 'GUIDE_REQUIRED');
     const g = ok(rt.call('guide', {}, fresh.token));
     assert.deepEqual(g.sections.map((x) => x.title).slice(0, 3), ['Welcome to MINDS volunteering', 'What to wear', 'What we expect from you']);
-    assert.equal(g.projects[0].venue, SCHOOL);
+    assert.equal(g.projects.find((p) => p.name === 'West End').venue, SCHOOL);
     const ack = ok(rt.call('acknowledgeGuide', {}, fresh.token));
     assert.equal(ack.home.guideRead, true);
     ok(rt.call('bookSession', { sessionId: s.sessionId }, fresh.token));
@@ -752,9 +752,9 @@ describe('adding sessions', () => {
   test('setup adds the default projects to an existing Projects tab, keeping what is there', () => {
     rt.fillTab(SHEET, 'Projects', [['Project ID', 'Project', 'Status'], ['P-OLD', 'School activity support', 'active']]);
     const report = rt.run('setup');
-    assert.match(report, /Added project\(s\): West End/);
+    assert.match(report, /Added project\(s\): RSPID \(CTDC\), RSPID \(WGS\), West End/);
     const names = rt.records(SHEET, 'Projects').map((p) => p.Project);
-    assert.deepEqual(names.sort(), ['RSPID (WGS)', 'School activity support', 'West End']);
+    assert.deepEqual(names.sort(), ['RSPID (CTDC)', 'RSPID (WGS)', 'School activity support', 'West End']);
   });
 
   test('the same session on several dates at once; past and duplicate dates are skipped', () => {
@@ -1056,7 +1056,7 @@ describe('Version 3: registration checks, deactivation, project names', () => {
       ['P-1', 'West End (WE)', 'active'], ['P-2', 'Regular Service Project for the Intellectually Disabled (RSPID)', 'active']]);
     const report = rt.run('setup');
     assert.match(report, /Renamed project\(s\) "West End \(WE\)" → "West End".*updated 1 session/);
-    assert.deepEqual(rt.records(SHEET, 'Projects').filter((p) => p.Status !== 'archived').map((p) => p.Project).sort(), ['RSPID (WGS)', 'West End']);
+    assert.deepEqual(rt.records(SHEET, 'Projects').filter((p) => p.Status !== 'archived').map((p) => p.Project).sort(), ['RSPID (CTDC)', 'RSPID (WGS)', 'West End']);
     assert.equal(rt.records(SHEET, 'Sessions').find((r) => r['Session ID'] === s.sessionId).Project, 'West End, RSPID (WGS)');
     assert.ok(!/Renamed project/.test(rt.run('setup')), 'nothing to do the second time');
   });
