@@ -694,3 +694,56 @@ export function majorActionPrompt({ action, confirmLabel = 'Continue', needsPass
     if (pw) setTimeout(() => pw.focus(), 50);
   });
 }
+
+/**
+ * Choosing a file: a dropdown "Import from device" / "Import from Google Drive".
+ * Device: a "Choose a file or drag it here" box, then a preview of the picture or
+ * PDF. Drive: a box for the link. Used by the guide infographics and trainee photos.
+ *   { accept: [mime types], hint } → { el, source(), file(), driveUrl() }
+ */
+export function filePicker({ accept, hint }) {
+  const source = el('select', { class: 'input', 'aria-label': 'Where is the file?' },
+    el('option', { value: 'device' }, 'Import from device'),
+    el('option', { value: 'drive' }, 'Import from Google Drive'));
+  const input = el('input', { type: 'file', accept: accept.join(','), class: 'sr-only', 'aria-label': 'Choose a file' });
+  const prompt = el('span', { class: 'fp-text' }, el('strong', {}, 'Choose a file'), ' or drag it here.');
+  const arrow = el('span', { class: 'fp-icon', 'aria-hidden': 'true' });
+  arrow.innerHTML = '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M24 6v24M14 21l10 10 10-10M6 30v10h36V30"/></svg>';
+  const drop = el('label', { class: 'fp-drop' }, input, arrow, prompt);
+  const preview = el('div', { class: 'fp-preview', hidden: true });
+  let url = null;
+  const show = (file) => {
+    if (url) URL.revokeObjectURL(url);
+    url = file ? URL.createObjectURL(file) : null;
+    preview.hidden = !file;
+    if (!file) { mount(preview, null); prompt.replaceChildren(el('strong', {}, 'Choose a file'), ' or drag it here.'); return; }
+    const kb = file.size / 1024;
+    mount(preview,
+      file.type.startsWith('image/') ? el('img', { src: url, alt: file.name, class: 'fp-img' })
+        : file.type === 'application/pdf' ? el('iframe', { src: url, title: file.name, class: 'fp-pdf' })
+          : null,
+      el('p', { class: 'fp-name' }, `${file.name} · ${kb > 1024 ? `${(kb / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(kb))} KB`}`));
+    prompt.replaceChildren(el('strong', {}, 'Choose another file'), ' or drag it here.');
+  };
+  input.addEventListener('change', () => show(input.files && input.files[0]));
+  ['dragenter', 'dragover'].forEach((t) => drop.addEventListener(t, (e) => { e.preventDefault(); drop.classList.add('fp-over'); }));
+  ['dragleave', 'drop'].forEach((t) => drop.addEventListener(t, () => drop.classList.remove('fp-over')));
+  drop.addEventListener('drop', (e) => {
+    e.preventDefault();
+    if (e.dataTransfer && e.dataTransfer.files.length) {
+      input.files = e.dataTransfer.files;
+      show(input.files[0]);
+    }
+  });
+  const deviceBox = el('div', { class: 'space-y-2' }, drop, preview, hint ? el('p', { class: 'hint' }, hint) : null);
+  const driveBox = el('div', { hidden: true }, field('driveUrl', 'Google Drive link', {
+    placeholder: 'https://drive.google.com/file/d/…/view', hint: 'Right-click → Share → Copy link.',
+  }));
+  source.addEventListener('change', () => { deviceBox.hidden = source.value !== 'device'; driveBox.hidden = source.value !== 'drive'; });
+  return {
+    el: el('div', { class: 'space-y-3' }, source, deviceBox, driveBox),
+    source: () => source.value,
+    file: () => (input.files && input.files[0]) || null,
+    driveUrl: () => driveBox.querySelector('input').value.trim(),
+  };
+}

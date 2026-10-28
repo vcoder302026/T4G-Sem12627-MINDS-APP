@@ -1,7 +1,9 @@
 // Form controls shared with MINDS's other apps, applied to every screen
 // automatically (a MutationObserver), so pages keep using plain inputs:
 //
-//   <input type="date">      → the House Visit app's "Rolodex" picker: a sheet with
+//   <input type="date">      → left as the browser's own calendar (MINDS asked for it, as in
+//                              the outing app). enhanceDate (the House Visit "Rolodex"
+//                              picker) is kept below in case it's wanted again:
 //                              day / month / year wheels, Cancel and Confirm.
 //                              The real input stays (hidden) and keeps its value,
 //                              min, max and events, so forms read it as before.
@@ -392,11 +394,9 @@ function enhanceTime(input) {
 
 function enhance(root) {
   if (!root || !root.querySelectorAll) return;
-  if (root.matches && root.matches('input[type=date]')) enhanceDate(root);
   if (root.matches && root.matches('input[type=password]')) enhancePassword(root);
   if (root.matches && root.matches('input[type=time]')) enhanceTime(root);
   if (root.matches && root.matches('select')) enhanceSelect(root);
-  root.querySelectorAll('input[type=date]:not([data-wheel])').forEach(enhanceDate);
   root.querySelectorAll('input[type=time]:not([data-wheel])').forEach(enhanceTime);
   root.querySelectorAll('input[type=password]:not([data-eye])').forEach(enhancePassword);
   root.querySelectorAll('select:not([data-list])').forEach(enhanceSelect);

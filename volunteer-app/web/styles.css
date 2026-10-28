@@ -232,3 +232,22 @@ body { padding-left: env(safe-area-inset-left, 0px); padding-right: env(safe-are
 .pb-card .pb-hint { display: flex; flex: 1; align-items: center; justify-content: center; padding: .3rem; font-size: .7rem; font-weight: 600; color: #9ca3af; }
 .pb-pill, .pb-pill.pb-pill-reg { border: 1px solid #e5e7eb; background: #fff; color: #111827; font-weight: 800; }
 .dark .pb-pill, .dark .pb-pill.pb-pill-reg { border-color: #3f3f46; background: #27272a; color: #f4f4f5; }
+
+/* File picker: "Choose a file or drag it here", then a preview (ui.js filePicker). */
+.fp-drop { position: relative; display: flex; min-height: 10rem; flex-direction: column; align-items: center; justify-content: center; gap: .75rem; cursor: pointer; border: 2px dashed #94a3b8; border-radius: .5rem; background: #e2e8f0; padding: 1.25rem; text-align: center; outline: 6px solid #e2e8f0; outline-offset: -8px; }
+.fp-drop:hover, .fp-drop.fp-over, .fp-drop:focus-within { background: #dbe4ee; border-color: #4f46e5; }
+.fp-icon { display: inline-flex; width: 3rem; height: 3rem; color: #94a3b8; }
+.fp-icon svg { width: 100%; height: 100%; }
+.fp-text { font-size: .95rem; color: #334155; }
+.fp-text strong { color: #0f172a; }
+.dark .fp-drop { border-color: #52525b; background: #18181b; outline-color: #18181b; }
+.dark .fp-text { color: #d4d4d8; }
+.dark .fp-text strong { color: #fff; }
+.fp-preview { overflow: hidden; border: 1px solid #e2e8f0; border-radius: .75rem; background: #fff; }
+.dark .fp-preview { border-color: #27272a; background: #0a0a0a; }
+.fp-img { display: block; max-height: 16rem; width: 100%; object-fit: contain; background: #f8fafc; }
+.fp-pdf { display: block; width: 100%; height: 18rem; border: 0; }
+.fp-name { padding: .5rem .75rem; font-size: .8rem; font-weight: 600; color: #475569; overflow-wrap: anywhere; }
+
+/* "+ Start New Blank Visit", as in MINDS's House Visit app (admin/js/views/visits.js). */
+.hv-blank { min-width: min(100%, 16rem); justify-content: center; padding: .9rem 2rem; font-size: 1.05rem; }

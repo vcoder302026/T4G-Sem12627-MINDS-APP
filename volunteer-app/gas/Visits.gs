@@ -134,8 +134,8 @@ const VISIT_BASE_KEYS_ = ['visitId', 'traineeId', 'traineeName', 'userId', 'volu
  * into the trainee's row in the trainee sheet, as a form response would.
  */
 function createFormVisit_(p, admin) {
-  onlyFields_(p, ['traineeId', 'answers', 'updateTrainee']);
-  const trainee = traineeRef_(p.traineeId, 'Trainee');
+  onlyFields_(p, ['traineeId', 'answers', 'updateTrainee', 'newTrainee']);
+  const isNew = p.newTrainee === true; // "Start New Blank Visit": a trainee not in the sheet yet
   const a = obj_(p.answers, 'Answers');
   const fields = [];
   visitFormSections_().forEach((s) => s.fields.forEach((f) => fields.push(f)));
@@ -151,6 +151,24 @@ function createFormVisit_(p, admin) {
     answers[f.key] = v;
   });
   if (!Object.keys(answers).some((k) => answers[k])) throw err_.validation('Fill in at least one answer.');
+  let trainee;
+  if (isNew) {
+    // The new trainee goes into the trainee sheet with the next Trainee ID and every answer given.
+    const nameKey = normHeader_(traineeTable_().header('name'));
+    const name = String(answers[nameKey] || '').trim();
+    if (!name) throw err_.validation('Fill in the trainee\'s full name.');
+    const tcols = { id: traineeTable_().header('id') };
+    fields.forEach((f, i) => { tcols[`q${i}`] = f.header; });
+    const tt = new Table(traineeSpreadsheet_(), traineeTabName_(), tcols, [], 'trainees:new');
+    const id = nextTraineeId_(traineeTable_().rows());
+    const row = { id };
+    fields.forEach((f, i) => { if (answers[f.key]) row[`q${i}`] = answers[f.key]; });
+    tt.insert(row);
+    resetDbCache_();
+    trainee = { id, name };
+  } else {
+    trainee = traineeRef_(p.traineeId, 'Trainee');
+  }
   const visitDateField = fields.find((f) => f.type === 'date' && /^date of visit/i.test(f.header.trim()));
   const date = (visitDateField && answers[visitDateField.key]) || todayStr_();
   if (date > todayStr_()) throw err_.validation('The visit date cannot be in the future.');
@@ -167,7 +185,7 @@ function createFormVisit_(p, admin) {
 
   // 2. The trainee's details: only what changed.
   let updated = 0;
-  if (p.updateTrainee !== false) {
+  if (!isNew && p.updateTrainee !== false) {
     const tcols = { id: traineeTable_().header('id') };
     fields.forEach((f, i) => { tcols[`q${i}`] = f.header; });
     const tt = new Table(traineeSpreadsheet_(), traineeTabName_(), tcols, [], 'trainees:visit');
@@ -183,7 +201,8 @@ function createFormVisit_(p, admin) {
   }
   resetDbCache_();
   return Object.assign(listVisits_({}), {
-    message: `Visit to ${trainee.name} recorded.${p.updateTrainee === false ? '' : updated ? ` Updated ${updated} of their details.` : ' Their details were already up to date.'}`,
+    message: isNew ? `${trainee.name} added as ${trainee.id}, and the visit recorded.`
+      : `Visit to ${trainee.name} recorded.${p.updateTrainee === false ? '' : updated ? ` Updated ${updated} of their details.` : ' Their details were already up to date.'}`,
   });
 }
 
