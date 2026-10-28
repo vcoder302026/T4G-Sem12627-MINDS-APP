@@ -1,5 +1,9 @@
 # MINDS Volunteer Management: Version 1 report
 
+> **Historical record (Version 1).** The current app is Version 3: see [VERSION-3.md](VERSION-3.md),
+> the [volunteer app README](volunteer-app/README.md) and the [user guide](volunteer-app/docs/USER-GUIDE.md).
+> Much of what's below has changed since (e.g. automatic pairing and booking confirmation were replaced).
+
 NTU Tech for Good (Semester 1, AY2026/27) · Prepared for MINDS · October 2026
 
 This report explains what Version 1 does, how to demo it, and how it works

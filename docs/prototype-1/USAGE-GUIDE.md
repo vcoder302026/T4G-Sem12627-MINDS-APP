@@ -1,5 +1,8 @@
 # Prototype 1 — App Usage Guide
 
+> **Prototype 1 (earlier, offline staff app).** For the current volunteer app, see the
+> [user guide](../../volunteer-app/docs/USER-GUIDE.md).
+
 A practical guide for MINDS staff using the local MINDS Admin prototype in a desktop browser.
 For setup instructions, see the [Prototype 1 README](README.md).
 

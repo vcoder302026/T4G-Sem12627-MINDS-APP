@@ -1,5 +1,8 @@
 # Prototype 1: MINDS Admin (local staff app)
 
+> **Prototype 1 (earlier, offline staff app).** The current app is the volunteer app:
+> see [volunteer-app/README.md](../../volunteer-app/README.md).
+
 > This is the team's first prototype: a local, offline staff app. The current
 > volunteer management app is in [`volunteer-app/`](../../volunteer-app/README.md).
 > Prototype 1's code stays at the repository root (`server/`, `public/`,
