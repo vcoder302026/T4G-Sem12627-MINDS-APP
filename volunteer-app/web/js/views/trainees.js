@@ -175,10 +175,14 @@ export function renderTraineeInfo(root, app, ctx, traineeId) {
     mount(root, back,
       el('div', { class: 'flex items-center gap-4' },
         traineeAvatar(t, 'lg'),
+        // Beside the photo: short name, gender and language (the full name is the page title);
+        // the sections below don't repeat them. Only what this person may see comes from the server.
         el('div', { class: 'min-w-0' },
           el('h1', { class: 'page-title leading-tight' }, t.name),
-          t.preferredName && t.preferredName !== t.name ? el('p', { class: 'mt-1 muted' }, `Goes by ${t.preferredName}`) : null,
-          d.isMyRegular ? el('div', { class: 'mt-1.5' }, badge('Your regular trainee', 'emerald', 'heart')) : null)),
+          el('dl', { class: 'qv-facts text-sm' },
+            [['Short name', t.preferredName], ['Gender', t.gender], ['Language', t.language]]
+              .filter(([, v]) => v).map(([k, v]) => [el('dt', {}, k), el('dd', {}, v)])),
+          d.isMyRegular ? el('div', { class: 'mt-2' }, badge('Your regular trainee', 'emerald', 'heart')) : null)),
       d.regulars.length ? el('p', { class: 'mt-2 text-sm muted' }, `Regular volunteers: ${d.regulars.join(', ')}`) : null,
       d.together.length ? el('div', { class: 'alert alert-info mt-4' },
         el('p', { class: 'font-bold' }, "You're paired for:"),
