@@ -26,10 +26,10 @@ Every person and record in the demo is fictional.
 | One volunteer to multiple trainees | Done (Steven) | Both pairing boards |
 | Follow the House Visit form for trainee details | Done (Steven) | Trainee pages |
 | Small ✕ to unpair | Done (Steven) | Both pairing boards |
-| Paired / Unpaired / All filters | Done (Steven) | Each column of both boards |
+| Paired / Unpaired / All filters | Done; now one **All ↔ Paired** button per column, as in the outing app | Each column of both boards |
 | Drag and drop, for regular volunteers and trainees | Done (Steven), touch and mouse | Both pairing boards |
-| Paired trainees and volunteers more obvious | Done (Steven): green edge and ✓ | Both pairing boards |
-| Follow the outing pairing interface | Done (Steven) | Pairing |
+| Paired trainees and volunteers more obvious | Done: paired names sit in each card's box, unpaired cards say "Drop … here", and the red **N unpaired** count | Both pairing boards |
+| Follow the outing pairing interface | **Done in Version 3**: laid out like the outing app's Manual Pair page (§2.11) | Pairing |
 | **Feedback notes** | | |
 | Share with all future volunteers / regulars only / selected volunteers / keep private | Done (Steven) | Trainees → Notes to review |
 | Filter what volunteers see, linked to volunteer updates | Done (Steven); his reading still to confirm with Mr Sadil | What volunteers see |
@@ -38,7 +38,7 @@ Every person and record in the demo is fictional.
 | **Minor details** | | |
 | Drag and drop instead of arrows on the guide page | Done (Steven) | Settings → Guide & projects |
 | "Ensure that there are…" | **Unclear**: the sentence is cut off in the minutes | Ask Mr Sadil |
-| Make sure the mobile view works properly | **Checked again in Version 3** at 360 px (small Android) with touch: no sideways scrolling on 40 pages, no errors | All pages |
+| Make sure the mobile view works properly | **Checked in Version 3** from 280 px (Galaxy Fold folded) to tablets: nothing off-screen, no squashed text, every page scrolls (§2.10, three check scripts) | All pages |
 | **Added after call 2** | | |
 | Warning when making someone an admin or deactivating an admin | **Done in Version 3** | Admin → Volunteers |
 
@@ -93,6 +93,8 @@ continue?"**, with Cancel / Continue and, where needed, the admin password.
 | Removing admin access; reactivating an admin | Yes |
 | Promoting to regular / moving back to volunteer; resetting a password; reactivating a volunteer; removing a trainee photo; taking someone off a session; cancelling a session; archiving a venue or project; deleting a guide section; setting visibility as the default | No |
 
+Every change to someone's access or status, and every removal, warns this way (the table above).
+
 **Behaviour change:** deactivating someone also **takes them off their upcoming sessions** (their
 sign-ups are marked cancelled, not deleted), so deactivated people no longer sit on session lists
 and pairing boards. Hours, attendance, notes and pairing history are kept.
@@ -124,8 +126,10 @@ The app keeps the look and behaviour of the Trainee House Visit, CSL Attendance 
 Trip Planner apps (the rule and the full list of shared patterns are in `AGENTS.md`). Version 3
 adds the ones that were missing:
 
-- **Wheel date picker** (House Visit's "Rolodex"): every date box (D.O.B, session dates,
-  attendance, trips, …) opens a sheet with day / month / year wheels and Cancel / Confirm.
+- **Dates** use the browser's own calendar picker, as in the WERONE outing app (MINDS chose it
+  over the House Visit "Rolodex" wheel). **Times** open an HH · MM wheel.
+- **Dropdowns** open the app's own list right below the box (just above it near the bottom of
+  the screen), the same width, with ✓ on the current choice and a search box for long lists.
 - **Show / hide eye** on every password box, including the admin-password prompts.
 - **Clear (✕) button** inside search boxes (Overseas Trip Planner).
 - **"Saved / Saving… / Not saved"** next to "N unpaired" on the pairing board (Overseas).
@@ -148,8 +152,8 @@ MINDS's "Template Prompts for Creating WebApps" (Team 39 Drive) sets the rules f
   and links to Google's permission page, instead of "unexpected reply" / "couldn't reach the server".
 - **🏠 Home** in the header (↻ · 🌗 · 🏠 · sign out), as in the template's standard header.
 - **Skeletons over spinners:** pages show shimmering placeholder blocks while loading.
-- The wheel date picker can be **dragged with a mouse** on computers and vibrates slightly per step
-  on phones, like the template's Rolodex engine.
+- The HH · MM time wheel can be **dragged with a mouse** on computers and vibrates slightly per
+  step on phones, like the template's Rolodex engine.
 
 ### 2.7 Link the Google Sheets from the app
 
@@ -190,7 +194,7 @@ for each database, showing the sheet it uses now and whether it has what the app
   House Visit Form: the same questions (the trainee sheet's columns), in the same sections and
   order (General Details → … → Volunteers' Observations), each question with its guide text, the
   1–5 scales with their end labels (e.g. "Need support to walk and can be clumsy" ↔ "Agile and
-  stable"), the date wheel, a project dropdown, and a fixed Submit bar.
+  stable"), a calendar for the date, a project dropdown, and a fixed Submit bar.
 - It is **prefilled** with the trainee's current answers; Date of Visit is today.
 - **Submit** keeps the visit in the House Visits tab (one column per question, never changed
   afterwards) and, unless unticked, updates the trainee's changed answers in MINDS's trainee sheet,
@@ -207,9 +211,52 @@ Checked on 31 pages at 280 px (Galaxy Fold folded), 320, 360 (Galaxy S8), 375 (i
 runs off the screen and no titles are cut off (`volunteer-app/dev/check-phones.py`). Admin section
 buttons wrap onto two lines and scroll away with the page; only the header and tab bar stay pinned.
 Dates from MINDS's sheet read "29 Dec 2025" instead of "2025-12-29 20:26:09".
-Dropdowns open the app's own list sheet (✓ on the current choice, a search box for long lists such
-as the trainee list) and times open an HH · MM wheel, so they look and work the same on every phone,
-in Chrome's phone emulator and on computers, instead of each browser's own pop-up.
+
+- **No squashed text** at 280, 360, 412, 768 and 1024 px (`dev/check-squash.py`): a row of text
+  plus badges or buttons wraps so the text keeps a readable width; status badges such as "You're
+  coming" sit above titles; long header titles use two lines; on phones the header's 🏠 is hidden
+  (Home is in the tab bar).
+- **Scrolling never gets stuck** (`dev/check-scroll.py`): every page change clears anything left
+  on top of the page (pop-ups, dropdowns, wheels, a dragged card), and dropdowns never put an
+  invisible layer over the page.
+
+### 2.11 Pairing like the WERONE outing app
+
+Both pairing boards (a session's, and Regular pairings) follow the outing app's **Manual Pair**
+page: two search boxes; green **VOLUNTEERS** and blue **TRAINEES** headers, each with one **All ↔
+Paired** button; plain cards with the name, **+Trn** / **+Vol**, the profile label (**Regular** /
+**Volunteer**, and **Admin**), the project, and a dashed box with the paired names (✕ unpairs) or
+"Drop trainee here"; the pulsing **N unpaired** and **Saved**. Groups don't apply and are left out.
+
+### 2.12 Trainee details: less repetition
+
+- **Trainee page** (volunteers and regulars) and the **press-and-hold card**: the full name is the
+  title; **Short name, Gender and Language** sit beside the photo and aren't repeated below. They
+  follow "What volunteers see", so a hidden detail stays hidden. Admins' cards show the same
+  details volunteers see.
+- **Admins** tapping a trainee anywhere in the volunteer screens go straight to the admin trainee
+  page (Edit, New house visit, …). The header **←** goes back to the page they came from.
+- Notes shared with selected volunteers say **"Shared with selected volunteers"**; press and hold
+  (right-click on a computer) to see who.
+
+### 2.13 Labels and wording
+
+- The same profile labels everywhere: **Admin** (purple), **Regular** (green), **Volunteer**
+  (indigo); never "new / ad hoc".
+- Session cards say **Paired trainee**; a regular's own card says **Your regular trainee**.
+- Registration and Edit my details: **Date of Birth**, **Sign-in email** ("Sign in with this
+  email."), **Re-enter password** for every second password box.
+- The guide's **Add Files** (was "Add infographic"): Import from device (a "Choose a file or drag
+  it here" box, a preview, and **Remove** for a wrong file) or Import from Google Drive.
+- Explanatory lines were removed throughout (e.g. "An admin reads it first", "Become regulars
+  after 10 sessions", "Not your sign-in password", the 🔒 notes); format hints, error messages and
+  the consent notice stay. The rule is in `AGENTS.md`.
+
+### 2.14 Blank house visits for new trainees
+
+**New visit** looks like MINDS's House Visit app: **Find Trainee** (name search) and **+ Start New
+Blank Visit**. A blank visit for a trainee not yet in the sheet adds them to MINDS's trainee sheet
+with the next Trainee ID, then records the visit.
 
 ## 3. Try it in 10 minutes
 
@@ -227,14 +274,19 @@ Open http://localhost:5173. Accounts are unchanged: `admin@example.com` / `Admin
    Pick **RSPID (WGS)**: Course and Year, Matriculation Number and School Email appear; pick
    **West End**: they go. Try NRIC `12AB` (refused), then `123a` (saved as 123A).
 2. After registering: Home says "Welcome, <short name>!"; **Me** shows your answers.
-3. As the admin: **Volunteers → Vera → Make an admin**. Read the warning; **Make an admin**
-   stays grey until you tick the box and type `admin-demo-2026`.
+3. As the admin: **Volunteers → Vera → Make an admin**. The warning is one line ("Warning: You are
+   making Vera Volunteer an admin. Do you wish to continue?"); type `admin-demo-2026` and
+   **Continue**.
 4. **Deactivate** Vera: the warning says how many upcoming sessions she's taken off. Check a
    session: she's gone from it. **Reactivate** her: her hours are all still there.
 5. **Deactivate** Sam from the list: a warning, but no password (he isn't an admin).
 6. Sessions: badges read **West End** and **RSPID (WGS)**.
-7. Everything from Steven's update still works: Pairing (drag and drop, ✕, filters), notes sharing,
-   guide drag and drop. See STEVEN-UPDATE.md §3.
+7. **Pairing**: open today's session from the Admin home → **Pair**. Drag a volunteer onto a
+   trainee; tap **All** above a column to see only the paired ones.
+8. **More → House visits → New visit → + Start New Blank Visit**: fill in a name and **Submit**;
+   the trainee appears under Trainees.
+9. Narrow the window to a phone and press and hold any trainee's name: short name, gender and
+   language beside the photo.
 
 ## 4. Upgrading the Exp setup
 
@@ -252,14 +304,16 @@ edit their details; nobody is locked out.
 
 ## 5. Testing
 
-- `cd volunteer-app && npm test`: **108 passing** (103 from Steven's update, 5 new: formats,
-  required questions, deactivation, project rename, Google Contacts). Three older tests were
-  updated for the new project names and the real form questions.
-- Browser walkthrough (Playwright, Chromium) at **360 px with touch**: the wheel date picker (registration, New session with two dates, inside the Add volunteer pop-up), password eyes, search clear, the pairing Saved pill, Add / Edit volunteer; registration (sections,
-  RSPID questions appearing and disappearing, NRIC check, short-name greeting), both warnings
-  (button disabled until ticked and password typed; messages after), deactivating a volunteer
-  without a password; **40 pages** as admin, regular and volunteer with no sideways scrolling and
-  no errors.
+- `cd volunteer-app && npm test`: **118 passing** (103 from Steven's update; the rest cover the
+  registration formats and required questions, deactivation, project names and the standard list,
+  Google Contacts, Google Sheets linking, house visits including blank visits, and what volunteers
+  see beside the photo).
+- Layout checks (`volunteer-app/dev/`): `check-phones.py` (nothing off-screen, 280–430 px and
+  sideways), `check-squash.py` (no squashed text, phones and tablets) and `check-scroll.py` (every
+  page scrolls; nothing left covering it) all pass.
+- Browser walkthroughs (Playwright, Chromium) with touch at phone sizes for each change: dropdowns
+  and the time wheel, password eyes, search clear, pairing (drag and drop, filters, labels),
+  registration (RSPID questions, NRIC check), warnings, house visits, the trainee page and cards.
 - **Not checked:** a real iPhone (Safari) and Android phone, dark mode on the new warning, and
   the real Google Apps Script deployment (local harness only).
 
@@ -273,4 +327,9 @@ edit their details; nobody is locked out.
    questions. Decide whether to ask them on next sign-in (a "complete your profile" prompt) or
    leave it to admins.
 5. Steven's open points still stand: confirm the "What volunteers see" notes reading with Mr
-   Sadil, real-phone drag and drop, dark mode, and new screenshots (STEVEN-UPDATE.md §6).
+   Sadil, real-phone drag and drop, and dark mode on the newer screens.
+6. **Wording to confirm:** whether to keep a few short instructions on volunteer screens (the QR
+   pass brightness tip, "Show your pass again at the end to clock out", "Forgot your password? Ask
+   an admin to reset it"), and whether times should also use the browser's own picker like dates.
+
+See [TODO.md](TODO.md) for the full list.

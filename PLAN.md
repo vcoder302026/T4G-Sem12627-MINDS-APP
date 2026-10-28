@@ -1,5 +1,8 @@
 # MINDS Admin: first prototype implementation plan
 
+> **Prototype 1 only.** This is the build plan for the Node.js staff app in the repository root.
+> The current app is the volunteer app: see [volunteer-app/README.md](volunteer-app/README.md).
+
 ## 1. Goal and fixed decisions
 
 Build a desktop browser application that MINDS staff can clone, install, and run locally. It must have a real frontend, a real backend, and persistent local data. One login and one dashboard provide access to Attendance, Fundraising, Outings, Overseas Trips, and House Visits, plus shared Volunteers and Trainees directories.

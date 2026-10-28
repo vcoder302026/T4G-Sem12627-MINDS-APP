@@ -10,9 +10,41 @@ The app keeps the design and functions of MINDS's existing apps: Trainee House V
 Attendance and the Overseas Trip Planner. The full list of shared patterns, and where each
 lives in this code, is in the repository's `AGENTS.md` ("Volunteer app: stay consistent with
 MINDS's other apps"). Shared controls are applied app-wide so new screens get them for free:
-`web/js/controls.js` turns every date box into the House Visit wheel picker and adds a show /
-hide eye to any password box; `ui.js` `searchBox` has the Overseas clear (✕) button; the pairing
-board shows the Overseas "Saved / Saving…" state.
+`web/js/controls.js` gives every time box an HH · MM wheel, every dropdown the app's own list
+(opening right below the box) and every password box a show / hide eye; dates keep the browser's
+own calendar picker, as in the outing app. `ui.js` `searchBox` has the Overseas clear (✕) button;
+the pairing board shows the Overseas "Saved / Saving…" state.
+
+## Version 3 (October 2026): what changed in the design
+
+Version 3 follows Mr Sadil's call 2 feedback and MINDS's "Template Prompts for Creating
+WebApps". The reasoning behind the bigger choices:
+
+- **Registration is data, not code.** The questions are a list (`REGISTRATION` in
+  `gas/Config.gs`) mirroring MINDS's Google Form, with answer types (`email`, `phone`, `year`,
+  `nric4`, `matric`), `showIf` for the RSPID-only questions and `private` for personal
+  particulars. The form can change without touching the screens.
+- **One standard project list.** The Projects tab feeds both sessions and registration (plus
+  "Alumni" options for the RSPID projects), so a project is named the same everywhere.
+- **Warnings are one short line.** "Warning: You are … Do you wish to continue?" with Cancel /
+  Continue, and the shared admin password only for admin changes. Every access change and every
+  removal uses the same prompt (`majorActionPrompt` in `web/js/ui.js`), so nothing surprises.
+- **Pairing copies the outing app's Manual Pair page** rather than inventing its own: staff
+  already know it. Cards show only what helps pairing (name, profile label, project, who's paired).
+- **Less repetition, fewer words.** A trainee's short name, gender and language sit beside the
+  photo and are left out of the sections below; explanatory lines were removed (the rule in
+  `AGENTS.md`: keep text that carries information, gives a format or prevents a mistake).
+- **Privacy is applied on the server.** What volunteers see, including the facts beside the
+  photo and the press-and-hold card, is filtered in `gas/TraineeInfo.gs` (`basicsFor_`,
+  `withoutBasics_`), never just hidden on the screen.
+- **Nothing may cover the page.** Pop-ups, dropdowns and wheels are cleared on every page change,
+  and dropdowns close on a tap elsewhere without an invisible layer, so scrolling can't get stuck.
+- **Layouts are checked by script, not by eye.** `dev/check-phones.py`, `check-squash.py` and
+  `check-scroll.py` cover 280 px phones to tablets; a row of text plus badges wraps so the text
+  keeps a readable width.
+- **Admin work can happen in the app.** Advanced settings (check / run setup, contacts) and Google
+  Sheets (create, find or connect each database) follow the template, so admins rarely need the
+  Apps Script editor.
 
 ## Version 2 (October 2026): what changed in the design
 

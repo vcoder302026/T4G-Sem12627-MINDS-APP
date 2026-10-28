@@ -1,5 +1,9 @@
 # Steven's update: Mr Sadil's feedback on Version 2
 
+> **Historical record** of Steven's update after Mr Sadil's call 2 (PR #8). Version 3 builds on it:
+> see [VERSION-3.md](VERSION-3.md) for what changed afterwards (e.g. registration now follows MINDS's
+> Google Form exactly, and the pairing board follows the outing app's Manual Pair page).
+
 > **Continued in [VERSION-3.md](VERSION-3.md)**: the registration questions now match MINDS's real Google Form (open point 6.1 below).
 
 Session hand-off, 27 October 2026. Branch `steven-update` (from `main` at `12920f8`).

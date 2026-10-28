@@ -1,10 +1,10 @@
 # To do
 
-What's still open after Version 2 (October 2026): decisions MINDS needs to make, features
+What's still open after Version 3 (October 2026): decisions MINDS needs to make, features
 not built yet, and things to check before real volunteers use the app. Tick items off as
 they're done, and move finished ones into `PROGRESS.md`.
 
-Sources: the October meeting minutes with MINDS, `VERSION-2.md` §2 and §5, and the
+Sources: the October meeting minutes and call 2 with MINDS, `VERSION-3.md` §6, and the
 "Limits of this prototype" section of `volunteer-app/README.md`.
 
 **Contents**
@@ -21,9 +21,10 @@ Sources: the October meeting minutes with MINDS, `VERSION-2.md` §2 and §5, and
 
 ### 1.1 Which trainee details volunteers and regulars see by default
 - [ ] MINDS confirms the default lists ("pending recheck" in the minutes)
-- **Now:** volunteers (ad hoc) see the short name, gender, language, allergies and dietary
+- **Now:** volunteers see the short name, gender, language, allergies and dietary
   restrictions, activities to avoid, and the Behaviour and Abilities / Skills sections.
-  Regulars see everything. Admins can already change both in the app.
+  Regulars see everything. Admins can already change both in the app. The short name, gender
+  and language beside the trainee's photo follow the same settings.
 - **When decided:** update `TRAINEES.visibleTo` in `gas/Config.gs` (the starting point for new
   setups), or set it in the app under Admin → Trainees → What volunteers see.
 
@@ -36,18 +37,39 @@ Sources: the October meeting minutes with MINDS, `VERSION-2.md` §2 and §5, and
 ### 1.3 Sessions and outings
 - [x] Adding a session is just picking dates: "Regular session", 2:30–5:30 pm, Woodlands are
   pre-filled dropdowns (`SESSION_OPTIONS` in `gas/Config.gs`; add more names or time slots there)
-- [ ] Mr Sadil to confirm the editing side (the edit form still shows every field, with "MINDS is
-  reviewing how sessions are set up"), and whether other session names or time slots are needed
+- [ ] Mr Sadil to confirm the editing side (the edit form still shows every field), and whether
+  other session names or time slots are needed
 - [ ] Decide how session attendance and outing attendance relate (discuss in person)
-- [ ] Decide whether outings, fundraising and house visits stay in this app or are removed
-  (they're kept under Admin → "Later (placeholders)"). Overseas trip attendance stays separate.
+- [x] House visits follow MINDS's House Visit Form (More → House visits), including blank
+  visits for new trainees
+- [ ] Decide whether outings and fundraising stay in this app or are removed (they're kept
+  under Admin → More). Overseas trip attendance stays separate.
 
 
 ### 1.4 Google account for production
 - [ ] MINDS provides the Google account the live app runs as (owns the sheets, the Apps Script
   project and the guide's Drive folder)
-- [ ] Check that account allows "anyone with the link" sharing. Guide infographics depend on
-  it, because volunteers don't sign in to Google.
+- [ ] Check that account allows "anyone with the link" sharing. Guide pictures / PDFs and
+  trainee photos depend on it, because volunteers don't sign in to Google.
+
+### 1.5 Wording to confirm
+Explanatory lines were removed throughout Version 3; these few were kept because they tell
+people what to do. Keep, shorten or remove?
+- [ ] QR pass: "Turn your screen brightness up if the scan is slow."
+- [ ] QR pass after clocking in: "Your clock-in was recorded at … Show your pass again at the end
+  to clock out." (or just "Clocked in at …")
+- [ ] Sign-in: "Forgot your password? Ask an admin to reset it." (there's no self-service reset)
+- [ ] Edit my details: "Needed to change your email." under the current-password box
+- [ ] Hours: "Only completed records count."
+- [ ] Admin password page: the one-line "Forgotten it?" box
+- [ ] Guide, before it's read: "Please read this before your first session."
+- [ ] A volunteer's page: "3 more to become a regular" under Sessions attended (a figure, kept)
+- [ ] Should **Update Google contact** warn first? (It only refreshes that person's contact.)
+- [ ] The pairing board's **✕** doesn't warn, so pairing stays quick (one drag undoes it). OK?
+- [ ] Times use an HH · MM wheel; dates use the browser's calendar. Should times also use the
+  browser's own picker?
+- [ ] The outing app has its filter on the Volunteers column only; ours has one on each column
+  (call 2 asked for both). OK?
 
 ---
 
@@ -58,8 +80,8 @@ Sources: the October meeting minutes with MINDS, `VERSION-2.md` §2 and §5, and
   link); a placeholder shows until there is one
 - [ ] Confirm with MINDS that caregivers agree to volunteers seeing trainee photos (PDPA). Today
   everyone who can open the trainee sees the photo: their paired volunteer, regulars and admins.
-- [ ] Optional: let admins hide photos from ad hoc volunteers (like other details, in
-  `gas/TraineeInfo.gs` → `traineeBasics_`)
+- [ ] Optional: let admins hide photos from volunteers (like other details, in
+  `gas/TraineeInfo.gs` → `basicsFor_`)
 
 ### 2.2 Google Contacts sync (built; to switch on and confirm)
 - [x] New and admin-added volunteers are saved to the Google account the app runs as (name,
@@ -76,13 +98,14 @@ Sources: the October meeting minutes with MINDS, `VERSION-2.md` §2 and §5, and
   committee), or a separate "Event Attendance" tab, so the hours report can include or
   exclude them.
 
-### 2.4 Choosing infographics from Google Drive inside the app
+### 2.4 Choosing guide files from Google Drive inside the app
 - [ ] Optional: a "Choose from Drive" button (Google Picker) instead of pasting a share link
 - **Needs:** a Google Cloud project with an OAuth client ID and API key for the GitHub Pages
   site. Pasting a link works today without any of that.
 
 ### 2.6 Trainee IDs for new form responses
-- [ ] New House Visit form responses only get a Trainee ID when someone runs `setup()` again
+- [ ] New House Visit form responses only get a Trainee ID when someone runs setup again
+  (Advanced settings → Run setup). Blank visits recorded in the app get one straight away.
 - **Suggested:** an "on form submit" trigger (or a nightly one) that runs `fillTraineeIds_()`
   from `gas/Setup.gs`.
 
@@ -100,7 +123,12 @@ Sources: the October meeting minutes with MINDS, `VERSION-2.md` §2 and §5, and
 - [ ] Press-and-hold for contact details on iPhone and Android
 - [ ] Guide PDFs in the Google Drive preview on iPhone Safari
 - [ ] Offline: scan with no signal, then upload; QR pass with no signal
-- [ ] Dark mode on the new screens (pairing board, Admin menu, trainee pages, guide editor)
+- [ ] Dark mode on the newer screens (pairing board, Admin home, trainee pages, guide editor,
+  dropdowns, warnings, Add Files)
+- [ ] Dropdowns (open below the box) and the time wheel on iPhone Safari and Android Chrome
+- [ ] Scrolling: a page once stopped scrolling in Chrome's phone view; the likely cause (an
+  invisible dropdown layer) was removed in v3.27. Confirm on real phones, and note the steps if
+  it happens again
 - [ ] Drag and drop on real phones (pairing board: drag sideways; guide editor: the ⠿ handle).
   Tested in an emulated iPhone 12 (Chromium) only, not iOS Safari or a real Android phone
 
@@ -117,9 +145,10 @@ Sources: the October meeting minutes with MINDS, `VERSION-2.md` §2 and §5, and
 - [ ] Note the admin password `setup()` shows in the Execution log, give it to the admins, and
   have them change it (Settings → Admin password)
 
-### 3.4 Upgrade the live Exp setup to Version 2
-- [ ] Follow `VERSION-2.md` §4: new `.gs` files, `appsscript.json` (Drive permission),
-  `TRAINEE_SPREADSHEET_ID` as the trainee tab's URL, run `setup()`, publish a new version
+### 3.4 Upgrade the live Exp setup to Version 3
+- [ ] Follow `VERSION-3.md` §4: push the `.gs` files, run setup (once in Apps Script, then from
+  Admin → Settings → Advanced settings), publish a new version, merge into `main`
+- [ ] Try the House Visit Form against a **copy** of the House Visit responses, not the live sheet
 
 ---
 
@@ -128,8 +157,7 @@ Sources: the October meeting minutes with MINDS, `VERSION-2.md` §2 and §5, and
 - [ ] Rebuild Tailwind with internet access (`npm run build:css`) and commit `web/styles.css`.
   Version 2 added a few hand-written fallback rules at the end of it so the local demo looks
   right without a rebuild; the CI deploy rebuilds it anyway.
-- [ ] Dates of birth in the mock data show a time (e.g. `1969-11-02 13:26:30`). Real form
-  responses are dates, but consider formatting date-only columns without the time.
+- [x] Dates and timestamps from MINDS's sheet show as "29 Dec 2025" (no time)
 - [ ] The fictional demo spreadsheet `docs/demo-data/MINDS-Volunteer-Demo-Data.xlsx` is in the
   Version 1 format (no Version 2 tabs; `setup()` adds them). Refresh it from the local demo.
 - [ ] Optional: a printable "upcoming sessions" page for volunteers to send to caregivers (the
@@ -142,7 +170,7 @@ Sources: the October meeting minutes with MINDS, `VERSION-2.md` §2 and §5, and
 ## 5. Left out on purpose
 
 - (Now built, for admins: Pairing → History. See PROGRESS.md session 17.)
-- **Automatic pairing of ad hoc volunteers** (Version 1's "fewest pairings" rule): replaced, at
+- **Automatic pairing of volunteers** (Version 1's "fewest pairings" rule): replaced, at
   MINDS's request, by regulars' fixed trainees and admins pairing everyone else.
 - **Separate admin login:** the minutes suggested a separate admin profile; later guidance was
   admin access on a volunteer's own account, protected by a shared admin password to make or remove an admin, and an
