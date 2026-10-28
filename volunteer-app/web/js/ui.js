@@ -718,11 +718,16 @@ export function filePicker({ accept, hint }) {
     preview.hidden = !file;
     if (!file) { mount(preview, null); prompt.replaceChildren(el('strong', {}, 'Choose a file'), ' or drag it here.'); return; }
     const kb = file.size / 1024;
+    // Wrong file? Remove takes it off before anything is uploaded.
+    const remove = el('button', { type: 'button', class: 'fp-remove', 'aria-label': `Remove ${file.name}` }, icon('trash', 'size-4'), 'Remove');
+    remove.addEventListener('click', () => { input.value = ''; show(null); });
     mount(preview,
       file.type.startsWith('image/') ? el('img', { src: url, alt: file.name, class: 'fp-img' })
         : file.type === 'application/pdf' ? el('iframe', { src: url, title: file.name, class: 'fp-pdf' })
           : null,
-      el('p', { class: 'fp-name' }, `${file.name} · ${kb > 1024 ? `${(kb / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(kb))} KB`}`));
+      el('div', { class: 'fp-foot' },
+        el('p', { class: 'fp-name' }, `${file.name} · ${kb > 1024 ? `${(kb / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(kb))} KB`}`),
+        remove));
     prompt.replaceChildren(el('strong', {}, 'Choose another file'), ' or drag it here.');
   };
   input.addEventListener('change', () => show(input.files && input.files[0]));

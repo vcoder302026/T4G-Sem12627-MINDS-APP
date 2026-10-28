@@ -251,3 +251,10 @@ body { padding-left: env(safe-area-inset-left, 0px); padding-right: env(safe-are
 
 /* "+ Start New Blank Visit", as in MINDS's House Visit app (admin/js/views/visits.js). */
 .hv-blank { min-width: min(100%, 16rem); justify-content: center; padding: .9rem 2rem; font-size: 1.05rem; }
+
+/* File picker: the chosen file's name and Remove (ui.js filePicker). */
+.fp-foot { display: flex; align-items: center; justify-content: space-between; gap: .75rem; }
+.fp-foot .fp-name { min-width: 0; overflow-wrap: anywhere; }
+.fp-remove { display: inline-flex; flex-shrink: 0; align-items: center; gap: .3rem; margin: .5rem .75rem .5rem 0; border: 1px solid #fecaca; border-radius: .5rem; background: #fff; padding: .3rem .6rem; font-size: .8rem; font-weight: 700; color: #dc2626; }
+.fp-remove:hover { background: #fef2f2; }
+.dark .fp-remove { border-color: #7f1d1d; background: #171717; color: #f87171; }
