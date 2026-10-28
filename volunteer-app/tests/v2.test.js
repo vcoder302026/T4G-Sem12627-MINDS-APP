@@ -386,3 +386,24 @@ describe('dates from the trainee sheet read like dates', () => {
     assert.doesNotMatch(values, /"\d{4}-\d{2}-\d{2} \d{1,2}:\d{2}/, 'no raw timestamps on the trainee page');
   });
 });
+
+describe('Start New Blank Visit (a trainee not in the sheet yet)', () => {
+  test('the blank form adds the trainee with the next ID and records the visit', () => {
+    const blank = ok(call('houseVisitForm', {}));
+    const fields = blank.sections.flatMap((s) => s.fields);
+    const nameF = fields.find((f) => /^Trainee’s Full Name/.test(f.label));
+    const genderF = fields.find((f) => /^Gender/.test(f.label));
+    assert.equal(nameF.value, '');
+    fails(call('createVisit', { newTrainee: true, answers: { [genderF.key]: 'Female' } }), 'VALIDATION_ERROR'); // no name
+    const before = rt.records(TRAINEE_FILE, 'Form Responses 1').length;
+    const res = ok(call('createVisit', { newTrainee: true, answers: { [nameF.key]: 'Nadia New', [genderF.key]: 'Female' } }));
+    assert.match(res.message, /Nadia New added as T-0101, and the visit recorded\./);
+    const rows = rt.records(TRAINEE_FILE, 'Form Responses 1');
+    assert.equal(rows.length, before + 1);
+    const row = rows.find((r) => r['Trainee ID'] === 'T-0101');
+    assert.equal(row['Trainee’s Full Name'], 'Nadia New');
+    assert.equal(row.Gender, 'Female');
+    assert.equal(res.visits[0].traineeId, 'T-0101');
+    assert.ok(ok(call('listTrainees', {})).trainees.some((t) => t.name === 'Nadia New'));
+  });
+});

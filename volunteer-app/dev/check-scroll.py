@@ -53,7 +53,7 @@ async def leftovers():
         b=await p.chromium.launch(); c=await b.new_context(viewport={'width':412,'height':924}, is_mobile=True, has_touch=True); pg=await c.new_page(); cdp=await c.new_cdp_session(pg)
         await pg.goto(BASE+'/#/login'); await pg.wait_for_timeout(500)
         await pg.fill('[name=email]','admin@example.com'); await pg.fill('[name=password]','AdminDemo123'); await pg.click('button[type=submit]'); await pg.wait_for_timeout(1300)
-        for start, opener, label in [('trainees', 'main .select-display', 'dropdown sheet + Back'), ('hours', 'main .wheel-display', 'date wheel + Back')]:
+        for start, opener, label in [('trainees', 'main .select-display', 'dropdown sheet + Back')]:
             await pg.goto(BASE+'/#/info/T-0001'); await pg.wait_for_timeout(1000)
             await pg.goto(f'{BASE}/#/{start}'); await pg.wait_for_timeout(1500)
             await pg.locator(opener).first.click(); await pg.wait_for_timeout(400)

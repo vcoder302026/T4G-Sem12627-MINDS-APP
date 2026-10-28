@@ -4,7 +4,7 @@
 
 import { call, isNetworkError, storage } from '../api.js';
 import {
-  backLink, badge, busy, combobox, el, errorBlock, field, fuzzyFilter, icon, labelled, loading, majorActionPrompt, mapsLink, modal, mount, richText, searchBox, section, toast,
+  backLink, badge, busy, combobox, el, errorBlock, field, filePicker, fuzzyFilter, icon, labelled, loading, majorActionPrompt, mapsLink, modal, mount, richText, searchBox, section, toast,
 } from '../ui.js';
 import { sortable } from '../dnd.js';
 
@@ -245,7 +245,7 @@ function sectionForm(s, onSaved) {
       hint: '"- " for bullets, "1. " for steps.',
     }),
     save);
-  const dlg = modal(isFile ? 'Edit infographic' : s ? 'Edit guide section' : 'New guide section', form);
+  const dlg = modal(isFile ? 'Edit file' : s ? 'Edit guide section' : 'New guide section', form);
   form.addEventListener('submit', (e) => {
     e.preventDefault();
     const title = form.title.value.trim();
@@ -280,50 +280,28 @@ function readAsBase64(file) {
  * From this device, or from Google Drive by its share link.
  */
 function infographicForm(existing, onSaved) {
-  let source = 'upload';
-  const fileInput = el('input', { type: 'file', name: 'file', accept: FILE_TYPES.join(','), class: 'input py-2', 'aria-label': 'Choose a picture or PDF' });
-  const uploadBox = el('div', { class: 'space-y-1' }, fileInput,
-    el('p', { class: 'hint' }, `JPG, PNG or PDF, up to ${MAX_MB} MB.`));
-  const driveBox = el('div', { hidden: true },
-    field('driveUrl', 'Google Drive link', {
-      placeholder: 'https://drive.google.com/file/d/…/view',
-      hint: 'Right-click → Share → Copy link.',
-    }));
-  const choice = (value, label) => {
-    const input = el('input', { type: 'radio', name: 'source', value, checked: value === source });
-    input.addEventListener('change', () => {
-      source = value;
-      uploadBox.hidden = source !== 'upload';
-      driveBox.hidden = source !== 'drive';
-    });
-    return el('label', { class: 'check-row' }, input, el('span', {}, label));
-  };
+  const picker = filePicker({ accept: FILE_TYPES, hint: `JPG, PNG or PDF, up to ${MAX_MB} MB.` });
   const submit = el('button', { type: 'submit', class: 'btn btn-primary w-full' }, existing ? 'Replace file' : 'Add to the guide');
   const form = el('form', { novalidate: true, class: 'space-y-4' },
     existing ? el('p', { class: 'text-sm muted' }, `Now: ${existing.fileName || 'a file'}`) : [
       field('title', 'Heading', { optional: true, placeholder: 'e.g. Your first session', maxlength: 120 }),
       field('body', 'Caption', { type: 'textarea', rows: 3, optional: true, maxlength: 5000, placeholder: 'Shown under the picture' }),
     ],
-    el('fieldset', { class: 'space-y-1' }, el('legend', { class: 'label' }, 'Where is the file?'),
-      choice('upload', 'Upload from this device'), choice('drive', 'Already in Google Drive')),
-    uploadBox, driveBox,
-    existing ? null : el('div', {}, el('label', { class: 'label', for: 'f-position' }, 'Where in the guide'),
-      el('select', { id: 'f-position', name: 'position', class: 'input' },
-        el('option', { value: 'top' }, 'At the top (above everything else)'),
-        el('option', { value: 'bottom' }, 'At the bottom'))),
+    el('div', {}, el('p', { class: 'label' }, 'File'), picker.el),
     submit);
-  const dlg = modal(existing ? 'Replace the infographic' : 'Add an infographic', form);
+  const dlg = modal(existing ? 'Replace file' : 'Add Files', form);
   form.addEventListener('submit', (e) => {
     e.preventDefault();
+    // New infographics go at the top of the guide; drag them anywhere afterwards.
     const payload = existing ? { sectionId: existing.sectionId } : {
-      title: form.title.value.trim(), body: form.body.value.trim(), position: form.position.value,
+      title: form.title.value.trim(), body: form.body.value.trim(), position: 'top',
     };
-    if (source === 'drive') {
-      const url = form.driveUrl.value.trim();
+    if (picker.source() === 'drive') {
+      const url = picker.driveUrl();
       if (!url) { toast('Paste the Google Drive link first.', 'warn'); return; }
       payload.driveUrl = url;
     } else {
-      const file = fileInput.files && fileInput.files[0];
+      const file = picker.file();
       if (!file) { toast('Choose a picture or PDF first.', 'warn'); return; }
       if (!FILE_TYPES.includes(file.type)) { toast('Choose a JPG or PNG picture, or a PDF.', 'warn'); return; }
       if (file.size > MAX_MB * 1024 * 1024) { toast(`That file is over ${MAX_MB} MB. Make it smaller first.`, 'warn'); return; }
@@ -436,7 +414,7 @@ export function renderGuideEdit(root, app, ctx) {
 
     const addSection = el('button', { type: 'button', class: 'btn btn-secondary btn-sm' }, icon('plus', 'size-4'), 'Add text');
     addSection.addEventListener('click', () => sectionForm(null, redraw));
-    const addFile = el('button', { type: 'button', class: 'btn btn-primary btn-sm' }, icon('plus', 'size-4'), 'Add infographic');
+    const addFile = el('button', { type: 'button', class: 'btn btn-primary btn-sm' }, icon('plus', 'size-4'), 'Add Files');
     addFile.addEventListener('click', () => infographicForm(null, redraw));
     const addProject = el('button', { type: 'button', class: 'btn btn-secondary btn-sm' }, icon('plus', 'size-4'), 'Add project');
     addProject.addEventListener('click', () => projectForm(null, c.venues, app, redraw));

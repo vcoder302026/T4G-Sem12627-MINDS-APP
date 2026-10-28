@@ -116,7 +116,8 @@ export function renderVisitForm(root, app, ctx, param) {
         el('summary', { class: `section-head section-${TONES[i % TONES.length]} cursor-pointer list-none select-none` }, s.title,
           icon('down', 'size-5 transition-transform duration-200 group-open:rotate-180')),
         el('div', { class: 'space-y-5 p-4' }, s.fields.map((f) => question(f, n++))))),
-      el('label', { class: 'flex items-center gap-3 text-sm font-bold' }, update, 'Also update the trainee\u2019s details'),
+      // A new trainee is added to the trainee sheet with these answers; otherwise their details can be updated.
+      d.trainee ? el('label', { class: 'flex items-center gap-3 text-sm font-bold' }, update, 'Also update the trainee\u2019s details') : null,
       el('div', { class: 'action-bar' }, el('div', { class: 'mx-auto max-w-2xl' }, submit)));
     form.addEventListener('submit', (e) => {
       e.preventDefault();
@@ -126,7 +127,9 @@ export function renderVisitForm(root, app, ctx, param) {
         answers[c.dataset.key] = c.value.trim();
       });
       busy(submit, 'Submitting…', async () => {
-        const res = await call('createVisit', { traineeId: d.trainee.id, answers, updateTrainee: update.checked });
+        const res = await call('createVisit', d.trainee
+          ? { traineeId: d.trainee.id, answers, updateTrainee: update.checked }
+          : { newTrainee: true, answers }); // "Start New Blank Visit"
         toast(res.message);
         app.go('#/visits');
       });
@@ -146,10 +149,19 @@ export function renderVisitForm(root, app, ctx, param) {
   return call('listVisits', {}).then((d) => {
     if (!ctx.alive()) return;
     const select = el('select', { class: 'input', 'aria-label': 'Trainee' },
-      el('option', { value: '' }, 'Select trainee…'),
+      el('option', { value: '' }, 'Search name…'),
       d.options.trainees.map((t) => el('option', { value: t.id, selected: t.id === preset }, `${t.name} (${t.id})`)));
     select.addEventListener('change', () => choose(select.value));
-    mount(pickHost, labelled('Trainee', select));
+    // Like MINDS's House Visit app: find a trainee, or start a blank visit for a new one.
+    const blank = el('button', { type: 'button', class: 'btn btn-success hv-blank' }, '+ Start New Blank Visit');
+    blank.addEventListener('click', () => {
+      select.value = '';
+      mount(formHost, loading());
+      call('houseVisitForm', {}).then((d) => { if (ctx.alive()) drawForm(d); })
+        .catch((err) => { if (ctx.alive()) { mount(formHost, null); toast(err.message, 'error'); } });
+    });
+    mount(pickHost, el('h2', { class: 'mb-3 text-lg font-bold' }, 'Find Trainee'), select,
+      el('div', { class: 'mt-4 flex justify-center' }, blank));
     if (preset) choose(preset);
   });
 }

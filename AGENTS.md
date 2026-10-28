@@ -35,7 +35,7 @@ Patterns already shared (keep them; reuse the helpers rather than writing new on
 | Sticky header: environment banner (purple "Experimentation" for Exp, red "Testing" for Dev), ↻ update app, 🌗 dark mode | All three | `web/index.html`, `web/js/app.js` |
 | Indigo primary (#4F46E5), green secondary; gray-50 / black backgrounds; Tailwind; dark mode by class | House Visit | `web/src/input.css` |
 | Coloured, collapsible section headers (uppercase), guide text under questions | House Visit | `ui.js` `section`, `hvSections` |
-| Wheel ("Rolodex") date picker sheet: day / month / year, Cancel / Confirm | House Visit | `web/js/controls.js` (every `<input type="date">`, automatically) |
+| Dates: the browser's own calendar (as in the outing app; MINDS chose it over the House Visit "Rolodex" wheel) | MYG Outing | plain `<input type="date">` |
 | Time wheel (HH · MM) and dropdowns as the app's own list sheet (✓, search for long lists), never the browser's own pop-ups | MINDS template (Rolodex) | `web/js/controls.js` (every `<input type="time">` and `<select>`, automatically) |
 | Show / hide eye on password boxes | House Visit, Overseas | `ui.js` `field()`; `controls.js` for any other password box |
 | Fixed bottom action bar for the main button | House Visit | `.action-bar` |

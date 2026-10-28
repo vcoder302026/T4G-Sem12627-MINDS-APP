@@ -4,7 +4,7 @@ import { personName, traineeName } from '../../../js/quickview.js';
 import { audienceBadge, shareChooser } from '../../../js/views/trainees.js';
 import { call } from '../../../js/api.js';
 import {
-  badge, busy, el, fuzzyFilter, hvSections, labelled, majorActionPrompt, modal, mount, passwordPrompt, searchBox, toast, traineeAvatar, typeBadges,
+  badge, busy, el, filePicker, fuzzyFilter, hvSections, labelled, majorActionPrompt, modal, mount, passwordPrompt, searchBox, toast, traineeAvatar, typeBadges,
 } from '../../../js/ui.js';
 import {
   backTo, dateRangeText, day, field, formModal, hours, icon, load, pageHead, panel, plural, row, selectField, stat, statGrid, table,
@@ -314,25 +314,11 @@ function readAsBase64(file) {
 
 /** Add or change a trainee's photo: from this device (or the phone's camera), or a Google Drive link. */
 function photoForm(t, onSaved) {
-  let source = 'upload';
-  const fileInput = el('input', { type: 'file', accept: PHOTO_TYPES.join(','), class: 'input py-2', 'aria-label': 'Choose a photo' });
-  const uploadBox = el('div', { class: 'space-y-1' }, fileInput,
-    el('p', { class: 'hint' }, `JPG or PNG, up to ${PHOTO_MAX_MB} MB.`));
-  const driveBox = el('div', { hidden: true }, field('driveUrl', 'Google Drive link', {
-    placeholder: 'https://drive.google.com/file/d/…/view',
-    hint: 'Right-click → Share → Copy link.',
-  }));
-  const choice = (value, label) => {
-    const input = el('input', { type: 'radio', name: 'source', value, checked: value === source });
-    input.addEventListener('change', () => { source = value; uploadBox.hidden = value !== 'upload'; driveBox.hidden = value !== 'drive'; });
-    return el('label', { class: 'check-row' }, input, el('span', {}, label));
-  };
+  const picker = filePicker({ accept: PHOTO_TYPES, hint: `JPG or PNG, up to ${PHOTO_MAX_MB} MB.` });
   const submit = el('button', { type: 'submit', class: 'btn btn-primary w-full' }, 'Save photo');
   const form = el('form', { novalidate: true, class: 'space-y-4' },
     el('div', { class: 'flex justify-center' }, traineeAvatar(t, 'lg')),
-    el('fieldset', { class: 'space-y-1' }, el('legend', { class: 'label' }, 'Where is the photo?'),
-      choice('upload', 'From this device'), choice('drive', 'Already in Google Drive')),
-    uploadBox, driveBox,
+    el('div', {}, el('p', { class: 'label' }, 'Photo'), picker.el),
     el('p', { class: 'hint' }, 'Check the caregiver has agreed.'),
     submit);
   const dlg = modal(t.photoUrl ? `Change ${t.name}'s photo` : `Add a photo of ${t.name}`, form);
@@ -340,11 +326,11 @@ function photoForm(t, onSaved) {
     e.preventDefault();
     const payload = { traineeId: t.id };
     let file = null;
-    if (source === 'drive') {
-      payload.driveUrl = form.driveUrl.value.trim();
+    if (picker.source() === 'drive') {
+      payload.driveUrl = picker.driveUrl();
       if (!payload.driveUrl) { toast('Paste the Google Drive link first.', 'warn'); return; }
     } else {
-      file = fileInput.files && fileInput.files[0];
+      file = picker.file();
       if (!file) { toast('Choose a photo first.', 'warn'); return; }
       if (!PHOTO_TYPES.includes(file.type)) { toast('Choose a JPG or PNG photo.', 'warn'); return; }
       if (file.size > PHOTO_MAX_MB * 1024 * 1024) { toast(`That photo is over ${PHOTO_MAX_MB} MB.`, 'warn'); return; }
