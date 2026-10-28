@@ -65,6 +65,7 @@ where it differs on purpose:
 | ← goes back to the page the person came from (history depth in `app.js`); only a page opened fresh falls back to its "up" link | Yes |
 | Header: ← back + page title left; square ↻ · 🌗 · 🏠 (· sign out) right | Yes (`web/index.html`, `app.js` `syncHeaderTitle`) |
 | Dashboard layout: action cards left (big primary button, select + coloured outlined buttons), list of upcoming items right with a compact table and icon buttons | Admin home (`views/admin.js` `renderAdminHub`), modelled on the Comm Dashboard |
+| Never cover the page with an invisible layer (dropdowns close on a tap elsewhere without blocking it) | `web/js/controls.js` |
 | Nothing may stay on top of the page after it changes (sheets, wheels, pop-ups, a dragged card): `app.js` clears them on every page change | `python3 volunteer-app/dev/check-scroll.py`: every tall page scrolls with a swipe, and nothing is left over after Back |
 | No squashed text on phones or tablets: a row of text + badges / buttons wraps (the text keeps ~11rem), status badges go above titles, long header titles use 2 lines (3 on the narrowest), label/value lines let long values drop below, third columns move under the text | `python3 volunteer-app/dev/check-squash.py` (280–1024 px) must print "nothing squashed" |
 | Profile labels everywhere as on the Volunteers page: Admin (purple), Regular (green), Volunteer (indigo), via `typeBadges()` in `ui.js`; never "new / ad hoc" | Yes |
