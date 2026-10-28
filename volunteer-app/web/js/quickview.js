@@ -81,11 +81,11 @@ function traineeCard(traineeId, isAdmin) {
     mount(body, el('div', { class: 'space-y-3' },
       el('div', { class: 'flex items-center gap-3' },
         traineeAvatar(t, 'lg'),
-        // Full name is the title; beside the photo, the short name and gender.
+        // Full name is the title; beside the photo, short name, gender and spoken language.
         el('dl', { class: 'qv-facts min-w-0 text-sm' },
           el('dt', {}, 'Short name'), el('dd', {}, t.preferredName || '—'),
           el('dt', {}, 'Gender'), el('dd', {}, t.gender || '—'),
-          d.regulars && d.regulars.length ? [el('dt', {}, 'Regular'), el('dd', {}, d.regulars.join(', '))] : null)),
+          el('dt', {}, 'Language'), el('dd', {}, t.language || '—'))),
       // Labels shortened the way the House Visit form shows them (the question, then its guide).
       d.summary && d.summary.length ? el('dl', { class: 'space-y-2 text-sm' }, d.summary.map((f) => el('div', {},
         el('dt', { class: 'font-bold text-slate-700 dark:text-neutral-200' }, hvLabel(f.label).label),

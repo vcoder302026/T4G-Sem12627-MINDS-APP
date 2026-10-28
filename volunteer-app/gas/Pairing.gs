@@ -264,7 +264,7 @@ function standingBoard_() {
     .map((u) => {
       const pairs = active.filter((x) => x.userId === u.userId);
       return {
-        userId: u.userId, name: u.name, phone: u.phone || '', telegram: u.telegram || '', isAdmin: u.role === 'admin',
+        userId: u.userId, name: u.name, phone: u.phone || '', telegram: u.telegram || '', isAdmin: u.role === 'admin', project: u.project || '',
         trainees: pairs.map((x) => ({ id: String(x.traineeId), name: x.traineeName })),
         traineeId: pairs.length ? String(pairs[0].traineeId) : '', // the first, for older screens
         traineeName: pairs.map((x) => x.traineeName).join(', '),

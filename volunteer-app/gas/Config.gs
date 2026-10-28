@@ -521,6 +521,8 @@ const CONFIG = {
       name: ['Name', 'Trainee’s Full Name', 'Full Name'],
       preferredName: ['Preferred Name', 'Trainee\'s Short Name', 'Short Name'],
       gender: 'Gender',
+      language: ['Spoken Language / Dialect', 'Spoken Language', 'Language'], // optional: shown on the press-and-hold card
+      project: 'Project',                    // optional: shown under the name on the pairing boards
       communication: 'Communication',        // e.g. Verbal / Non-verbal / A few words + signs
       behaviours: 'Behaviours',
       takeNote: 'Things to Take Note',

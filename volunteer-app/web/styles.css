@@ -208,3 +208,27 @@ body { padding-left: env(safe-area-inset-left, 0px); padding-right: env(safe-are
 .qv-facts dd { font-weight: 700; color: #0f172a; overflow-wrap: anywhere; }
 .dark .qv-facts dt { color: #a3a3a3; }
 .dark .qv-facts dd { color: #fff; }
+
+/* ===== Pairing boards, like the WERONE outing app's Manual Pair page (views/pairing.js) ===== */
+.pb-head { font-size: .8rem; letter-spacing: .12em; }
+.pb-head-center { position: relative; justify-content: center; }
+.pb-head-center .pb-toggle { position: absolute; right: .625rem; }
+.pb-toggle { border: 2px solid currentColor; border-radius: .25rem; padding: .05rem .45rem; font-size: .6rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; background: rgba(255, 255, 255, .6); }
+.pb-vol .pb-toggle { color: #15803d; }
+.pb-tr .pb-toggle { color: #1d4ed8; }
+.dark .pb-toggle { background: transparent; }
+.dark .pb-vol .pb-toggle { color: #4ade80; }
+.dark .pb-tr .pb-toggle { color: #60a5fa; }
+.pb-card, .pb-card.pb-paired, .pb-card.pb-unpaired-card, .pb-card.pb-warn { border: 1px solid #e5e7eb; border-radius: .5rem; background: #fff; padding: .6rem .7rem; box-shadow: 0 1px 2px rgba(0, 0, 0, .05); }
+.dark .pb-card, .dark .pb-card.pb-paired, .dark .pb-card.pb-unpaired-card { border-color: #3f3f46; background: #18181b; }
+.pb-card .pb-top { display: flex; align-items: flex-start; justify-content: space-between; gap: .4rem; }
+.pb-card .pb-name { display: block; font-size: .85rem; font-weight: 800; color: #0f172a; overflow-wrap: anywhere; }
+.dark .pb-card .pb-name { color: #fff; }
+.pb-card .pb-sub { display: block; margin-top: .3rem; font-size: .7rem; font-weight: 600; color: #6b7280; }
+.pb-add { border: 1px solid #d1d5db; border-radius: .3rem; background: #fff; padding: .05rem .4rem; font-size: .7rem; font-weight: 800; color: #374151; white-space: nowrap; }
+.dark .pb-add { border-color: #52525b; background: #27272a; color: #e4e4e7; }
+.pb-card .pb-drop { display: flex; flex-direction: column; gap: .3rem; margin-top: .5rem; min-height: 2.1rem; border: 1px dashed #d1d5db; border-radius: .4rem; background: #f9fafb; padding: .3rem; }
+.dark .pb-card .pb-drop { border-color: #3f3f46; background: #09090b; }
+.pb-card .pb-hint { display: flex; flex: 1; align-items: center; justify-content: center; padding: .3rem; font-size: .7rem; font-weight: 600; color: #9ca3af; }
+.pb-pill, .pb-pill.pb-pill-reg { border: 1px solid #e5e7eb; background: #fff; color: #111827; font-weight: 800; }
+.dark .pb-pill, .dark .pb-pill.pb-pill-reg { border-color: #3f3f46; background: #27272a; color: #f4f4f5; }

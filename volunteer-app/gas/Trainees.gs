@@ -20,7 +20,7 @@ function isActiveTrainee_(row) {
 function traineeList_() {
   const list = traineeTable_().rows()
     .filter((r) => r.id && r.name && isActiveTrainee_(r))
-    .map((r) => ({ id: String(r.id), name: r.name, preferredName: r.preferredName || '', gender: r.gender || '', photoUrl: traineePhotoUrl_(r.id) }));
+    .map((r) => ({ id: String(r.id), name: r.name, preferredName: r.preferredName || '', gender: r.gender || '', project: r.project || '', photoUrl: traineePhotoUrl_(r.id) }));
   return sortBy_(list, (t) => natKey_(t.name));
 }
 
