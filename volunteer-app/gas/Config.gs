@@ -587,7 +587,7 @@ const CONFIG = {
    "private" notes are kept for admins, never deleted. */
 const NOTE_AUDIENCES = {
   all: { label: 'Share with all future volunteers', hint: 'Everyone paired with this trainee, and every regular.', done: 'shared with all future volunteers' },
-  regular: { label: 'Share with regular volunteers only', hint: 'Regulars can read it; ad hoc volunteers can\'t.', done: 'shared with regular volunteers only' },
+  regular: { label: 'Share with regular volunteers only', hint: 'Regulars can read it; volunteers can\'t.', done: 'shared with regular volunteers only' },
   selected: { label: 'Share with selected volunteers', hint: 'Only the volunteers you pick (they see it when they open this trainee).', done: 'shared with the volunteers you picked' },
   private: { label: 'Keep private (admins only)', hint: 'Kept on the trainee\'s profile for admins. Volunteers never see it.', done: 'private: only admins can read it' },
 };

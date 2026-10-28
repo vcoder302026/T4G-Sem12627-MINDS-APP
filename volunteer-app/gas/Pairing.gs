@@ -95,7 +95,7 @@ function setVolunteerType_(p, admin) {
   const type = oneOf_(p.volunteerType, 'Volunteer type', ['volunteer', 'regular']);
   if (volunteerType_(target) === type) return { person: personOut_(target, true), message: `${target.name} is already ${type === 'regular' ? 'a regular' : 'a volunteer'}.` };
   users.update(target, { volunteerType: type, typeSetBy: admin.name, typeSetAt: fmtDateTime_(now_()) });
-  let message = `${target.name} is now ${type === 'regular' ? 'a regular volunteer' : 'a volunteer (ad hoc)'}.`;
+  let message = `${target.name} is now ${type === 'regular' ? 'a regular' : 'a volunteer'}.`;
   if (type === 'volunteer') {
     const ended = endStandingPairing_(target.userId, admin);
     if (ended) message += ` Their regular pairing with ${ended.traineeName} has ended.`;
@@ -200,7 +200,7 @@ function setStandingPairing_(p, admin) {
   const value = p[op] === null || p[op] === undefined ? '' : p[op];
   const activeTrainee = () => {
     if (volunteerType_(user) !== 'regular') {
-      throw err_.conflict(`${user.name} is a volunteer (ad hoc). Make them a regular first, or pair them for a single session.`);
+      throw err_.conflict(`${user.name} is a volunteer, not a regular. Make them a regular first, or pair them for a single session.`);
     }
     const t = traineeById_(str_(value, 'Trainee', { required: true, max: 40 }));
     if (!t || !isActiveTrainee_(t)) throw err_.validation('Choose an active trainee.');

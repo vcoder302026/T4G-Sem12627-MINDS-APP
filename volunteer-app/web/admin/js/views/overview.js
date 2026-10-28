@@ -11,7 +11,7 @@ export function renderOverview(root, app, ctx) {
     const c = d.counts;
     mount(host,
       statGrid(
-        stat('New volunteers', c.newVolunteers, { tone: 'indigo', sub: `${plural(c.volunteers, 'volunteer')} in all, ${plural(c.admins, 'admin')}`, href: '#/volunteers' }),
+        stat('Volunteers', c.newVolunteers, { tone: 'indigo', sub: `${plural(c.volunteers, 'volunteer')} in all, ${plural(c.admins, 'admin')}`, href: '#/volunteers' }),
         stat('Regular volunteers', c.regulars, { tone: 'emerald', href: '#/volunteers' }),
         stat('Active trainees', c.trainees, { tone: 'purple', sub: c.traineesWithoutRegular ? `${c.traineesWithoutRegular} without a regular` : 'All have a regular', href: '#/trainees' }),
         stat('Hours this month', hours(c.hoursThisMonth), { tone: 'emerald', sub: `${hours(c.hoursTotal)} in total`, href: '#/hours' }),

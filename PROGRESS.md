@@ -178,4 +178,5 @@ account, no user management; not production-ready.
 | 2026-10-28 | 46 | Dropdowns open right below their box (just above it when there's no room below), the same width as the box, following it if the page scrolls; tap outside or Escape closes; long lists keep the search box at the top. Works inside pop-ups. 117 tests; scroll check clean. |
 | 2026-10-28 | 47 | Pairing boards: each volunteer card shows its type, green "Regular" or indigo "New / Ad hoc", before the project. 117 tests. |
 | 2026-10-28 | 48 | Registration: removed the "RSPID volunteers." line under Course and Year, Matriculation Number and School Email. 117 tests. |
+| 2026-10-28 | 49 | Profile labels standardised on the Volunteers page's: Admin (purple), Regular (green), Volunteer (indigo). Pairing boards use the same badges (Admin too); "New volunteers" tiles → "Volunteers"; "Volunteers (new / ad hoc)" → "Volunteers" (filter, What volunteers see); "Move back to volunteer"; server messages without "(ad hoc)". 117 tests. |
 

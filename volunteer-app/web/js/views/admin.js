@@ -162,7 +162,7 @@ export function renderActivityLog(root, app, ctx) {
 /* ---------------- what volunteers and regulars see ---------------- */
 
 const AUDIENCE = {
-  volunteer: { title: 'Volunteers (new / ad hoc)', text: 'Only see the trainee an admin pairs them with.' },
+  volunteer: { title: 'Volunteers', text: 'Only see the trainee an admin pairs them with.' },
   regular: { title: 'Regulars', text: 'Can open any trainee.' },
 };
 

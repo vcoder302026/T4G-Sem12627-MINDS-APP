@@ -130,11 +130,11 @@ export function renderVolunteers(root, app, ctx) {
       [['active', 'Active'], ['inactive', 'Deactivated'], ['all', 'Everyone']].map(([v, l]) => el('option', { value: v, selected: v === show }, l)));
     showSelect.addEventListener('change', () => { show = showSelect.value; drawList(); });
     const typeSelect = el('select', { class: 'input py-2', 'aria-label': 'Profile' },
-      [['all', 'All profiles'], ['volunteer', 'Volunteers (new / ad hoc)'], ['regular', 'Regulars'], ['admin', 'Admins']].map(([v, l]) => el('option', { value: v, selected: v === type }, l)));
+      [['all', 'All profiles'], ['volunteer', 'Volunteers'], ['regular', 'Regulars'], ['admin', 'Admins']].map(([v, l]) => el('option', { value: v, selected: v === type }, l)));
     typeSelect.addEventListener('change', () => { type = typeSelect.value; drawList(); });
     mount(host,
       statGrid(
-        stat('New volunteers', active.filter((p) => p.volunteerType !== 'regular').length, { tone: 'indigo', sub: `Become regulars after ${res.regularAfter || 10} sessions` }),
+        stat('Volunteers', active.filter((p) => p.volunteerType !== 'regular').length, { tone: 'indigo', sub: `Become regulars after ${res.regularAfter || 10} sessions` }),
         stat('Regulars', active.filter((p) => p.volunteerType === 'regular').length, { tone: 'emerald' }),
         stat('Admins', active.filter((p) => p.role === 'admin').length, { tone: 'purple' }),
         stat('Deactivated', people.length - active.length)),
@@ -173,9 +173,9 @@ export function renderVolunteer(root, app, ctx, userId) {
       refresh();
     });
     const regular = p.volunteerType === 'regular';
-    const typeBtn = el('button', { class: 'btn btn-secondary btn-sm' }, icon('sparkle', 'size-4'), regular ? 'Move back to volunteer (ad hoc)' : 'Promote to regular');
+    const typeBtn = el('button', { class: 'btn btn-secondary btn-sm' }, icon('sparkle', 'size-4'), regular ? 'Move back to volunteer' : 'Promote to regular');
     typeBtn.addEventListener('click', async () => {
-      if (!(await majorActionPrompt({ action: regular ? `moving ${p.name} back to volunteer (ad hoc)` : `promoting ${p.name} to regular` }))) return;
+      if (!(await majorActionPrompt({ action: regular ? `moving ${p.name} back to volunteer` : `promoting ${p.name} to regular` }))) return;
       busy(typeBtn, 'Saving…', async () => {
         const res = await call('setVolunteerType', { userId, volunteerType: regular ? 'volunteer' : 'regular' });
         toast(res.message);
