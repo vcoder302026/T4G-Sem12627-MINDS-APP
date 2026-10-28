@@ -101,7 +101,8 @@ describe('what volunteers and regulars can see', () => {
     ok(call('updateBooking', { bookingId: booking, traineeId: 'T-0001' }));
   });
 
-  const labels = (info) => info.sections.flatMap((s) => s.fields.map((f) => f.label));
+  // What the person sees: the sections, plus gender beside the photo (no longer repeated in a section).
+  const labels = (info) => info.sections.flatMap((s) => s.fields.map((f) => f.label)).concat(info.trainee.gender ? ['Gender'] : []);
 
   test('an ad hoc volunteer sees only the default details of their paired trainee', () => {
     const info = ok(rt.call('traineeInfo', { traineeId: 'T-0001' }, vol.token));
@@ -114,6 +115,16 @@ describe('what volunteers and regulars can see', () => {
       assert.ok(!seen.includes(hidden), `${hidden} must not reach ad hoc volunteers`);
     }
     fails(rt.call('traineeInfo', { traineeId: 'T-0002' }, vol.token), 'FORBIDDEN');
+  });
+  test('beside the photo: short name, gender and language only if volunteers may see them; not repeated below', () => {
+    ok(call('saveVisibility', { audience: 'volunteer', fields: ['Race'] }));
+    const info = ok(rt.call('traineeInfo', { traineeId: 'T-0001' }, vol.token));
+    assert.equal(info.trainee.gender, '', 'gender is hidden when volunteers may not see it');
+    assert.equal(info.trainee.preferredName, '');
+    const full = ok(call('traineeInfo', { traineeId: 'T-0001' }));
+    assert.ok(full.trainee.gender, 'admins see it');
+    const all = full.sections.flatMap((x) => x.fields.map((f) => f.label));
+    assert.ok(!all.includes('Gender') && !all.some((l) => /Short Name/i.test(l)), 'not repeated in the sections');
     fails(rt.call('traineeDirectory', {}, vol.token), 'FORBIDDEN');
     // The card on their upcoming session uses the same rules.
     const card = ok(rt.call('volunteerHome', {}, vol.token)).upcoming[0].trainee;

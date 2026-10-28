@@ -271,7 +271,8 @@ describe('signing up and pairing (volunteers, regulars, admins)', () => {
     assert.equal(onHome.fields, undefined, 'Home shows the name and photo only; details come on request');
     const trainee = ok(rt.call('traineeInfo', { traineeId: 'T-0001' }, vol.token));
     const labels = trainee.sections.flatMap((x) => x.fields.map((f) => f.label));
-    assert.ok(labels.includes('Gender') && labels.includes('Communication'));
+    assert.ok(trainee.trainee.gender && labels.includes('Communication'), 'gender beside the photo; the rest in sections');
+    assert.ok(!labels.includes('Gender'), 'gender is not repeated in a section');
     assert.ok(!JSON.stringify(trainee).includes('Epilepsy'), 'medical notes must not reach ad hoc volunteers');
   });
 

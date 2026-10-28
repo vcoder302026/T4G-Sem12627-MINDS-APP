@@ -187,6 +187,32 @@ function traineeSectionsView_(row, allowed) {
   })).filter((s) => s.fields.length);
 }
 
+const BASIC_FIELDS_ = ['preferredName', 'gender', 'language']; // shown beside the photo
+
+/** The normalised headers of the name and the beside-the-photo fields in the trainee sheet. */
+function basicKeys_() {
+  const table = traineeTable_();
+  return ['name'].concat(BASIC_FIELDS_).filter((k) => table.hasColumn(k)).map((k) => normHeader_(table.header(k)));
+}
+
+/** Sections without the name / short name / gender / language questions (they're beside the photo). */
+function withoutBasics_(sections) {
+  const keys = basicKeys_();
+  return sections.map((s) => Object.assign({}, s, { fields: s.fields.filter((f) => keys.indexOf(f.key) === -1) }))
+    .filter((s) => s.fields.length);
+}
+
+/** traineeBasics_, with short name / gender / language blank unless this person may see them. */
+function basicsFor_(row, allowed) {
+  const t = traineeBasics_(row);
+  if (!allowed) return t; // admins see everything
+  const table = traineeTable_();
+  BASIC_FIELDS_.forEach((k) => {
+    if (!table.hasColumn(k) || allowed.indexOf(normHeader_(table.header(k))) === -1) t[k] = '';
+  });
+  return t;
+}
+
 function traineeBasics_(row) {
   return {
     id: String(row.id), name: row.name, preferredName: row.preferredName || '', gender: row.gender || '',
@@ -300,13 +326,14 @@ function traineeInfo_(p, user) {
   const regulars = standingRows_().filter((x) => String(x.traineeId) === traineeId)
     .map((x) => x.volunteerName);
   const mine = activeStandings_(user.userId);
-  const sections = traineeSectionsView_(row, allowed);
+  // Name, short name, gender and language sit beside the photo, so the sections below don't repeat them.
+  const sections = withoutBasics_(traineeSectionsView_(row, allowed));
   return {
-    trainee: traineeBasics_(row),
+    trainee: basicsFor_(row, allowed),
     access,
     sections,
     // The press-and-hold card shows what volunteers see (admins too), so everyone previews the same thing.
-    summary: cardFields_(access === 'admin' ? traineeSectionsView_(row, visibleFor_(row.id, 'volunteer').fields) : sections, 5),
+    summary: cardFields_(access === 'admin' ? withoutBasics_(traineeSectionsView_(row, visibleFor_(row.id, 'volunteer').fields)) : sections, 5),
     notes: notesFor_(row.id, user, access, access === 'volunteer' ? CONFIG.NOTES_SHOWN_TO_VOLUNTEERS : 0),
     together,
     regulars: access === 'volunteer' ? [] : regulars,

@@ -179,4 +179,5 @@ account, no user management; not production-ready.
 | 2026-10-28 | 47 | Pairing boards: each volunteer card shows its type, green "Regular" or indigo "New / Ad hoc", before the project. 117 tests. |
 | 2026-10-28 | 48 | Registration: removed the "RSPID volunteers." line under Course and Year, Matriculation Number and School Email. 117 tests. |
 | 2026-10-28 | 49 | Profile labels standardised on the Volunteers page's: Admin (purple), Regular (green), Volunteer (indigo). Pairing boards use the same badges (Admin too); "New volunteers" tiles → "Volunteers"; "Volunteers (new / ad hoc)" → "Volunteers" (filter, What volunteers see); "Move back to volunteer"; server messages without "(ad hoc)". 117 tests. |
+| 2026-10-28 | 50 | Trainee page (volunteers / regulars): Short name, Gender and Language beside the photo (full name is the page title); the name / short name / gender / language questions are no longer repeated in the sections (or on the press-and-hold card). Beside-the-photo facts follow "What volunteers see" (blank when not allowed; new test). 118 tests. |
 
