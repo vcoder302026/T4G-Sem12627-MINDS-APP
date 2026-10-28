@@ -535,7 +535,6 @@ export function passwordPrompt(title, text) {
     const form = el('form', { class: 'space-y-4' },
       el('p', { class: 'text-sm' }, text),
       el('label', { class: 'label', for: 'pw-confirm' }, 'Admin password'), input,
-      el('p', { class: 'hint' }, 'Not your sign-in password.'),
       el('div', { class: 'flex justify-end gap-2' }, cancel, submit));
     input.id = 'pw-confirm';
     const m = modal(title, form, () => { if (!done) resolve(null); });
@@ -681,8 +680,7 @@ export function majorActionPrompt({ action, confirmLabel = 'Continue', needsPass
     const form = el('form', { class: 'space-y-4' },
       el('p', { class: 'major-warning' }, el('strong', {}, 'Warning: '), `You are ${action}. Do you wish to continue?`),
       pw ? el('div', {},
-        el('label', { class: 'label', for: 'major-pw' }, 'Admin password'), pw,
-        el('p', { class: 'hint' }, 'Not your sign-in password.')) : null,
+        el('label', { class: 'label', for: 'major-pw' }, 'Admin password'), pw) : null,
       el('div', { class: 'flex justify-end gap-2' }, cancelBtn, confirmBtn));
     const m = modal('Warning', form, () => { if (!done) resolve(null); });
     cancelBtn.addEventListener('click', () => m.close());

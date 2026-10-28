@@ -31,10 +31,10 @@ function detailsForm(person, { self, submit, extra, questions }) {
     error,
     section(self ? 'About you' : 'Details', 'blue',
       field('name', 'Full Name', { autocomplete: self ? 'name' : 'off', value: person.name }),
-      field('birthday', 'D.O.B', { type: 'date', max: todaySG(), value: person.birthday }),
-      field('email', 'Email', {
+      field('birthday', 'Date of Birth', { type: 'date', max: todaySG(), value: person.birthday }),
+      field('email', 'Sign-in email', {
         type: 'email', inputmode: 'email', autocomplete: self ? 'email' : 'off', value: person.email,
-        hint: self ? 'You sign in with this email.' : 'They sign in with this.',
+        hint: self ? 'Sign in with this email.' : 'They sign in with this email.',
       }),
       passwordBox,
       field('phone', 'Phone', { type: 'tel', inputmode: 'tel', value: person.phone, placeholder: '+65 91234567', hint: PHONE_HINT }),

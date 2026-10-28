@@ -63,7 +63,7 @@ function applies(f, answerOf) {
   if (!f.showIf) return true;
   return String(answerOf(f.showIf.key) || '').toLowerCase().startsWith(String(f.showIf.startsWith).toLowerCase());
 }
-const privateNote = (f) => (f.private ? el('p', { class: 'hint' }, '🔒 Only you and MINDS admins can see this.') : null);
+const privateNote = () => null; // private questions are still only shown to the volunteer and admins
 
 function questionControl(f, value) {
   const id = `f-${nameOf(f)}`;

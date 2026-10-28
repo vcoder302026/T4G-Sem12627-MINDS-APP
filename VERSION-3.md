@@ -51,13 +51,13 @@ Every person and record in the demo is fictional.
 | 1 | Short Name \* | Personal particulars | Required; used in "Welcome, …" and Google Contacts |
 | 2 | Full Name \* | Your account | Required |
 | 3 | NRIC (Last 4 Alphanumeric, e.g. 123A) \* | Personal particulars 🔒 | 3 digits and a letter, saved in capitals |
-| 4 | Project \* (RSPID (CTDC), RSPID (WGS), West End, RSPID (CTDC) Alumni, RSPID (WGS) Alumni) | Project | One choice |
+| 4 | Project \* (RSPID (CTDC), RSPID (WGS), West End, RSPID (CTDC) Alumni, RSPID (WGS) Alumni) | Project | One choice, from the standard Projects list (Settings → Guide & projects) plus "Alumni" for the RSPID projects |
 | 5 | Course and Year [RSPID Volunteers] | Project | Asked only for RSPID projects |
 | 6 | Matriculation Number [RSPID Volunteers] | Project 🔒 | Only for RSPID; letters and numbers, saved in capitals |
 | 7 | School Email [RSPID Volunteers] | Project | Only for RSPID; a valid email |
-| 8 | Email [To Receive Newsletters] \* | Your account | Valid email; **this is the sign-in email**, with the form's advice not to use a school email |
+| 8 | Email [To Receive Newsletters] \* | Your account ("Sign-in email") | Valid email; people sign in with it |
 | 9 | Contact No \* | Your account | +65 and 8 digits |
-| 10 | D.O.B \* | Your account | Not in the future |
+| 10 | D.O.B \* | Your account ("Date of Birth") | Not in the future |
 | 11 | Address \* | Personal particulars 🔒 | Required |
 | 12 | T-Shirt Size \* (XS–XXL) | Other information | One choice |
 | 13 | Start Year (RSPID or West End, whichever is earlier) (YYYY) \* | Project | A 4-digit year, not later than this year |
@@ -69,8 +69,7 @@ Every person and record in the demo is fictional.
 | + | Telegram handle (not in the form) | Your account | Optional; admins message volunteers there |
 
 - 🔒 = personal particulars: shown only to the volunteer (Me) and to admins, never to other
-  volunteers, never on quick cards for volunteers, and **never saved to Google Contacts**. The
-  form says so under each of these questions.
+  volunteers, never on quick cards for volunteers, and **never saved to Google Contacts**.
 - The RSPID-only questions appear as soon as an RSPID project is picked, and disappear (and are
   cleared) for West End. Editing details works the same way.
 - The questions are still Steven's data list (`REGISTRATION` in `gas/Config.gs`), now with five
@@ -99,6 +98,10 @@ sign-ups are marked cancelled, not deleted), so deactivated people no longer sit
 and pairing boards. Hours, attendance, notes and pairing history are kept.
 
 ### 2.3 Project names match the form
+
+- **One standard project list:** RSPID (CTDC), RSPID (WGS) and West End (Settings → Guide &
+  projects). Registration offers these plus "RSPID (CTDC) Alumni" and "RSPID (WGS) Alumni"; a project
+  added in Settings appears at registration too. `setup()` adds any missing standard project.
 
 - The Woodlands projects are now **"West End"** and **"RSPID (WGS)"** (WGS = Woodlands Gardens
   School), as in the form, instead of "West End (WE)" and the long RSPID name.

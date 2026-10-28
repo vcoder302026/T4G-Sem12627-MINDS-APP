@@ -467,6 +467,7 @@ export function createGasRuntime() {
       const width = Math.max(0, ...rows.map((line) => line.length));
       sheet.maxCols = Math.max(sheet.maxCols, width); // like a real tab, grow to fit what was pasted
       sheet.maxRows = Math.max(sheet.maxRows, rows.length + 50);
+      sheet.cells = new Map(); // replaces what was there, like pasting a whole new tab
       rows.forEach((line, r) => line.forEach((v, c) => sheet.set(r + 1, c + 1, v)));
       return sheet;
     },

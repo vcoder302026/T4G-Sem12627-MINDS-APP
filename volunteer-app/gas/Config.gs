@@ -614,7 +614,8 @@ const REGISTRATION = {
     { key: 'shortName', header: 'Short Name', label: 'Short Name', type: 'text', required: true, section: 'Personal particulars', hint: 'What trainees and staff call you, e.g. Wei Ling.' },
     { key: 'nric4', header: 'NRIC (Last 4)', label: 'NRIC (last 4 characters, e.g. 123A)', type: 'nric4', required: true, private: true, section: 'Personal particulars', placeholder: '123A' },
     { key: 'address', header: 'Address', label: 'Address', type: 'text', required: true, private: true, section: 'Personal particulars' },
-    { key: 'project', header: 'Project', label: 'Project', type: 'choice', options: ['RSPID (CTDC)', 'RSPID (WGS)', 'West End', 'RSPID (CTDC) Alumni', 'RSPID (WGS) Alumni'], required: true, section: 'Project' },
+    { key: 'project', header: 'Project', label: 'Project', type: 'choice', options: 'projects', alumni: ['RSPID (CTDC)', 'RSPID (WGS)'], required: true, section: 'Project' },
+    // ↑ the Projects list (Settings → Guide & projects), then "<project> Alumni" for those in `alumni`.
     { key: 'courseYear', header: 'Course and Year', label: 'Course and Year [upcoming] (e.g. MAE, Y2)', type: 'text', showIf: RSPID_ONLY, section: 'Project', hint: 'RSPID volunteers.' },
     { key: 'matricNo', header: 'Matriculation Number', label: 'Matriculation Number', type: 'matric', showIf: RSPID_ONLY, private: true, section: 'Project', hint: 'RSPID volunteers.' },
     { key: 'schoolEmail', header: 'School Email', label: 'School Email', type: 'email', showIf: RSPID_ONLY, section: 'Project', hint: 'RSPID volunteers.' },

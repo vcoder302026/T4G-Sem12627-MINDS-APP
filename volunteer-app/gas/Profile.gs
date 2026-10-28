@@ -47,7 +47,10 @@ function profilePatch_(p) {
 
 /** The options of a choice / multi question: a list, or 'projects' for the active projects. */
 function registrationOptions_(f) {
-  if (f.options === 'projects') return activeProjects_().map((pr) => pr.name);
+  if (f.options === 'projects') {
+    const names = activeProjects_().map((pr) => pr.name);
+    return names.concat((f.alumni || []).filter((n) => names.indexOf(n) >= 0).map((n) => `${n} Alumni`));
+  }
   return f.options || [];
 }
 

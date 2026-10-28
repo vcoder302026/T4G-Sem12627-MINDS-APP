@@ -32,14 +32,20 @@ const DEFAULT_GUIDE = [
 // The projects at MINDS Woodlands Gardens School. Descriptions are a starting point for admins to edit.
 const DEFAULT_PROJECTS = [
   {
-    name: 'West End',
-    description: 'Volunteer with trainees at the West End project: activities, games and life-skills practice.',
-    schedule: 'Regular sessions, 2:30 pm to 5:30 pm',
-    venue: 'MINDS Woodlands Gardens School',
+    name: 'RSPID (CTDC)',
+    description: 'Regular sessions with trainees at CTDC: building friendships, confidence and everyday skills.',
+    schedule: '',
+    venue: '',
   },
   {
     name: 'RSPID (WGS)',
     description: 'Regular sessions with trainees: building friendships, confidence and everyday skills.',
+    schedule: 'Regular sessions, 2:30 pm to 5:30 pm',
+    venue: 'MINDS Woodlands Gardens School',
+  },
+  {
+    name: 'West End',
+    description: 'Volunteer with trainees at the West End project: activities, games and life-skills practice.',
     schedule: 'Regular sessions, 2:30 pm to 5:30 pm',
     venue: 'MINDS Woodlands Gardens School',
   },
@@ -448,7 +454,10 @@ function seedContent_() {
     added.push(`Added ${DEFAULT_PROJECTS.length} starter project(s)`);
   }
   // The projects new sessions tick by default (Config.gs → SESSION_OPTIONS.projects) must exist.
-  const missing = (CONFIG.SESSION_OPTIONS.projects || []).filter((name) => !projectRows_().some((x) => x.name.toLowerCase() === name.toLowerCase()));
+  // The standard project list (the registration form's projects) and the session form's defaults.
+  const wanted = DEFAULT_PROJECTS.map((pr) => pr.name).concat(CONFIG.SESSION_OPTIONS.projects || [])
+    .filter((name, i, all) => all.indexOf(name) === i);
+  const missing = wanted.filter((name) => !projectRows_().some((x) => x.name.toLowerCase() === name.toLowerCase()));
   missing.forEach((name) => {
     const known = DEFAULT_PROJECTS.find((pr) => pr.name === name) || { description: '', schedule: '', venue: '' };
     const order = projectRows_().reduce((m, x) => Math.max(m, Number(x.order) || 0), 0) + 1;
