@@ -81,3 +81,18 @@ async def leftovers():
 
 asyncio.run(every_page())
 asyncio.run(leftovers())
+
+async def dropdown_redraw():
+    """A dropdown open while the page redraws must never leave anything that stops scrolling."""
+    async with async_playwright() as p:
+        b = await p.chromium.launch()
+        c = await b.new_context(viewport={'width': 375, 'height': 667}, is_mobile=True, has_touch=True); pg = await c.new_page(); cdp = await c.new_cdp_session(pg)
+        await pg.goto(BASE + '/#/login'); await pg.wait_for_timeout(500)
+        await pg.fill('[name=email]', 'admin@example.com'); await pg.fill('[name=password]', 'AdminDemo123'); await pg.click('button[type=submit]'); await pg.wait_for_timeout(1500)
+        await pg.goto(BASE + '/#/volunteers'); await pg.wait_for_timeout(1500)
+        await pg.locator('main .select-display').first.click(); await pg.wait_for_timeout(300)
+        await pg.evaluate("(() => { const m = document.getElementById('view'); m.innerHTML = m.innerHTML; })()"); await pg.wait_for_timeout(200)
+        await pg.evaluate('scrollTo(0,0)'); await swipe(pg, cdp, y=600, dy=-320)
+        print(f"dropdown open + page redraw: page scrolled {await pg.evaluate('scrollY')}px | covering layers: {await pg.locator('.list-overlay').count()}")
+        await b.close()
+asyncio.run(dropdown_redraw())

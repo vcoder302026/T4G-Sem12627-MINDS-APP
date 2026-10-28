@@ -460,7 +460,7 @@ function route() {
   // page (pop-ups, list sheets, date/time wheels, a dragged card) would block
   // taps and scrolling on the next page, so it all goes, and scrolling is unlocked.
   document.querySelectorAll('dialog[open]').forEach((d) => { try { d.close(); } catch { /* ignore */ } });
-  document.querySelectorAll('.wheel-overlay, .dnd-ghost').forEach((n) => n.remove());
+  document.querySelectorAll('.wheel-overlay, .list-pop, .dnd-ghost').forEach((n) => n.remove());
   document.querySelectorAll('.dnd-source, .dnd-over').forEach((n) => n.classList.remove('dnd-source', 'dnd-over'));
   document.body.style.overflow = '';
   document.documentElement.style.overflow = '';

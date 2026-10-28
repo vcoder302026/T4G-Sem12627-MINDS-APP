@@ -233,7 +233,7 @@ function openList(select, display) {
   const opts = [...select.options].filter((o) => !o.hidden);
   const labelEl = select.id ? document.querySelector(`label[for="${CSS.escape(select.id)}"]`) : null;
   const title = (labelEl && labelEl.textContent.trim()) || select.getAttribute('aria-label') || 'Choose';
-  let close = () => { if (!overlay.isConnected) return; overlay.remove(); document.removeEventListener('keydown', onKey, true); if (display.isConnected) display.focus({ preventScroll: true }); };
+  let close = () => { if (!pop.isConnected) return; pop.remove(); document.removeEventListener('keydown', onKey, true); if (display.isConnected) display.focus({ preventScroll: true }); };
   const onKey = (e) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(); } };
   const choose = (value) => {
     nativeSelectValue.set.call(select, value);
@@ -257,11 +257,12 @@ function openList(select, display) {
   const search = opts.length > 8 ? make('input', { type: 'search', class: 'input search-input list-search', placeholder: 'Search…', 'aria-label': `Search: ${title}` }) : null;
   if (search) search.addEventListener('input', () => { draw(search.value); place(); });
   // A dropdown right below the box (or just above it when there's no room below),
-  // the same width as the box. Tapping anywhere else closes it.
+  // the same width as the box. No layer covers the page: a tap or swipe anywhere
+  // else closes it and still does what it would have done (scrolling never stops).
   const pop = make('div', { class: 'list-pop', role: 'dialog', 'aria-label': title }, search, list);
-  const overlay = make('div', { class: 'wheel-overlay list-overlay', onclick: (e) => { if (e.target === overlay) close(); } }, pop);
   const place = () => {
-    if (!overlay.isConnected) return;
+    if (!pop.isConnected) return;
+    if (!display.isConnected) { close(); return; } // the page redrew under it
     const r = display.getBoundingClientRect();
     const gap = 6;
     const edge = 8;
@@ -275,14 +276,23 @@ function openList(select, display) {
     if (down) { pop.style.top = `${r.bottom + gap}px`; pop.style.bottom = ''; } else { pop.style.bottom = `${window.innerHeight - r.top + gap}px`; pop.style.top = ''; }
   };
   const replace = () => place();
-  const cleanup = () => { window.removeEventListener('scroll', replace, true); window.removeEventListener('resize', replace); };
+  const outside = (e) => { if (!pop.contains(e.target) && !display.contains(e.target)) close(); };
+  const onPage = () => close();
+  const cleanup = () => {
+    window.removeEventListener('scroll', replace, true);
+    window.removeEventListener('resize', replace);
+    document.removeEventListener('pointerdown', outside, true);
+    window.removeEventListener('hashchange', onPage);
+  };
   const baseClose = close;
   close = () => { cleanup(); baseClose(); };
-  (display.closest('dialog[open]') || document.body).append(overlay);
+  (display.closest('dialog[open]') || document.body).append(pop);
+  document.addEventListener('pointerdown', outside, true); // never prevented: the tap / swipe goes on as normal
   document.addEventListener('keydown', onKey, true);
-  window.addEventListener('hashchange', close, { once: true }); // Back, or any page change, closes it
+  window.addEventListener('hashchange', onPage); // Back, or any page change, closes it
   window.addEventListener('scroll', replace, true); // follows the box if the page scrolls
   window.addEventListener('resize', replace); // e.g. the phone keyboard opening for the search box
+  display.listPop = pop; // the box knows its open list (a second tap doesn't open another)
   draw();
   place();
   const current = list.querySelector('.list-on');
@@ -309,7 +319,7 @@ function enhanceSelect(select) {
   new MutationObserver(sync).observe(select, { childList: true, subtree: true, attributes: true, attributeFilter: ['selected', 'disabled'] });
   select.hidden = true;
   select.after(display);
-  display.addEventListener('click', () => openList(select, display));
+  display.addEventListener('click', () => { if (display.listPop && display.listPop.isConnected) return; openList(select, display); });
   select.focus = () => display.focus();
   if (select.id) {
     display.id = `${select.id}-picker`;
