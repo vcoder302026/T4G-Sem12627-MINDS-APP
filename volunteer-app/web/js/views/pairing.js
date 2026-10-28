@@ -181,7 +181,6 @@ function pairBoard(o) {
   const draw = () => {
     const byTrainee = pairedTo();
     const unpairedVols = o.volunteers.filter((v) => !v.trainees.length);
-    const unpairedTrainees = o.trainees.filter((t) => !(byTrainee[t.id] || []).length);
     let vols = fuzzyFilter(o.volunteers, state.vq, (v) => [v.name, v.trainees.map((t) => t.name).join(' ')]);
     if (state.vf === 'paired') vols = vols.filter((v) => v.trainees.length);
     if (state.vf === 'unpaired') vols = vols.filter((v) => !v.trainees.length);
@@ -190,62 +189,64 @@ function pairBoard(o) {
     if (state.tf === 'unpaired') trainees = trainees.filter((t) => !(byTrainee[t.id] || []).length);
     const flashed = (key, id) => state.flash && ((key !== null && String(state.flash.key) === String(key)) || (id !== null && state.flash.id === id));
 
-    const card = (role, key, paired, warn, flash, label, ...body) => {
-      const c = el('div', {
-        class: `pb-card ${paired ? 'pb-paired' : 'pb-unpaired-card'} ${warn ? 'pb-warn' : ''} ${flash ? 'pb-flash' : ''}`,
-        role: 'button', tabindex: '0', 'aria-label': label, dataset: { dndRole: role, dndKey: key },
-      }, ...body);
-      return c;
-    };
+    // Laid out like the WERONE outing app's Manual Pair page: name and "+Trn" / "+Vol",
+    // the project underneath, then the people paired (✕ unpairs) or "Drop … here".
+    const card = (role, key, flash, label, ...body) => el('div', {
+      class: `pb-card ${flash ? 'pb-flash' : ''}`,
+      role: 'button', tabindex: '0', 'aria-label': label, dataset: { dndRole: role, dndKey: key },
+    }, ...body);
     const volCard = (v) => {
-      const add = el('button', { type: 'button', class: 'pb-add', 'aria-label': `Add a trainee for ${v.name}` }, '+ Trn');
+      const add = el('button', { type: 'button', class: 'pb-add', 'aria-label': `Add a trainee for ${v.name}` }, '+Trn');
       add.addEventListener('click', (e) => { e.stopPropagation(); pickTrainee(v); });
-      const c = card('vol', v.key, v.trainees.length > 0, false, flashed(v.key, null),
+      const c = card('vol', v.key, flashed(v.key, null),
         `${v.name}: ${v.trainees.length ? `with ${v.trainees.map((t) => t.name).join(', ')}` : 'unpaired'}. Tap to pair, or drag onto a trainee.`,
-        el('span', { class: 'pb-name' }, v.trainees.length ? icon('tick', 'pb-tick') : null, el('span', {}, v.name)),
-        el('span', { class: 'pb-chips' }, typeBadges(v), v.tag === 'standing' && v.trainees.length ? badge('Regular pair', 'purple') : null),
-        v.note ? el('span', { class: 'pb-sub' }, v.note) : null,
-        // Who they're with (✕ unpairs), then "+ Trn" to add another.
+        el('span', { class: 'pb-top' }, el('span', { class: 'pb-name' }, v.name), add),
+        v.project ? el('span', { class: 'pb-sub' }, v.project) : null,
         el('span', { class: 'pb-drop' },
-          v.trainees.map((t) => pill(t.name, t.id, () => change('remove', v, traineeById(t.id)), true, flashed(null, t.id) && String(state.flash.key) === String(v.key) ? 'pb-pill-new' : '')),
-          el('span', { class: 'pb-drop-foot' }, v.trainees.length ? null : el('span', { class: 'pb-hint' }, 'Drop a trainee here'), add)));
+          v.trainees.length
+            ? v.trainees.map((t) => pill(t.name, t.id, () => change('remove', v, traineeById(t.id)), true, flashed(null, t.id) && String(state.flash.key) === String(v.key) ? 'pb-pill-new' : ''))
+            : el('span', { class: 'pb-hint' }, 'Drop trainee here')));
       c.addEventListener('click', () => pickTrainee(v));
       c.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pickTrainee(v); } });
       return asPerson(c, v.userId); // press and hold: Telegram and phone
     };
     const traineeCard = (t) => {
       const withVols = byTrainee[t.id] || [];
-      const add = el('button', { type: 'button', class: 'pb-add', 'aria-label': `Add a volunteer for ${t.name}` }, '+ Vol');
+      const add = el('button', { type: 'button', class: 'pb-add', 'aria-label': `Add a volunteer for ${t.name}` }, '+Vol');
       add.addEventListener('click', (e) => { e.stopPropagation(); pickVolunteer(t); });
-      const c = card('tr', t.id, withVols.length > 0, t.warn(withVols), flashed(null, t.id),
+      const c = card('tr', t.id, flashed(null, t.id),
         `${t.name}: ${withVols.length ? `with ${withVols.map((v) => v.name).join(', ')}` : 'no one yet'}. Tap to pair, or drag onto a volunteer.`,
-        el('span', { class: 'pb-name' }, traineeAvatar(t, 'xs'), withVols.length ? icon('tick', 'pb-tick') : null, el('span', {}, t.name)),
-        t.note ? el('span', { class: 'pb-sub' }, t.note) : null,
+        el('span', { class: 'pb-top' }, el('span', { class: 'pb-name' }, t.name), add),
+        t.project ? el('span', { class: 'pb-sub' }, t.project) : null,
         el('span', { class: 'pb-drop' },
-          withVols.map((v) => pill(v.name, v.userId, () => change('remove', v, t), false, v.type === 'regular' ? 'pb-pill-reg' : '')),
-          el('span', { class: 'pb-drop-foot' }, withVols.length ? null : el('span', { class: 'pb-hint' }, 'Drop a volunteer here'), add)));
+          withVols.length
+            ? withVols.map((v) => pill(v.name, v.userId, () => change('remove', v, t), false))
+            : el('span', { class: 'pb-hint' }, 'Drop volunteer here')));
       c.addEventListener('click', () => pickVolunteer(t));
       c.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pickVolunteer(t); } });
       return asTrainee(c, t.id); // press and hold: photo and key details
     };
-    const unpairedBtn = el('button', { type: 'button', class: `pb-unpaired ${unpairedVols.length ? 'pb-pulse' : 'pb-all-paired'}`, 'aria-pressed': String(state.vf === 'unpaired') },
-      unpairedVols.length ? `${unpairedVols.length} unpaired` : ['✓ All paired']);
-    unpairedBtn.addEventListener('click', () => { state.vf = state.vf === 'unpaired' ? 'all' : 'unpaired'; draw(); });
+    // One filter button per column: ALL ↔ PAIRED, changed by tapping it.
+    const toggle = (value, label, flip) => {
+      const b = el('button', { type: 'button', class: 'pb-toggle', 'aria-label': `${label}: showing ${value === 'paired' ? 'paired only' : 'all'}. Tap to change.` },
+        value === 'paired' ? 'Paired' : 'All');
+      b.addEventListener('click', flip);
+      return b;
+    };
     const empty = (filter, query, text) => el('p', { class: 'p-2 text-xs muted' }, query || filter !== 'all' ? 'No one matches.' : text);
 
     mount(host,
-      el('div', { class: 'mb-3 flex flex-wrap items-center gap-2' }, unpairedBtn, syncPill,
-        el('span', { class: 'pb-legend' }, el('span', { class: 'pb-dot pb-dot-paired' }), 'Paired'),
-        el('span', { class: 'pb-legend' }, el('span', { class: 'pb-dot pb-dot-unpaired' }), 'Not yet'),
-        null),
+      el('div', { class: 'mb-3 flex flex-wrap items-center gap-2' },
+        unpairedVols.length ? el('span', { class: 'pb-unpaired pb-pulse' }, `${unpairedVols.length} unpaired`) : null,
+        syncPill),
       el('div', { class: 'pb' },
         el('section', { class: 'pb-col pb-vol', 'aria-label': o.volunteerLabel },
-          el('div', { class: 'pb-head' }, el('span', {}, `${o.volunteerLabel} (${o.volunteers.length})`),
-            filterSeg(state.vf, o.volunteerLabel.toLowerCase(), (k) => { state.vf = k; draw(); })),
+          el('div', { class: 'pb-head' }, el('span', {}, o.volunteerLabel),
+            toggle(state.vf, o.volunteerLabel, () => { state.vf = state.vf === 'paired' ? 'all' : 'paired'; draw(); })),
           el('div', { class: 'pb-list' }, vols.length ? vols.map(volCard) : empty(state.vf, state.vq, o.emptyVolunteers))),
         el('section', { class: 'pb-col pb-tr', 'aria-label': 'Trainees' },
-          el('div', { class: 'pb-head', title: `${unpairedTrainees.length} ${o.warnLabel.toLowerCase()}` }, el('span', {}, `Trainees (${o.trainees.length})`),
-            filterSeg(state.tf, 'trainees', (k) => { state.tf = k; draw(); })),
+          el('div', { class: 'pb-head pb-head-center' }, el('span', {}, 'Trainees'),
+            toggle(state.tf, 'Trainees', () => { state.tf = state.tf === 'paired' ? 'all' : 'paired'; draw(); })),
           el('div', { class: 'pb-list' }, trainees.length ? trainees.map(traineeCard) : empty(state.tf, state.tq, 'No trainees.')))));
     redrawers.forEach((fn) => fn());
     if (state.flash) {
@@ -255,8 +256,8 @@ function pairBoard(o) {
   };
 
   const searches = el('div', { class: 'mb-3 grid grid-cols-2 gap-2' },
-    searchBox(`Search ${o.volunteerLabel.toLowerCase()}`, (q) => { state.vq = q; draw(); }, `Search ${o.volunteerLabel.toLowerCase()}`),
-    searchBox('Search trainees', (q) => { state.tq = q; draw(); }, 'Search trainees'));
+    searchBox(`Search ${o.volunteerLabel}…`, (q) => { state.vq = q; draw(); }, `Search ${o.volunteerLabel.toLowerCase()}`),
+    searchBox('Search Trainees…', (q) => { state.tq = q; draw(); }, 'Search trainees'));
   const stopDrag = pairDrag(host, (from, to) => {
     const vKey = from.role === 'vol' ? from.key : to.key;
     const tId = from.role === 'tr' ? from.key : to.key;
@@ -460,15 +461,9 @@ export function renderStandingPairings(root, app, ctx, tab) {
     reload: () => load(),
   });
   const draw = (d) => {
-    const c = d.counts;
     if (board) board.update(options(d));
     else board = pairBoard(options(d));
-    mount(host,
-      el('div', { class: 'mb-3 flex flex-wrap gap-1.5' },
-        badge(`${c.regulars} regular${c.regulars === 1 ? '' : 's'}`, 'emerald'),
-        c.unpairedRegulars ? badge(`${c.unpairedRegulars} without a trainee`, 'red') : null,
-        c.traineesWithoutRegular ? badge(`${c.traineesWithoutRegular} trainee${c.traineesWithoutRegular === 1 ? '' : 's'} without a regular`, 'amber', 'alert') : badge('Every trainee has a regular', 'emerald', 'tick')),
-      board.el);
+    mount(host, board.el); // like the outing app: just the board (its unpaired count and "Saved" are on top)
   };
   const load = () => call('listStandingPairings').then((d) => { if (ctx.alive()) draw(d); });
   mount(host, loading());

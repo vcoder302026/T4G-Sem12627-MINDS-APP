@@ -40,7 +40,7 @@ Patterns already shared (keep them; reuse the helpers rather than writing new on
 | Show / hide eye on password boxes | House Visit, Overseas | `ui.js` `field()`; `controls.js` for any other password box |
 | Fixed bottom action bar for the main button | House Visit | `.action-bar` |
 | Top-centre toasts, green / red | House Visit | `ui.js` `toast` |
-| Pairing: green Volunteers / blue Trainees columns, search with clear ✕, pulsing "N Unpaired", All filters, quick-pair pop-up, person info pop-up, "Saved / Saving…" | Overseas (and MYG Outing) | `web/js/views/pairing.js`, `dnd.js`, `quickview.js` |
+| Pairing exactly like the WERONE outing app's Manual Pair page: two searches, green VOLUNTEERS / blue TRAINEES headers with one ALL ↔ PAIRED button each, plain cards (name, +Trn / +Vol, project underneath, dashed box with ✕ pills or "Drop … here"), pulsing "N Unpaired", "Saved / Saving…", quick-pair pop-up; no groupings | MYG Outing (Overseas pairing page) | `web/js/views/pairing.js`, `dnd.js`, `quickview.js` |
 | Search boxes with a clear (✕) button | Overseas | `ui.js` `searchBox` |
 | Camera QR scanning, choose-mode style admin layout, "Update app" | CSL Attendance | `web/js/qr.js`, `views/leader.js` |
 | Google Apps Script backend; Prod / Dev / Exp; GitHub Actions + clasp deploy keeping the same Web App URL | All three | `volunteer-app/gas/`, `.github/workflows/` |

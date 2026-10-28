@@ -196,6 +196,7 @@ function sessionDetail_(p) {
         name: u.name || b.volunteerName,
         type: volunteerType_(u),
         isAdmin: u.role === 'admin',
+        project: u.project || '', // the project they registered under (pairing board)
         phone: u.phone || '',
         telegram: u.telegram || '',
         standingTrainees: fixed.map((x) => ({ id: String(x.traineeId), name: x.traineeName })),

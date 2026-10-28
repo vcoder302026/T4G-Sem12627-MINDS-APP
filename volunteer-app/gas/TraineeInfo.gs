@@ -188,7 +188,10 @@ function traineeSectionsView_(row, allowed) {
 }
 
 function traineeBasics_(row) {
-  return { id: String(row.id), name: row.name, preferredName: row.preferredName || '', gender: row.gender || '', photoUrl: traineePhotoUrl_(row.id) };
+  return {
+    id: String(row.id), name: row.name, preferredName: row.preferredName || '', gender: row.gender || '',
+    language: row.language || '', project: row.project || '', photoUrl: traineePhotoUrl_(row.id),
+  };
 }
 
 /* ---------------- photos ---------------- */
@@ -302,7 +305,8 @@ function traineeInfo_(p, user) {
     trainee: traineeBasics_(row),
     access,
     sections,
-    summary: cardFields_(sections, 5), // for the press-and-hold quick card
+    // The press-and-hold card shows what volunteers see (admins too), so everyone previews the same thing.
+    summary: cardFields_(access === 'admin' ? traineeSectionsView_(row, visibleFor_(row.id, 'volunteer').fields) : sections, 5),
     notes: notesFor_(row.id, user, access, access === 'volunteer' ? CONFIG.NOTES_SHOWN_TO_VOLUNTEERS : 0),
     together,
     regulars: access === 'volunteer' ? [] : regulars,
