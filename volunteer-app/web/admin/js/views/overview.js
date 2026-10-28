@@ -16,7 +16,7 @@ export function renderOverview(root, app, ctx) {
         stat('Active trainees', c.trainees, { tone: 'purple', sub: c.traineesWithoutRegular ? `${c.traineesWithoutRegular} without a regular` : 'All have a regular', href: '#/trainees' }),
         stat('Hours this month', hours(c.hoursThisMonth), { tone: 'emerald', sub: `${hours(c.hoursTotal)} in total`, href: '#/hours' }),
         stat('Sessions this month', c.sessionsThisMonth, { sub: c.onSiteNow ? `${c.onSiteNow} clocked in now` : 'No one clocked in now', href: '#/attendance' }),
-        stat('To pair', c.unpairedUpcoming, { tone: c.unpairedUpcoming ? 'amber' : 'slate', sub: 'Volunteers coming soon without a trainee', href: '#/pairings' })),
+        stat('To pair', c.unpairedUpcoming, { tone: c.unpairedUpcoming ? 'amber' : 'slate', href: '#/pairings' })),
 
       c.unpairedUpcoming || c.reviewCount
         ? el('div', { class: 'alert alert-info mt-4 flex flex-wrap items-center gap-3' },
