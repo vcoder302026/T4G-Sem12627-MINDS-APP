@@ -7,10 +7,10 @@ import {
 } from '../ui.js';
 import { answerText, questionSections, readAnswers, wireConditions } from './questions.js';
 
-const FIELDS = ['name', 'birthday', 'email', 'phone', 'telegram']; // no emergency contact: MINDS only needs Telegram
+const FIELDS = ['firstName', 'lastName', 'birthday', 'email', 'phone', 'telegram']; // no emergency contact: MINDS only needs Telegram
 
 const REQUIRED = {
-  name: 'Enter a full name.',
+  firstName: 'Enter a first name.',
   birthday: 'Enter a birthday.',
   email: 'Enter an email.',
   phone: 'Enter a phone number.',
@@ -30,7 +30,9 @@ function detailsForm(person, { self, submit, extra, questions }) {
   const form = el('form', { novalidate: true, class: 'space-y-6' },
     error,
     section(self ? 'About you' : 'Details', 'blue',
-      field('name', 'Full Name', { autocomplete: self ? 'name' : 'off', value: person.name }),
+      // Older records only have the Full Name: it starts in First Name until someone splits it.
+      field('firstName', 'First Name', { autocomplete: self ? 'given-name' : 'off', value: person.firstName || (person.lastName ? '' : person.name) }),
+      field('lastName', 'Last Name', { autocomplete: self ? 'family-name' : 'off', value: person.lastName || '' }),
       field('birthday', 'Date of Birth', { type: 'date', max: todaySG(), value: person.birthday }),
       field('email', 'Sign-in email', {
         type: 'email', inputmode: 'email', autocomplete: self ? 'email' : 'off', value: person.email,
@@ -64,9 +66,15 @@ function detailsForm(person, { self, submit, extra, questions }) {
     if (!isEmail(d.email)) throw new Error('Check the email address: it should look like name@example.com.');
     if (!sgPhone(d.phone)) throw new Error(`Phone: ${PHONE_HINT}`);
     const out = {};
+    const before = { ...person, firstName: person.firstName || (person.lastName ? '' : person.name) };
     FIELDS.forEach((k) => {
-      if (normal(k, d[k]) !== normal(k, person[k])) out[k] = d[k] || '';
+      if (normal(k, d[k]) !== normal(k, before[k])) out[k] = d[k] || '';
     });
+    // The server rebuilds the Full Name from both, so they always go together.
+    if (out.firstName !== undefined || out.lastName !== undefined) {
+      out.firstName = d.firstName || '';
+      out.lastName = d.lastName || '';
+    }
     if (questions) {
       const read = readAnswers(form, questions.fields);
       if (read.problem) throw new Error(read.problem);

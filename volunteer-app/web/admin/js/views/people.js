@@ -14,7 +14,8 @@ import {
 /* ---------------- volunteers ---------------- */
 
 const PROFILE = [
-  ['name', 'Full name', { required: true }],
+  ['firstName', 'First name', { required: true }],
+  ['lastName', 'Last name'],
   ['email', 'Email', { type: 'email', required: true }],
   ['phone', 'Phone', { type: 'tel', inputmode: 'tel', placeholder: '+65 91234567', hint: '+65 followed by 8 digits.' }],
   ['birthday', 'Birthday', { type: 'date' }],
@@ -25,9 +26,11 @@ const PROFILE = [
 ];
 
 function profileFields(p = {}) {
-  const f = ([key, label, attrs]) => field(key, label, { ...attrs, value: p[key] || '' });
-  return [row(f(PROFILE[0]), f(PROFILE[1])), row(f(PROFILE[2]), f(PROFILE[3])), f(PROFILE[4]),
-    el('p', { class: 'group-label mt-2!' }, 'Emergency contact'), row(f(PROFILE[5]), f(PROFILE[6]))];
+  // Older records only have the Full Name: it starts in First name until someone splits it.
+  const v = { ...p, firstName: p.firstName || (p.lastName ? '' : p.name) };
+  const f = ([key, label, attrs]) => field(key, label, { ...attrs, value: v[key] || '' });
+  return [row(f(PROFILE[0]), f(PROFILE[1])), row(f(PROFILE[2]), f(PROFILE[3])), row(f(PROFILE[4]), f(PROFILE[5])),
+    el('p', { class: 'group-label mt-2!' }, 'Emergency contact'), row(f(PROFILE[6]), f(PROFILE[7]))];
 }
 
 function showTempPassword(name, email, password) {
@@ -79,7 +82,7 @@ export function renderVolunteers(root, app, ctx) {
     const payload = { ...d, createLogin: d.createLogin === 'yes' };
     Object.keys(payload).forEach((k) => { if (payload[k] === '') delete payload[k]; });
     if (payload.role === 'admin') {
-      const ok = await majorActionPrompt({ action: `adding ${payload.name || 'this person'} as an admin`, needsPassword: true });
+      const ok = await majorActionPrompt({ action: `adding ${[payload.firstName, payload.lastName].filter(Boolean).join(' ') || 'this person'} as an admin`, needsPassword: true });
       if (!ok) throw new Error('Not added: admin access needs your confirmation.');
       payload.adminPassword = ok.password;
     }
@@ -158,7 +161,13 @@ export function renderVolunteer(root, app, ctx, userId) {
   const edit = (p) => formModal(`Edit ${p.name}`, profileFields(p), 'Save changes', async (d) => {
     // Send only what changed, so blank optional fields that were already blank aren't re-checked.
     const changes = {};
-    PROFILE.forEach(([key]) => { if ((d[key] || '') !== (p[key] || '')) changes[key] = d[key]; });
+    const before = { ...p, firstName: p.firstName || (p.lastName ? '' : p.name) };
+    PROFILE.forEach(([key]) => { if ((d[key] || '') !== (before[key] || '')) changes[key] = d[key]; });
+    // The server rebuilds the Full Name from both, so they always go together.
+    if (changes.firstName !== undefined || changes.lastName !== undefined) {
+      changes.firstName = d.firstName || '';
+      changes.lastName = d.lastName || '';
+    }
     if (!Object.keys(changes).length) { toast('No changes to save.'); return; }
     const res = await call('updatePerson', { userId, ...changes });
     toast(res.message);

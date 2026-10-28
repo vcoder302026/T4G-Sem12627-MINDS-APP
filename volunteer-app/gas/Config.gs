@@ -90,6 +90,9 @@ const CONFIG = {
   },
   // Projects renamed to match the registration form (WGS = Woodlands Gardens School).
   // setup() renames them on the Projects tab and in sessions; old names keep working.
+  // How the Full Name the app shows is built from First Name and Last Name:
+  // 'first-last' ("Xin Yi Ng", "Rex Regular") or 'last-first' ("Ng Xin Yi", as on an NRIC).
+  FULL_NAME_ORDER: 'first-last',
   PROJECT_RENAMES: {
     'West End (WE)': 'West End',
     'Regular Service Project for the Intellectually Disabled (RSPID)': 'RSPID (WGS)',
@@ -104,6 +107,8 @@ const CONFIG = {
       columns: {
         userId: 'User ID',
         name: 'Full Name',
+        firstName: 'First Name',  // asked separately at registration (and saved as such to Google Contacts)
+        lastName: 'Last Name',
         birthday: 'Birthday',
         email: 'Email',
         phone: 'Phone',
