@@ -116,14 +116,22 @@ export async function busy(button, label, action) {
   }
 }
 
+/**
+ * While a page loads: grey shimmering blocks in the shape of a page (MINDS's
+ * template: "skeletons over spinners"), with the text for screen readers.
+ */
 export function loading(text = 'Loading…') {
-  return el('div', { class: 'flex flex-col items-center justify-center gap-3 py-20 muted', 'aria-live': 'polite' },
-    spinner('size-10 border-[3px]'), el('span', { class: 'text-sm font-bold' }, text));
+  const bar = (w) => el('div', { class: 'skeleton skeleton-line', style: `width:${w}%` });
+  const card = () => el('div', { class: 'skeleton-card' }, bar(55), bar(85), bar(70));
+  return el('div', { class: 'space-y-3 py-2', 'aria-live': 'polite', 'aria-busy': 'true' },
+    el('span', { class: 'sr-only' }, text),
+    el('div', { class: 'skeleton skeleton-title' }), card(), card(), card());
 }
 
 export function errorBlock(err, retry) {
   return el('div', { class: 'alert alert-error', role: 'alert' },
     el('p', { class: 'font-bold' }, err.message || 'Something went wrong.'),
+    err.permissionUrl ? el('a', { href: err.permissionUrl, target: '_blank', rel: 'noopener', class: 'link mt-2 block text-sm' }, 'Open the Google permissions page') : null,
     retry ? el('button', { class: 'btn btn-secondary btn-sm mt-3', onclick: retry }, icon('refresh', 'size-4'), 'Try again') : null);
 }
 
@@ -138,7 +146,8 @@ export function statusBadge(status) {
 }
 
 export function backLink(href, text = 'Back') {
-  return el('a', { href, class: 'mb-4 inline-flex items-center gap-1 text-sm font-bold muted hover:text-indigo-600 dark:hover:text-indigo-400' }, icon('back', 'size-4'), text);
+  // The header's ← button follows this link (app.js); the link itself is hidden when signed in.
+  return el('a', { href, class: 'back-link mb-4 inline-flex items-center gap-1 text-sm font-bold muted hover:text-indigo-600 dark:hover:text-indigo-400' }, icon('back', 'size-4'), text);
 }
 
 /** House Visit style card with a coloured uppercase section header. */
@@ -157,7 +166,7 @@ export function field(name, label, attrs = {}) {
     delete rest.type;
     control = el('textarea', { id, name, class: 'input min-h-[100px]', rows: 3, ...rest });
   } else if (rest.type === 'password') {
-    const input = el('input', { id, name, class: 'input pr-12', ...rest });
+    const input = el('input', { id, name, class: 'input pr-12', 'data-eye': '1', ...rest }); // has its own eye (controls.js skips it)
     const eye = el('button', { type: 'button', class: 'absolute inset-y-0 right-3 flex items-center text-slate-400 hover:text-indigo-600', 'aria-label': 'Show password' }, icon('eye'));
     eye.addEventListener('click', () => {
       const show = input.type === 'password';
@@ -301,11 +310,19 @@ export function fuzzyFilter(items, query, fieldsOf) {
 
 /** Search box with a magnifying-glass icon; calls onQuery(text) as the person types. */
 export function searchBox(placeholder, onQuery, label) {
-  const input = el('input', { type: 'search', class: 'input pl-10', placeholder, 'aria-label': label || placeholder, autocomplete: 'off' });
-  input.addEventListener('input', () => onQuery(input.value));
+  const input = el('input', { type: 'search', class: 'input search-input pl-10', placeholder, 'aria-label': label || placeholder, autocomplete: 'off' });
+  // A clear (×) button inside the box, as in the Overseas Trip Planner's searches.
+  const clear = el('button', { type: 'button', class: 'search-clear', 'aria-label': 'Clear search', hidden: true }, '✕');
+  input.addEventListener('input', () => { clear.hidden = !input.value; onQuery(input.value); });
+  clear.addEventListener('click', () => {
+    input.value = '';
+    clear.hidden = true;
+    onQuery('');
+    input.focus();
+  });
   return el('div', { class: 'relative' },
     el('span', { class: 'pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400' }, icon('search')),
-    input);
+    input, clear);
 }
 
 let pickerSeq = 0;
@@ -518,7 +535,7 @@ export function passwordPrompt(title, text) {
     const form = el('form', { class: 'space-y-4' },
       el('p', { class: 'text-sm' }, text),
       el('label', { class: 'label', for: 'pw-confirm' }, 'Admin password'), input,
-      el('p', { class: 'hint' }, 'The shared admin password, not your sign-in password. Admins can change it under Settings → Admin password.'),
+      el('p', { class: 'hint' }, 'Not your sign-in password.'),
       el('div', { class: 'flex justify-end gap-2' }, cancel, submit));
     input.id = 'pw-confirm';
     const m = modal(title, form, () => { if (!done) resolve(null); });
@@ -547,8 +564,10 @@ export function traineeAvatar(t, size = 'md') {
 
 /** A project's short name for badges: the code in brackets, e.g. "RSPID", else the name. */
 export function projectShort(name) {
-  const m = /\(([^()]{1,12})\)\s*$/.exec(String(name || ''));
-  return m ? m[1] : String(name || '');
+  const text = String(name || '');
+  if (text.length <= 14) return text; // "West End", "RSPID (WGS)": short enough already
+  const m = /\(([^()]{1,12})\)\s*$/.exec(text);
+  return m ? m[1] : text;
 }
 
 /** One badge per project, with the full name on hover. */
@@ -616,6 +635,24 @@ export function hvLabel(raw) {
  * Collapsible coloured sections, one per form section, each question with its
  * guide line. sections: [{ title, fields: [{ label, value }] }].
  */
+// The House Visit Form's 1–5 questions and the words at each end (same as gas/Config.gs → HOUSE_VISIT.likert).
+const LIKERT_ENDS = [
+  [/mobility/i, 'Need support to walk and can be clumsy', 'Agile and stable'],
+  [/comprehension/i, 'Very Low (unable to follow instructions)', 'High (able to follow instructions effectively)'],
+  [/verbal/i, 'Very Low (non-verbal)', 'High (able to engage in conversations)'],
+];
+
+/** A 1–5 answer drawn as the form's scale (the chosen number filled in), or null if it isn't one. */
+export function likertView(f) {
+  const v = String(f.value || '').trim();
+  if (!/^[1-5]$/.test(v) || !(f.type === 'likert' || /^select the .*(level|ability)/i.test(String(f.label)))) return null;
+  const ends = f.likert ? [f.likert.left, f.likert.right] : (LIKERT_ENDS.find(([re]) => re.test(f.label)) || [null, '1', '5']).slice(1);
+  return el('div', { class: 'hv-likert hv-likert-view' },
+    el('div', { class: 'hv-likert-ends' }, el('span', {}, ends[0]), el('span', {}, ends[1])),
+    el('div', { class: 'hv-likert-row', 'aria-label': `${v} out of 5` },
+      [1, 2, 3, 4, 5].map((n) => el('span', { class: `hv-likert-cell ${String(n) === v ? 'hv-on' : ''}` }, String(n)))));
+}
+
 export function hvSections(sections, { open = true } = {}) {
   return sections.map((s) => el('details', { class: 'card group mt-3 overflow-hidden', open },
     el('summary', { class: `section-head section-${sectionTone(s.title)} cursor-pointer list-none select-none` }, s.title,
@@ -624,6 +661,38 @@ export function hvSections(sections, { open = true } = {}) {
       const q = hvLabel(f.label);
       return el('div', { class: 'py-2.5' },
         el('dt', { class: 'font-bold text-slate-700 dark:text-neutral-200' }, q.label, q.guide ? el('span', { class: 'hv-guide' }, q.guide) : null),
-        el('dd', { class: 'mt-0.5 whitespace-pre-line text-slate-600 dark:text-neutral-400' }, f.value));
+        el('dd', { class: 'mt-0.5 whitespace-pre-line text-slate-600 dark:text-neutral-400' }, likertView(f) || f.value));
     })) : el('p', { class: 'p-4 text-sm muted' }, 'Nothing filled in yet.')));
+}
+
+/**
+ * A short warning before a major change: "Warning: You are <action>. Do you
+ * wish to continue?", plus the admin password when needed.
+ * Resolves to { password } or null if cancelled.
+ *   { action: 'making Sam Siva an admin', confirmLabel, needsPassword }
+ */
+export function majorActionPrompt({ action, confirmLabel = 'Continue', needsPassword = false }) {
+  return new Promise((resolve) => {
+    let done = false;
+    const pw = needsPassword ? el('input', { type: 'password', id: 'major-pw', class: 'input', autocomplete: 'off', 'aria-label': 'Admin password' }) : null;
+    const confirmBtn = el('button', { type: 'submit', class: 'btn btn-danger', disabled: Boolean(pw) }, confirmLabel);
+    const cancelBtn = el('button', { type: 'button', class: 'btn btn-secondary' }, 'Cancel');
+    if (pw) pw.addEventListener('input', () => { confirmBtn.disabled = !pw.value; });
+    const form = el('form', { class: 'space-y-4' },
+      el('p', { class: 'major-warning' }, el('strong', {}, 'Warning: '), `You are ${action}. Do you wish to continue?`),
+      pw ? el('div', {},
+        el('label', { class: 'label', for: 'major-pw' }, 'Admin password'), pw,
+        el('p', { class: 'hint' }, 'Not your sign-in password.')) : null,
+      el('div', { class: 'flex justify-end gap-2' }, cancelBtn, confirmBtn));
+    const m = modal('Warning', form, () => { if (!done) resolve(null); });
+    cancelBtn.addEventListener('click', () => m.close());
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      if (confirmBtn.disabled) return;
+      done = true;
+      resolve({ password: pw ? pw.value : '' });
+      m.close();
+    });
+    if (pw) setTimeout(() => pw.focus(), 50);
+  });
 }

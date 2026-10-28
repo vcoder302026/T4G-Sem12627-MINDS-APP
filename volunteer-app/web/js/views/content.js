@@ -4,8 +4,7 @@
 
 import { call, isNetworkError, storage } from '../api.js';
 import {
-  backLink, badge, busy, combobox, el, errorBlock, field, fuzzyFilter, icon, labelled, loading, mapsLink, modal, mount,
-  richText, searchBox, section, toast,
+  backLink, badge, busy, combobox, el, errorBlock, field, fuzzyFilter, icon, labelled, loading, majorActionPrompt, mapsLink, modal, mount, richText, searchBox, section, toast,
 } from '../ui.js';
 import { sortable } from '../dnd.js';
 
@@ -55,7 +54,7 @@ export function renderGuide(root, app, ctx) {
     let footer;
     if (read) {
       footer = el('div', { class: 'mt-6 space-y-3 text-center' },
-        el('p', { class: 'text-sm muted' }, `You read this guide on ${String(g.guideReadAt).slice(0, 10)}. Admins update it from time to time.`),
+        el('p', { class: 'text-sm muted' }, `Read on ${String(g.guideReadAt).slice(0, 10)}`),
         el('a', { href: app.isAdmin ? '#/guide-edit' : '#/sessions', class: 'btn btn-primary w-full' },
           app.isAdmin ? [icon('pencil'), 'Edit the guide'] : [icon('calendar'), 'Find a session']));
     } else {
@@ -78,7 +77,7 @@ export function renderGuide(root, app, ctx) {
         el('span', { class: 'flex size-12 shrink-0 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' }, icon('book', 'size-6')),
         el('div', {},
           el('h1', { class: 'page-title' }, 'Volunteer Guide'),
-          el('p', { class: 'text-sm muted' }, read ? 'Everything you need to know before a session.' : 'Please read this before booking your first session. It takes about 3 minutes.'))),
+          read ? null : el('p', { class: 'text-sm muted' }, 'Please read this before your first session.'))),
       el('div', { class: 'space-y-4' },
         first ? sectionCard(first, 0) : null,
         g.projects.length ? [
@@ -109,9 +108,8 @@ export function openVenueForm(venue, onSaved, prefill = '') {
   const save = el('button', { type: 'submit', class: 'btn btn-primary w-full' }, venue ? 'Save venue' : 'Add venue');
   const form = el('form', { novalidate: true, class: 'space-y-4' },
     field('venueName', 'Venue name', { value: venue ? venue.name : prefill, placeholder: 'e.g. MINDS Woodlands Gardens School', maxlength: 120 }),
-    field('address', 'Address', { optional: true, value: venue ? venue.address : '', placeholder: 'Street, postal code', hint: 'Volunteers get a Google Maps link to this address.' }),
+    field('address', 'Address', { optional: true, value: venue ? venue.address : '', placeholder: 'Street, postal code' }),
     field('venueNotes', 'Notes for admins', { type: 'textarea', optional: true, rows: 2, value: venue ? venue.notes : '', placeholder: 'Where to meet, parking, who to call' }),
-    venue && venue.name ? el('p', { class: 'hint' }, 'Renaming also renames this venue on today’s and future sessions.') : null,
     save);
   const dlg = modal(venue ? 'Edit venue' : 'Add a venue', form);
   form.addEventListener('submit', (e) => {
@@ -199,8 +197,8 @@ export function renderVenues(root, app, ctx) {
       edit.addEventListener('click', () => openVenueForm(v, () => load()));
       const archived = v.status === 'archived';
       const toggle = el('button', { type: 'button', class: `btn btn-sm ${archived ? 'btn-secondary' : 'btn-danger'}` }, archived ? 'Restore' : 'Archive');
-      toggle.addEventListener('click', () => {
-        if (!archived && !confirm(`Archive ${v.name}? It will no longer appear in the venue list for new sessions. Existing sessions keep it.`)) return;
+      toggle.addEventListener('click', async () => {
+        if (!archived && !(await majorActionPrompt({ action: `archiving ${v.name}` }))) return;
         busy(toggle, 'Saving…', async () => {
           const res = await call('saveVenue', { venueId: v.venueId, status: archived ? 'active' : 'archived' });
           app.updateVenues(res.venues);
@@ -229,7 +227,6 @@ export function renderVenues(root, app, ctx) {
   add.addEventListener('click', () => openVenueForm(null, (v, active) => { app.updateVenues(active); load(); }));
   mount(root,
     el('div', { class: 'flex items-center justify-between gap-3' }, el('h1', { class: 'page-title' }, 'Venues'), add),
-    el('p', { class: 'mb-4 mt-1 text-sm muted' }, 'These appear in the venue dropdown when you create a session.'),
     searchBox('Search venues', (q) => { query = q; drawList(); }),
     host);
   mount(host, loading());
@@ -245,7 +242,7 @@ function sectionForm(s, onSaved) {
     field('title', 'Heading', { value: s ? s.title : '', placeholder: isFile ? 'e.g. On the day' : 'e.g. What to wear', maxlength: 120, optional: isFile }),
     field('body', isFile ? 'Caption' : 'Content', {
       type: 'textarea', rows: isFile ? 4 : 10, value: s ? s.body : '', maxlength: 5000, optional: isFile,
-      hint: 'Start a line with "- " for a bullet point or "1. " for a numbered step. Leave an empty line between paragraphs.',
+      hint: '"- " for bullets, "1. " for steps.',
     }),
     save);
   const dlg = modal(isFile ? 'Edit infographic' : s ? 'Edit guide section' : 'New guide section', form);
@@ -286,11 +283,11 @@ function infographicForm(existing, onSaved) {
   let source = 'upload';
   const fileInput = el('input', { type: 'file', name: 'file', accept: FILE_TYPES.join(','), class: 'input py-2', 'aria-label': 'Choose a picture or PDF' });
   const uploadBox = el('div', { class: 'space-y-1' }, fileInput,
-    el('p', { class: 'hint' }, `A JPG or PNG picture, or a PDF, up to ${MAX_MB} MB. It's saved in a "Guide infographics" folder in the app's Google Drive.`));
+    el('p', { class: 'hint' }, `JPG, PNG or PDF, up to ${MAX_MB} MB.`));
   const driveBox = el('div', { hidden: true },
     field('driveUrl', 'Google Drive link', {
       placeholder: 'https://drive.google.com/file/d/…/view',
-      hint: 'In Google Drive: right-click the file → Share → Copy link. The file must be an image or a PDF that the app\'s Google account can open; the app makes it viewable by anyone with the link.',
+      hint: 'Right-click → Share → Copy link.',
     }));
   const choice = (value, label) => {
     const input = el('input', { type: 'radio', name: 'source', value, checked: value === source });
@@ -303,7 +300,7 @@ function infographicForm(existing, onSaved) {
   };
   const submit = el('button', { type: 'submit', class: 'btn btn-primary w-full' }, existing ? 'Replace file' : 'Add to the guide');
   const form = el('form', { novalidate: true, class: 'space-y-4' },
-    existing ? el('p', { class: 'text-sm muted' }, `Now showing: ${existing.fileName || 'a file'}. The heading and caption stay the same.`) : [
+    existing ? el('p', { class: 'text-sm muted' }, `Now: ${existing.fileName || 'a file'}`) : [
       field('title', 'Heading', { optional: true, placeholder: 'e.g. Your first session', maxlength: 120 }),
       field('body', 'Caption', { type: 'textarea', rows: 3, optional: true, maxlength: 5000, placeholder: 'Shown under the picture' }),
     ],
@@ -314,7 +311,6 @@ function infographicForm(existing, onSaved) {
       el('select', { id: 'f-position', name: 'position', class: 'input' },
         el('option', { value: 'top' }, 'At the top (above everything else)'),
         el('option', { value: 'bottom' }, 'At the bottom'))),
-    el('p', { class: 'hint' }, 'You can drag it to another place in the guide afterwards.'),
     submit);
   const dlg = modal(existing ? 'Replace the infographic' : 'Add an infographic', form);
   form.addEventListener('submit', (e) => {
@@ -400,8 +396,8 @@ export function renderGuideEdit(root, app, ctx) {
       const replace = isFile ? el('button', { type: 'button', class: 'btn btn-secondary btn-sm', 'aria-label': `Replace the file for ${name}` }, icon('refresh', 'size-4')) : null;
       if (replace) replace.addEventListener('click', () => infographicForm(s, redraw));
       const del = el('button', { type: 'button', class: 'btn btn-danger btn-sm', 'aria-label': `Delete ${name}` }, icon('trash', 'size-4'));
-      del.addEventListener('click', () => {
-        if (!confirm(isFile ? `Remove "${name}" from the guide? The file stays in Google Drive.` : `Delete the "${name}" section from the guide?`)) return;
+      del.addEventListener('click', async () => {
+        if (!(await majorActionPrompt({ action: isFile ? `removing "${name}" from the guide` : `deleting the "${name}" section` }))) return;
         busy(del, '', async () => { redraw(await call('deleteGuideSection', { sectionId: s.sectionId })); toast(isFile ? 'Infographic removed.' : 'Section deleted.'); });
       });
       const preview = isFile
@@ -426,8 +422,8 @@ export function renderGuideEdit(root, app, ctx) {
       const edit = el('button', { type: 'button', class: 'btn btn-secondary btn-sm' }, icon('pencil', 'size-4'), 'Edit');
       edit.addEventListener('click', () => projectForm(pr, c.venues, app, redraw));
       const toggle = el('button', { type: 'button', class: `btn btn-sm ${archived ? 'btn-secondary' : 'btn-danger'}` }, archived ? 'Restore' : 'Archive');
-      toggle.addEventListener('click', () => {
-        if (!archived && !confirm(`Archive ${pr.name}? It disappears from the guide and the session form.`)) return;
+      toggle.addEventListener('click', async () => {
+        if (!archived && !(await majorActionPrompt({ action: `archiving ${pr.name}` }))) return;
         busy(toggle, '', async () => redraw(await call('saveProject', { projectId: pr.projectId, status: archived ? 'active' : 'archived' })));
       });
       return el('div', { class: `flex items-center gap-2 p-3 ${archived ? 'opacity-60' : ''}`, 'data-sort-id': archived ? null : pr.projectId },
@@ -450,7 +446,6 @@ export function renderGuideEdit(root, app, ctx) {
     const projectList = list(c.projects.map(projectRow));
     mount(root,
       el('h1', { class: 'page-title' }, 'Volunteer guide & projects'),
-      el('p', { class: 'mt-1 text-sm muted' }, 'New volunteers read this before their first sign-up. Add text, or an infographic (a picture or a PDF). Drag the ⠿ handle to put them in order. Changes show straight away.'),
       el('a', { href: '#/guide', class: 'btn btn-secondary btn-sm mt-3' }, icon('eye', 'size-4'), 'Preview as a volunteer'),
       el('div', { class: 'mt-6 flex flex-wrap items-center justify-between gap-2' }, el('h2', { class: 'group-label m-0' }, `The guide (${c.sections.length})`),
         el('div', { class: 'flex gap-2' }, addSection, addFile)),

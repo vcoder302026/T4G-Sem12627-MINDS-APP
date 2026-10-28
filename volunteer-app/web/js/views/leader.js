@@ -5,8 +5,7 @@
 import { call, isNetworkError } from '../api.js';
 import { startScanner } from '../qr.js';
 import {
-  backLink, badge, busy, clockTime, combobox, el, errorBlock, field, fmtDay, fmtHours, fmtTimes, formData, fuzzyFilter, projectBadges, projectShort,
-  icon, initials, labelled, loading, mapsLink, mount, multiPick, searchBox, section, toast, todaySG, typeBadges,
+  backLink, badge, busy, clockTime, combobox, el, errorBlock, field, fmtDay, fmtHours, fmtTimes, formData, fuzzyFilter, icon, initials, labelled, loading, majorActionPrompt, mapsLink, mount, multiPick, projectBadges, projectShort, searchBox, section, toast, todaySG, typeBadges,
 } from '../ui.js';
 import { personName, traineeName as traineeLabel } from '../quickview.js';
 
@@ -52,12 +51,11 @@ function sessionFormFields(app, s, ref) {
     placeholder: 'Search trainees',
   });
   return {
-    venue: labelled('Venue', venue.el, { hint: "Not in the list? Type the name and choose “Add a new venue”." }),
-    project: labelled('Projects', project.el, { hint: 'Tick every project this session is for.' }),
+    venue: labelled('Venue', venue.el),
+    project: labelled('Projects', project.el),
     projectValues: project.values,
     trainees: labelled('Trainees attending', trainees.el, {
       optional: true,
-      hint: 'Shown first on the pairing board. Leave empty to choose from all active trainees.',
     }),
   };
 }
@@ -139,7 +137,7 @@ export function renderToday(root, app, ctx) {
       el('h2', { class: 'group-label' }, fmtDay(today, today)),
       todays.length ? list(todays.map((s) => row(s, today))) : el('p', { class: 'text-sm muted' }, 'No sessions today.'),
       el('h2', { class: 'group-label' }, 'Coming up'),
-      upcoming.length ? list(upcoming.map((s) => row(s, today))) : el('p', { class: 'text-sm muted' }, 'Nothing scheduled. Create a session so volunteers can say they\'re coming.'),
+      upcoming.length ? list(upcoming.map((s) => row(s, today))) : el('p', { class: 'text-sm muted' }, 'No sessions yet.'),
       past.length ? el('details', { class: 'mt-6' },
         el('summary', { class: 'group-label cursor-pointer' }, `Past week (${past.length})`),
         list(past.map((s) => row(s, today)))) : null);
@@ -151,7 +149,6 @@ export function renderToday(root, app, ctx) {
       el('div', { class: 'flex gap-2' },
         el('a', { href: '#/scan', class: 'btn btn-success btn-sm' }, icon('scan', 'size-4'), 'Scan passes'),
         el('a', { href: '#/new-session', class: 'btn btn-primary btn-sm' }, icon('plus', 'size-4'), 'New session'))),
-    el('p', { class: 'mt-1 text-xs muted' }, 'Press and hold any name for their details.'),
     el('div', { class: 'mt-4' }, searchBox('Search sessions by title, venue, project or date', (q) => { query = q; drawList(); })),
     host);
   return withAdminHome(host, app, ctx, (a) => { latest = a; drawList(); });
@@ -184,8 +181,8 @@ export function renderSession(root, app, ctx, sessionId) {
       let remove = null;
       if (!a && !isPast) {
         remove = el('button', { class: 'text-sm font-bold text-red-600 hover:underline dark:text-red-400' }, 'Remove');
-        remove.addEventListener('click', () => {
-          if (!confirm(`Take ${v.name} off ${s.title}?`)) return;
+        remove.addEventListener('click', async () => {
+          if (!(await majorActionPrompt({ action: `taking ${v.name} off ${s.title}` }))) return;
           busy(remove, 'Removing…', async () => { const res = await call('updateBooking', { bookingId: b.bookingId, status: 'cancelled' }); apply(res); toast(res.message); });
         });
       }
@@ -227,8 +224,8 @@ export function renderSession(root, app, ctx, sessionId) {
     });
     const statusButton = (label, status, cls, question) => {
       const btn = el('button', { class: `btn ${cls} w-full` }, label);
-      btn.addEventListener('click', () => {
-        if (question && !confirm(question)) return;
+      btn.addEventListener('click', async () => {
+        if (question && !(await majorActionPrompt({ action: question }))) return;
         busy(btn, 'Saving…', async () => apply(await call('updateSession', { sessionId, status })));
       });
       return btn;
@@ -261,7 +258,6 @@ export function renderSession(root, app, ctx, sessionId) {
         isToday ? el('a', { href: `#/scan/${sessionId}`, class: 'btn btn-success' }, icon('scan'), 'Scan passes') : null,
         isToday ? el('a', { href: `#/clock/${sessionId}`, class: 'btn btn-secondary' }, icon('clock'), 'Clock in by hand') : null) : null,
       el('h2', { class: 'group-label' }, `Coming (${active.length})`),
-      el('p', { class: 'mb-2 text-xs muted' }, 'Press and hold a name for their Telegram, phone or trainee details.'),
       active.length ? list(active.map(row)) : el('p', { class: 'text-sm muted' }, 'No one has said they\'re coming yet.'),
       cancelled.length ? el('details', { class: 'mt-4' },
         el('summary', { class: 'group-label cursor-pointer' }, `No longer coming (${cancelled.length})`),
@@ -270,10 +266,9 @@ export function renderSession(root, app, ctx, sessionId) {
         el('summary', { class: 'section-head section-indigo cursor-pointer list-none select-none' },
           'Edit or close this session', icon('down', 'size-5 transition-transform duration-200 group-open:rotate-180')),
         el('div', { class: 'space-y-4 p-4' },
-          el('p', { class: 'alert alert-info' }, 'MINDS is reviewing how sessions are set up; this form may change.'),
           edit,
           s.status === 'open' ? statusButton('Close sign-ups', 'closed', 'btn-secondary') : statusButton('Reopen sign-ups', 'open', 'btn-secondary'),
-          s.status !== 'cancelled' ? statusButton('Cancel session', 'cancelled', 'btn-danger', `Cancel ${s.title}? Volunteers will see it disappear from their list.`) : null)));
+          s.status !== 'cancelled' ? statusButton('Cancel session', 'cancelled', 'btn-danger', `cancelling ${s.title}`) : null)));
   };
 
   const cached = app.cachedDetail(sessionId);
@@ -346,12 +341,11 @@ export function renderNewSession(root, app, ctx) {
     const form = el('form', { novalidate: true, class: 'space-y-6' },
       section('Session', 'indigo',
         el('div', {}, el('p', { class: 'label' }, 'Date'), dateList,
-          el('div', { class: 'mt-2' }, another),
-          el('p', { class: 'hint' }, 'Add several dates to put the same session on each, e.g. every Saturday this month.')),
+          el('div', { class: 'mt-2' }, another)),
         el('div', {}, el('label', { class: 'label', for: 'f-titleChoice' }, 'Session'), titleSelect, titleOther),
         el('div', {}, el('label', { class: 'label', for: 'f-timeChoice' }, 'Time'), timeSelect, timeOther),
         el('div', {}, el('label', { class: 'label', for: 'f-venueChoice' }, 'Venue'), venueSelect,
-          el('p', { class: 'hint' }, 'Add or rename venues under Settings → Venues.')),
+          null),
         parts.project),
       el('details', { class: 'card group overflow-hidden' },
         el('summary', { class: 'section-head section-green cursor-pointer list-none select-none' }, 'More options (optional)',
@@ -437,7 +431,7 @@ export function renderScan(root, app, ctx, presetSessionId) {
 
   const reader = el('div', { id: 'reader', class: 'relative mt-4 aspect-[4/3] max-h-[42vh] w-full overflow-hidden rounded-2xl bg-slate-900 shadow-xl' });
   const result = el('div', { class: 'mt-4', 'aria-live': 'assertive' },
-    el('div', { class: 'card flex items-center gap-3 p-4 text-sm muted' }, icon('scan', 'size-6 text-slate-300 dark:text-neutral-700'), "Point the camera at a volunteer's QR pass. The result shows here."));
+    el('div', { class: 'card flex items-center gap-3 p-4 text-sm muted' }, icon('scan', 'size-6 text-slate-300 dark:text-neutral-700'), 'Point the camera at a QR pass.'));
   const queueLine = el('div', { class: 'mt-4' });
   const recentList = el('div', {});
   const startBtn = el('button', { class: 'btn btn-secondary mt-3 w-full', hidden: true }, icon('scan'), 'Start camera');
@@ -512,7 +506,7 @@ export function renderScan(root, app, ctx, presetSessionId) {
     } catch (err) {
       if (isNetworkError(err)) {
         app.queueScan({ ...payload, scannedAt: new Date().toISOString() });
-        show('queued', null, 'No signal. The scan and its time are saved and will upload automatically.');
+        show('queued', null, 'No signal. Saved; it uploads automatically.');
         drawQueue();
       } else {
         show('error', null, err.message);
@@ -538,7 +532,6 @@ export function renderScan(root, app, ctx, presetSessionId) {
 
   mount(root,
     el('h1', { class: 'page-title' }, 'Scan passes'),
-    el('p', { class: 'mt-1 text-sm muted' }, 'First scan clocks a volunteer in, the next clocks them out.'),
     el('label', { class: 'label mt-4', for: 'scan-session' }, 'Session'), select,
     result, reader, startBtn, queueLine, recentList);
   drawQueue();
@@ -600,7 +593,7 @@ export function renderClock(root, app, ctx, presetSessionId) {
       active.length ? list(active.map(row)) : el('p', { class: 'text-sm muted' }, 'No one has said they\'re coming.'),
       s.date === today ? el('section', { class: 'card mt-6 space-y-3 p-4' },
         el('h3', { class: 'font-bold' }, 'Someone turned up without signing up?'),
-        walkIn.el, addBtn) : el('p', { class: 'alert alert-info mt-4' }, 'Clocking in by hand works on the day of the session. To fix past times, use Attendance.'));
+        walkIn.el, addBtn) : el('p', { class: 'alert alert-info mt-4' }, 'Only on the day. For past times, use Attendance.'));
   };
 
   const openSession = (id) => {
@@ -619,7 +612,6 @@ export function renderClock(root, app, ctx, presetSessionId) {
   select.addEventListener('change', () => { if (select.value) openSession(select.value); else mount(host); });
   mount(root,
     el('h1', { class: 'page-title' }, 'Clock in by hand'),
-    el('p', { class: 'mt-1 text-sm muted' }, 'For a volunteer whose phone is flat or who forgot their pass. Press and hold a name for their details.'),
     el('label', { class: 'label mt-4', for: 'clock-session' }, 'Session'), select, host);
   const fill = (h) => {
     const todays = h.sessions.filter((s) => s.date === today && s.status !== 'cancelled');

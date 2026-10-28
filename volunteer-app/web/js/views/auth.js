@@ -7,7 +7,7 @@ import { call } from '../api.js';
 import {
   backLink, busy, el, field, formData, icon, isEmail, loading, mount, PHONE_HINT, section, sgPhone, todaySG,
 } from '../ui.js';
-import { questionSections, readAnswers } from './questions.js';
+import { questionSections, readAnswers, wireConditions } from './questions.js';
 
 export function renderLogin(root, app) {
   const error = el('div', { class: 'alert alert-error', role: 'alert', hidden: true });
@@ -40,11 +40,10 @@ export function renderLogin(root, app) {
     el('div', { class: 'mb-6 flex flex-col items-center text-center' },
       el('div', { class: 'mb-4 flex size-16 items-center justify-center rounded-2xl bg-indigo-100 text-indigo-600 dark:bg-indigo-900/50 dark:text-indigo-400' }, icon('qr', 'size-8')),
       el('h1', { class: 'mb-1 text-3xl font-extrabold text-slate-900 dark:text-white' }, 'Welcome'),
-      el('p', { class: 'font-medium muted' }, 'Book sessions, show your QR pass and track your hours.')),
+      null),
 
     el('div', { class: 'card border-t-4 border-t-emerald-500 p-6 text-center shadow-md' },
       el('h2', { class: 'mb-1 text-xl font-bold text-slate-900 dark:text-white' }, 'New volunteer?'),
-      el('p', { class: 'mb-5 text-sm muted' }, 'Create an account to book your first session.'),
       el('a', { href: '#/register', class: 'btn btn-success w-full text-lg' }, icon('userPlus'), 'Register now')),
 
     el('div', { class: 'card rounded-3xl p-6 shadow-md sm:p-8' },
@@ -74,11 +73,14 @@ function drawRegister(root, app, questions) {
   const form = el('form', { novalidate: true, class: 'space-y-6' },
     error,
     section('Your account', 'blue',
-      field('name', 'Full name (as in NRIC)', { autocomplete: 'name' }),
-      field('birthday', 'Birthday', { type: 'date', max: todaySG(), autocomplete: 'bday' }),
-      field('email', 'Email', { type: 'email', autocomplete: 'email', inputmode: 'email', hint: "You'll use this to sign in." }),
-      field('phone', 'Phone', { type: 'tel', autocomplete: 'tel', inputmode: 'tel', placeholder: '+65 91234567', hint: PHONE_HINT }),
-      field('telegram', 'Telegram handle', { optional: true, autocapitalize: 'none', placeholder: '@yourhandle', hint: 'Admins message volunteers on Telegram.' })),
+      field('name', 'Full Name', { autocomplete: 'name', hint: 'As in your NRIC.' }),
+      field('birthday', 'D.O.B', { type: 'date', max: todaySG(), autocomplete: 'bday' }),
+      field('email', 'Email [to receive newsletters]', {
+        type: 'email', autocomplete: 'email', inputmode: 'email',
+        hint: 'You sign in with this. Not your school email.',
+      }),
+      field('phone', 'Contact No', { type: 'tel', autocomplete: 'tel', inputmode: 'tel', placeholder: '+65 91234567', hint: PHONE_HINT }),
+      field('telegram', 'Telegram handle', { optional: true, autocapitalize: 'none', placeholder: '@yourhandle' })),
     questionSections(questions),
     section('Password and consent', 'indigo',
       field('password', 'Password', { type: 'password', autocomplete: 'new-password', hint: 'At least 8 characters.' }),
@@ -87,6 +89,8 @@ function drawRegister(root, app, questions) {
         el('span', {}, 'I agree that MINDS may collect and use these details to arrange volunteering, record my hours, and contact me if needed, in line with the Personal Data Protection Act.'))),
     el('div', { class: 'action-bar' }, el('div', { class: 'mx-auto max-w-2xl' }, submit)));
 
+  wireConditions(form, questions ? questions.fields : []); // e.g. the RSPID-only questions
+
   form.addEventListener('submit', (e) => {
     e.preventDefault();
     error.hidden = true;
@@ -94,7 +98,7 @@ function drawRegister(root, app, questions) {
     const extra = readAnswers(form, questions ? questions.fields : []);
     const problem =
       (!d.name && 'Enter your full name.') ||
-      (!d.birthday && 'Enter your birthday.') ||
+      (!d.birthday && 'Enter your date of birth.') ||
       (!d.email && 'Enter your email.') ||
       (!isEmail(d.email) && 'Check your email address: it should look like name@example.com.') ||
       (!d.phone && 'Enter your phone number.') ||
@@ -133,7 +137,6 @@ function drawRegister(root, app, questions) {
   mount(root,
     backLink('#/login', 'Back to sign in'),
     el('h1', { class: 'page-title' }, 'Volunteer Registration'),
-    el('p', { class: 'mb-6 mt-1 muted' }, 'It takes about three minutes. Then read the short guide and say which sessions you\'re coming to.'),
     form,
     el('div', { class: 'h-24' }));
 }

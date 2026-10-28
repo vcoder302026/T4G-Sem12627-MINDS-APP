@@ -52,6 +52,13 @@ function routes_() {
     listStandingPairings: { auth: 'admin', fn: listStandingPairings_ },
     setStandingPairing: { auth: 'admin', write: true, fn: setStandingPairing_ },
     changeAdminPassword: { auth: 'admin', write: true, fn: changeAdminPassword_ },
+    maintenanceTasks: { auth: 'admin', fn: maintenanceTasks_ }, // Advanced Settings (Maintenance.gs)
+    dataSources: { auth: 'admin', fn: dataSources_ }, // Settings → Google Sheets (DataSources.gs)
+    searchSheets: { auth: 'admin', fn: searchSheets_ },
+    connectDataSource: { auth: 'admin', write: true, fn: connectDataSource_ },
+    createDataSource: { auth: 'admin', write: true, fn: createDataSource_ },
+    unlinkDataSource: { auth: 'admin', write: true, fn: unlinkDataSource_ },
+    runMaintenance: { auth: 'admin', write: true, fn: runMaintenance_ },
     syncContact: { auth: 'admin', write: true, fn: syncContactNow_ }, // save one volunteer to Google Contacts now
     pairingHistory: { auth: 'admin', fn: pairingHistory_ },
     // What volunteers see about trainees (TraineeInfo.gs) and the activity log (AdminLog.gs)
@@ -117,6 +124,7 @@ function routes_() {
     addTripExpense: { auth: 'admin', write: true, fn: addTripExpense_ },
     // Visits.gs
     listVisits: { auth: 'admin', fn: listVisits_ },
+    houseVisitForm: { auth: 'admin', fn: houseVisitForm_ }, // the House Visit Form, prefilled (Visits.gs)
     createVisit: { auth: 'admin', write: true, fn: createVisit_ },
   };
 }

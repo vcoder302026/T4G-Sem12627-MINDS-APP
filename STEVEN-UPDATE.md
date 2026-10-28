@@ -1,5 +1,7 @@
 # Steven's update: Mr Sadil's feedback on Version 2
 
+> **Continued in [VERSION-3.md](VERSION-3.md)**: the registration questions now match MINDS's real Google Form (open point 6.1 below).
+
 Session hand-off, 27 October 2026. Branch `steven-update` (from `main` at `12920f8`).
 Everything is in `volunteer-app/`. Prototype 1 (repository root) is unchanged.
 

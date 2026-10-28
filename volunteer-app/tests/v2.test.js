@@ -315,3 +315,74 @@ describe('trainee photos', () => {
     assert.ok(!settings.sections.some((s) => s.title === "Volunteers' Details"));
   });
 });
+
+describe('the House Visit Form (Admin → House visits)', () => {
+  const allFields = (form) => form.sections.flatMap((s) => s.fields);
+  const find = (form, re) => allFields(form).find((f) => re.test(f.label));
+
+  test('asks the trainee sheet\'s questions, in its sections, prefilled for a trainee', () => {
+    const blank = ok(call('houseVisitForm', {}));
+    const titles = blank.sections.map((s) => s.title);
+    assert.ok(titles.indexOf('General Details') < titles.indexOf("Trainee's Details"), titles.join(' | '));
+    assert.ok(titles.includes('Medical & Health') && titles.includes("Volunteers' Observations"), titles.join(' | '));
+    assert.ok(!find(blank, /^Timestamp$/), 'form bookkeeping is not a question');
+    const mobility = find(blank, /^Select the MOBILITY level/);
+    assert.equal(mobility.type, 'likert');
+    assert.deepEqual(mobility.likert, { left: 'Need support to walk and can be clumsy', right: 'Agile and stable' });
+    assert.equal(find(blank, /^Date of Visit/).type, 'date');
+    assert.equal(find(blank, /^Project$/).type, 'project');
+    assert.equal(find(blank, /^Blood Type/).type, 'text');
+    assert.equal(find(blank, /^Current Health Condition/).type, 'textarea');
+
+    const t1 = ok(call('houseVisitForm', { traineeId: 'T-0001' }));
+    assert.equal(t1.trainee.id, 'T-0001');
+    assert.equal(find(t1, /^Trainee’s Full Name/).value, MOCK.rows[0][MOCK.headers.indexOf('Trainee’s Full Name')]);
+    assert.match(find(t1, /^Date of Birth/).value, /^\d{4}-\d{2}-\d{2}$|^$/);
+    fails(call('houseVisitForm', { traineeId: 'T-9999' }), 'NOT_FOUND');
+  });
+
+  test('saving keeps a visit record and updates only what changed in the trainee sheet', () => {
+    const form = ok(call('houseVisitForm', { traineeId: 'T-0002' }));
+    const answers = Object.fromEntries(allFields(form).map((f) => [f.key, f.value]));
+    const health = find(form, /^Current Health Condition/);
+    const mobility = find(form, /^Select the MOBILITY level/);
+    const visitDate = find(form, /^Date of Visit/);
+    answers[health.key] = 'Recovering well from a cold.';
+    answers[mobility.key] = '4';
+    answers[visitDate.key] = '2026-10-10';
+    fails(call('houseVisitForm', {}, null), 'UNAUTHORIZED');
+    fails(call('createVisit', { traineeId: 'T-0002', answers: { ...answers, [mobility.key]: '7' } }), 'VALIDATION_ERROR');
+    fails(call('createVisit', { traineeId: 'T-0002', answers: { nonsense: 'x' } }), 'VALIDATION_ERROR');
+    fails(call('createVisit', { traineeId: 'T-0002', answers: { ...answers, [visitDate.key]: '2027-01-01' } }), 'VALIDATION_ERROR');
+    const res = ok(call('createVisit', { traineeId: 'T-0002', answers }));
+    assert.match(res.message, /Visit to .* recorded\. Updated 3 of their details\./);
+    const v = res.visits[0];
+    assert.equal(v.date, '2026-10-10');
+    const shown = v.sections.flatMap((s) => s.fields);
+    assert.ok(shown.some((f) => /^Current Health Condition/.test(f.label) && f.value === 'Recovering well from a cold.'));
+    assert.ok(shown.some((f) => f.type === 'likert' && f.value === '4'));
+    // the trainee sheet has the new answers
+    const row = rt.records(TRAINEE_FILE, 'Form Responses 1').find((r) => r['Trainee ID'] === 'T-0002');
+    assert.equal(row[health.label], 'Recovering well from a cold.');
+    // the visit record has one column per question
+    const rec = rt.records(MAIN, 'House Visits').find((r) => r['Visit ID'] === v.visitId);
+    assert.equal(rec[health.label], 'Recovering well from a cold.');
+    // "don't update the trainee" leaves the trainee sheet alone
+    answers[health.key] = 'Only in the visit record.';
+    const res2 = ok(call('createVisit', { traineeId: 'T-0002', answers, updateTrainee: false }));
+    assert.doesNotMatch(res2.message, /Updated/);
+    assert.equal(rt.records(TRAINEE_FILE, 'Form Responses 1').find((r) => r['Trainee ID'] === 'T-0002')[health.label], 'Recovering well from a cold.');
+    assert.equal(ok(call('listVisits', { traineeId: 'T-0002' })).visits.length, 2);
+  });
+});
+
+describe('dates from the trainee sheet read like dates', () => {
+  test('form timestamps and ISO dates show as "29 Dec 2025"', () => {
+    assert.equal(rt.evaluate("displayValue_('2025-12-29 20:26:09')"), '29 Dec 2025');
+    assert.equal(rt.evaluate("displayValue_('2026-01-05')"), '5 Jan 2026');
+    assert.equal(rt.evaluate("displayValue_('Not a date 2025-12-29')"), 'Not a date 2025-12-29');
+    const p = ok(call('traineeProfile', { traineeId: 'T-0001' }));
+    const values = JSON.stringify(p);
+    assert.doesNotMatch(values, /"\d{4}-\d{2}-\d{2} \d{1,2}:\d{2}/, 'no raw timestamps on the trainee page');
+  });
+});

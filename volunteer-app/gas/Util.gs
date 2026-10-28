@@ -89,6 +89,15 @@ function oneOf_(value, label, options) {
  * letters, numbers and . _ % + - before the @, a domain of letters, numbers and
  * hyphens, and a top-level domain of 2+ letters (e.g. .sg, .com).
  */
+/** An optional email in a named question (e.g. School Email), checked like the sign-in email. */
+function emailAs_(text, label) {
+  try {
+    return email_(text);
+  } catch (e) {
+    throw err_.validation(`${label} is not a valid email address. Check it looks like name@example.com.`);
+  }
+}
+
 function email_(value) {
   const s = str_(value, 'Email', { required: true, max: 254 }).toLowerCase();
   const ok = /^[a-z0-9._%+-]+@([a-z0-9]([a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}$/.test(s)

@@ -53,14 +53,13 @@ export function renderAttendance(root, app, ctx) {
   const addRecord = () => {
     const pastSessions = data.sessions.filter((s) => s.date <= today);
     if (!pastSessions.length) {
-      toast('There are no sessions up to today in this date range. Change the dates first.', 'warn');
+      toast('No sessions in these dates.', 'warn');
       return;
     }
     // Default to the latest session that has already ended (sessions are newest first).
     const nowHHMM = new Date().toLocaleTimeString('en-GB', { timeZone: 'Asia/Singapore', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
     const ended = pastSessions.find((s) => s.date < today || s.endTime <= nowHHMM) || pastSessions[0];
     formModal('Add attendance by hand', [
-      el('p', { class: 'text-sm muted' }, 'For a volunteer who came but was never scanned. Their booking is confirmed, or added as a walk-in.'),
       selectField('sessionId', 'Session', pastSessions.map((s) => ({ value: s.sessionId, label: `${s.date} · ${s.title} (${fmtTimes(s)})` })), ended.sessionId),
       volunteerPicker(data.volunteers),
       row(field('clockIn', 'Clock in', { type: 'time', required: true }), field('clockOut', 'Clock out', { type: 'time', required: true })),
@@ -109,7 +108,7 @@ export function renderAttendance(root, app, ctx) {
   };
 
   const refresh = () => load(host, ctx, () => call('listAttendance', range), draw);
-  mount(root, pageHead('Attendance', 'Every clock-in and clock-out from the phone app. Fix a missed scan or add someone who was never scanned.'), host);
+  mount(root, pageHead('Attendance', ''), host);
   return refresh();
 }
 
@@ -168,6 +167,6 @@ export function renderHours(root, app, ctx) {
   };
 
   const refresh = () => load(host, ctx, () => call('hoursReport', range), draw);
-  mount(root, pageHead('Volunteer hours', 'Completed hours per volunteer for any date range, ready to export for certificates and reports.'), host);
+  mount(root, pageHead('Volunteer hours', ''), host);
   return refresh();
 }

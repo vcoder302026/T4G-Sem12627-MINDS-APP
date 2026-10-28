@@ -67,7 +67,7 @@ ideally at least one regular; the app flags trainees without one.
 
 | Feature | What it does |
 | --- | --- |
-| **1. Register and profile** | Sign up with name, birthday, email, phone (+65 and 8 digits) and Telegram. No emergency contact: MINDS only needs Telegram. Edit details later under **Me**. (The fields will follow MINDS's registration form once it's shared.) |
+| **1. Register and profile** | Sign up with MINDS's **Consolidated Volunteer Records** form, question for question: Full Name, D.O.B, Email (to receive newsletters; used to sign in), Contact No (+65 and 8 digits), Short Name, NRIC (last 4), Address, Project, the RSPID-only questions (Course and Year, Matriculation Number, School Email: asked only for RSPID projects), Start Year, T-Shirt Size, Events / Project Committee Participation, Dietary Restrictions, Spoken languages, and the **emergency contact's relationship and number**. Telegram is an extra (admins message volunteers there). Personal particulars (NRIC, address, matric number, emergency contact) are seen only by the volunteer and admins. Edit details later under **Me**. The questions are a list in `gas/Config.gs` → `REGISTRATION`. |
 | **2. Volunteer Guide** | New volunteers read a short guide (text, plus any infographics: pictures or PDFs) and tap **I've read the guide** before their first sign-up. |
 | **3. Upcoming sessions** | Every volunteer sees the upcoming sessions. Tick every one you can come to and tap **I'm coming**: no waiting for a confirmation. **Can't make it** takes you off a session. |
 | **4. Your trainee** | Once paired, Home shows one line per session: your trainee's photo and name. **Press and hold** it for a quick card (key details and the latest note from earlier volunteers), or tap it for their full page. Regulars also see their fixed trainee once, at the top of Home. |
@@ -88,7 +88,7 @@ press have a dotted underline.
 | **Dashboard** | Overview · Activity log | New and regular volunteers, trainees without a regular, who's coming and who still needs pairing. The **activity log** lists every change an admin makes (also kept in the sheet). |
 | **Sessions** | | Who's coming to each session (no-shows after the day). Each session has **Pair**, **Scan** and **Clock in** (by hand, with walk-ins) on its row. **New session**: just pick the date (or several dates): it's a "Regular session", 2:30–5:30 pm at Woodlands, for both projects (**West End (WE)** and **Regular Service Project for the Intellectually Disabled (RSPID)**) unless you change the dropdowns or untick a project. Edit, close or cancel sessions. |
 | **Pairing** | Sessions to pair · Regular pairings · History | The WERONE outing-style board for each session (volunteers beside trainees, search, **All / Paired / Unpaired** filter on each column, **drag and drop** or tap to pair, **✕** to unpair, many to many, **Pairing list** to screenshot), and each regular's fixed trainees on the same board. When choosing, each trainee shows the pair's history ("Together 3× · last 13 Oct", "Was their regular trainee …", or "New for them"); for a regular's fixed trainee, new-for-them trainees come first, to rotate regulars through different trainees. **History**: every pair that has been at a session together, and each regular's fixed trainees over time. |
-| **Volunteers** | People · Attendance · Hours | Profiles, sessions (with the trainee each was paired with), no-shows and hours; promote to regular, make or remove admins (both need the **admin password**), reset passwords, **Deactivate** from the list. Every clock-in and out, fixing missed scans, and hours exported as CSV. |
+| **Volunteers** | People · Attendance · Hours | Profiles, sessions (with the trainee each was paired with), no-shows and hours; promote to regular, make or remove admins (making an admin, and deactivating anyone, shows a **warning** of exactly what will happen first) (both need the **admin password**), reset passwords, **Deactivate** from the list. Every clock-in and out, fixing missed scans, and hours exported as CSV. |
 | **Trainees** | Trainees · Notes to review · What volunteers see | Every trainee's details grouped like the House Visit form, their **photo** (add, change, remove), regular volunteers and notes. Volunteer notes waiting to be shared. Which details volunteers and regulars see (a default, per trainee, "Set as default"). The form's list of attached volunteers is hidden. |
 | **Settings** | Guide & projects · Venues · Admin password | The Volunteer Guide: text sections and **infographics** (a picture or PDF, uploaded or from Google Drive), projects and venues. The **admin password**: a shared password, separate from sign-in passwords, needed to make or remove an admin (including deactivating or reactivating one); change it here with the current one. |
 | **More** | Fundraising · Outings · Overseas trips · House visits | Version 1 placeholders, parked until MINDS decides how they fit. |
@@ -328,9 +328,10 @@ In Apps Script, go to **Project Settings → Script properties → Add script pr
 | Property | Value | Required? |
 | --- | --- | --- |
 | `SPREADSHEET_ID` | The volunteer sheet: its ID (between `/d/` and `/edit`) or its full URL | **Yes** |
-| `TRAINEE_SPREADSHEET_ID` | The trainee sheet, if it's a separate file. Paste the **full URL of the tab**, e.g. `https://docs.google.com/spreadsheets/d/…/edit#gid=123`: the `#gid=` part picks the tab | No |
+| `TRAINEE_SPREADSHEET_ID` | The trainee sheet, if it's a separate file (or link it from the app: Admin → Settings → Google Sheets). Paste the **full URL of the tab**, e.g. `https://docs.google.com/spreadsheets/d/…/edit#gid=123`: the `#gid=` part picks the tab | No |
 | `FIRST_ADMIN_EMAIL` | Your email, added in Stage 7 | Later |
 | `GUIDE_FOLDER_ID` | Created automatically the first time an admin uploads an infographic: the Drive folder "MINDS Volunteer App – Guide infographics" | Automatic |
+| `VISITS_SPREADSHEET_ID` | Optional: house visit records in their own sheet. Easiest to set from the app: Admin → Settings → Google Sheets | No |
 | `CONTACTS_SYNC` | `on` to save new and edited volunteers to Google Contacts (see "Google Contacts sync") | No |
 | `CONTACTS_LABEL` | The contact label, e.g. `MINDS Volunteers (Exp)`. Default "MINDS Volunteers" | No |
 | `PHOTO_FOLDER_ID` | Created automatically the first time an admin uploads a trainee photo: the Drive folder "MINDS Volunteer App – Trainee photos" | Automatic |
@@ -567,7 +568,7 @@ shows what would be saved.
 
 | Tab | One row per | Notes |
 | --- | --- | --- |
-| Volunteers | person | Profile (phone saved as `+65 91234567`), emergency contact (no longer collected; kept from Version 1), Role (`admin` = Admin menu), Volunteer Type (`volunteer`/`regular`) and who set it, Status (`inactive` blocks sign-in), Google Contact ID and status (when sync is on) |
+| Volunteers | person | Profile (phone saved as `+65 91234567`), one column per registration question (Short Name, NRIC (Last 4), Address, Project, …, Emergency Contact Relationship / Phone), Role (`admin` = Admin menu), Volunteer Type (`volunteer`/`regular`) and who set it, Status (`inactive` blocks sign-in), Google Contact ID and status (when sync is on) |
 | _Auth (hidden) | person | Salted password hashes. Never shown in the app |
 | Sessions | session | Venue, project(s) (several separated by commas), trainees attending; status `open` / `closed` / `cancelled` |
 | Bookings | sign-up | `confirmed` ("coming") or `cancelled`; paired trainees (Trainee ID may list several: `T-0001, T-0004`) and how (`standing` = regular's fixed trainee, `manual` = an admin); walk-in flag |

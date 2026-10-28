@@ -24,7 +24,7 @@ export function renderFundraisers(root, app, ctx) {
     toast(res.message);
     location.hash = `#/fundraiser/${res.fundraiser.fundraiserId}`;
   });
-  mount(root, pageHead('Fundraising', 'Fundraisers, what they sell, and every order taken.',
+  mount(root, pageHead('Fundraising', '',
     el('button', { class: 'btn btn-primary', onclick: create }, icon('plus', 'size-4'), 'New fundraiser')), host);
   return load(host, ctx, () => call('listFundraisers'), (d) => {
     const all = d.fundraisers;
@@ -43,7 +43,7 @@ export function renderFundraisers(root, app, ctx) {
         { label: 'Orders', cell: (f) => String(f.sales.orders), class: 'text-right' },
         { label: 'Sales', cell: (f) => money(f.sales.totalCents), class: 'text-right whitespace-nowrap' },
         { label: 'Paid', cell: (f) => money(f.sales.paidCents), class: 'text-right whitespace-nowrap' },
-      ], all, { empty: 'No fundraisers yet. Create one to add products and take orders.', href: (f) => `#/fundraiser/${f.fundraiserId}` }))));
+      ], all, { empty: 'No fundraisers yet.', href: (f) => `#/fundraiser/${f.fundraiserId}` }))));
   });
 }
 
@@ -85,7 +85,7 @@ export function renderFundraiser(root, app, ctx, fundraiserId) {
         products.map((p, i) => el('div', { class: 'flex items-center justify-between gap-3 px-4 py-2' },
           el('span', {}, el('span', { class: 'block font-bold' }, p.name), el('span', { class: 'block text-xs muted' }, money(p.priceCents))),
           qty[i])))),
-      el('div', { class: 'flex items-center justify-between' }, el('span', { class: 'text-sm muted' }, 'Total (worked out again by the server)'), preview),
+      el('div', { class: 'flex items-center justify-between' }, el('span', { class: 'text-sm muted' }, 'Total'), preview),
       el('label', { class: 'flex items-center gap-3 text-sm font-bold' },
         el('input', { type: 'checkbox', name: 'paid', value: 'yes', class: 'size-5 accent-indigo-600' }), 'Already paid'),
       field('notes', 'Notes', { type: 'textarea', rows: 2, optional: true }),

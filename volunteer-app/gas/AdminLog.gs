@@ -35,6 +35,10 @@ const ADMIN_ACTION_LABELS = {
   saveVisibility: 'Changed what volunteers see about trainees',
   setTraineePhoto: 'Changed a trainee photo',
   changeAdminPassword: 'Changed the admin password',
+  runMaintenance: 'Ran an Advanced Settings function',
+  connectDataSource: 'Linked a Google Sheet',
+  createDataSource: 'Created and linked a Google Sheet',
+  unlinkDataSource: 'Unlinked a Google Sheet',
   syncContact: 'Saved a volunteer to Google Contacts',
   resetAdminPassword: 'Reset the admin password',
   addAttendance: 'Added attendance',
@@ -90,6 +94,10 @@ function describeAdminAction_(action, p, out) {
       return p.traineeId ? `${person(p.userId)} ↔ ${trainee(p.traineeId)}` : `${person(p.userId)}: regular pairing removed`;
     case 'addTraineeNote': return trainee(p.traineeId);
     case 'changeAdminPassword': return ''; // never log passwords
+    case 'connectDataSource':
+    case 'createDataSource':
+    case 'unlinkDataSource': return `${(DATA_SOURCES[p.source] || {}).label || p.source}${out && out.message ? `: ${out.message}` : ''}`;
+    case 'runMaintenance': return (MAINTENANCE_TASKS[p.task] || {}).label || String(p.task || '');
     case 'syncContact': return person(p.userId);
     case 'resetAdminPassword': return 'from the Apps Script editor';
     case 'setTraineePhoto': return `${trainee(p.traineeId)}: ${p.remove ? 'photo removed' : p.driveUrl ? 'photo from Google Drive' : 'photo uploaded'}`;

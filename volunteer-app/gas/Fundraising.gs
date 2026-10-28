@@ -145,7 +145,7 @@ function saveProduct_(p, admin) {
     if (has_(p, 'status')) patch.status = oneOf_(p.status, 'Status', ['active', 'archived']);
     if (patch.name) assertProductNameFree_(products, row.fundraiserId, patch.name, row.productId);
     table_('products').update(row, patch);
-    return Object.assign(fundraiserDetail_({ fundraiserId: row.fundraiserId }), { message: 'Product saved. Past orders keep the price they were sold at.' });
+    return Object.assign(fundraiserDetail_({ fundraiserId: row.fundraiserId }), { message: 'Product saved.' });
   }
   const { row: f } = rowById_('fundraisers', 'fundraiserId', p.fundraiserId, 'Fundraiser');
   const name = str_(p.name, 'Product name', { required: true });

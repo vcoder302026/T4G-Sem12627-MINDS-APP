@@ -23,15 +23,34 @@ function sessionStats_(sessionId, bookings, attendance, today) {
   };
 }
 
+/**
+ * The admin home's per-project table (as on the Comm Dashboard): for one
+ * session, volunteers coming / paired / to pair, by the project each
+ * volunteer registered under ("Not given" if they haven't said).
+ */
+function byProject_(sessionId, bookings, projectOf) {
+  const rows = {};
+  bookings.filter((b) => b.sessionId === sessionId && b.status !== 'cancelled').forEach((b) => {
+    const key = projectOf[b.userId] || 'Not given';
+    const r = rows[key] || (rows[key] = { project: key, coming: 0, paired: 0, unpaired: 0 });
+    r.coming += 1;
+    if (b.traineeId) r.paired += 1;
+    else r.unpaired += 1;
+  });
+  return sortBy_(Object.keys(rows).map((k) => rows[k]), (r) => (r.project === 'Not given' ? 'zzz' : r.project));
+}
+
 function adminHome_() {
   const today = todayStr_();
+  const projectOf = {};
+  table_('users').rows().forEach((u) => { if (u.userId) projectOf[u.userId] = String(u.project || '').trim(); });
   const from = addDays_(today, -7);
   const bookings = table_('bookings').rows();
   const attendance = table_('attendance').rows();
   const sessions = sortBy_(
     table_('sessions').rows().filter((s) => s.date >= from && s.status !== 'cancelled'),
     (s) => `${s.date} ${s.startTime}`
-  ).map((s) => Object.assign(sessionOut_(s), { stats: sessionStats_(s.sessionId, bookings, attendance, today) }));
+  ).map((s) => Object.assign(sessionOut_(s), { stats: Object.assign(sessionStats_(s.sessionId, bookings, attendance, today), { byProject: byProject_(s.sessionId, bookings, projectOf) }) }));
   return {
     today,
     sessions,

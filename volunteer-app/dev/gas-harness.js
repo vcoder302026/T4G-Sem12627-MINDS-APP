@@ -91,6 +91,10 @@ class FakeSheet {
     this.maxCols = 26;
     this.hidden = false;
   }
+  setName(name) {
+    this.name = name;
+    return this;
+  }
   get(r, c) {
     const v = this.cells.get(`${r}:${c}`);
     return v === undefined ? '' : v;
@@ -185,6 +189,9 @@ class FakeSpreadsheet {
   getSpreadsheetTimeZone() {
     return 'Asia/Singapore';
   }
+  getUrl() {
+    return `https://docs.google.com/spreadsheets/d/${this.id}/edit`;
+  }
   getSheets() {
     return this.sheets.slice();
   }
@@ -265,7 +272,28 @@ function createFakeDrive() {
     },
   };
   const addFile = (name, mime, bytes = [1, 2, 3]) => makeFile({ getName: () => name, getContentType: () => mime, getBytes: () => bytes }, null);
-  return { service, files, folders, addFile };
+  // Spreadsheets live in the runtime's `books`; Drive can find, open and copy them too.
+  let sheets = null;
+  const attachSheets = (books, clone) => { sheets = { books, clone }; };
+  const sheetFile = (book) => ({
+    getId: () => book.id,
+    getName: () => book.name,
+    getUrl: () => book.getUrl(),
+    getMimeType: () => 'application/vnd.google-apps.spreadsheet',
+    getLastUpdated: () => new Date(Date.UTC(2026, 9, 1)),
+    makeCopy: (name) => sheetFile(sheets.clone(book, name)),
+  });
+  const fileById = service.getFileById;
+  service.getFileById = (id) => (sheets && sheets.books.has(id) ? sheetFile(sheets.books.get(id)) : fileById(id));
+  service.searchFiles = (query) => {
+    const title = (/title contains '((?:[^'\\]|\\.)*)'/.exec(query) || [])[1];
+    const want = title ? title.replace(/\\'/g, "'").toLowerCase() : '';
+    const list = sheets && /application\/vnd\.google-apps\.spreadsheet/.test(query)
+      ? [...sheets.books.values()].filter((b) => !want || b.name.toLowerCase().includes(want)).map(sheetFile) : [];
+    let i = 0;
+    return { hasNext: () => i < list.length, next: () => list[i++] };
+  };
+  return { service, files, folders, addFile, attachSheets };
 }
 
 /**
@@ -324,10 +352,27 @@ function createFakeContacts() {
   return { service, people, groups, state };
 }
 
+/** A copy of a whole spreadsheet (Drive → Make a copy). */
+function cloneBook(books, book, name) {
+  const copy = new FakeSpreadsheet(`${book.id}-copy-${books.size}`, name);
+  book.sheets.forEach((sh) => {
+    const c = copy.insertSheet(sh.name);
+    c.cells = new Map(sh.cells);
+    c.formats = new Map(sh.formats);
+    c.maxRows = sh.maxRows;
+    c.maxCols = sh.maxCols;
+    c.hidden = sh.hidden;
+  });
+  books.set(copy.id, copy);
+  return copy;
+}
+
 export function createGasRuntime() {
+  let newBooks = 0;
   const drive = createFakeDrive();
   const contacts = createFakeContacts();
   const books = new Map();
+  drive.attachSheets(books, (book, name) => cloneBook(books, book, name));
   const props = new Map();
   const cache = new Map();
 
@@ -336,6 +381,13 @@ export function createGasRuntime() {
       openById(id) {
         const book = books.get(id);
         if (!book) throw new Error(`Spreadsheet ${id} not found (or no permission)`);
+        return book;
+      },
+      create(name) {
+        newBooks += 1;
+        const book = new FakeSpreadsheet(`ss-new-${newBooks}`, name);
+        book.insertSheet('Sheet1');
+        books.set(book.id, book);
         return book;
       },
       flush() {},

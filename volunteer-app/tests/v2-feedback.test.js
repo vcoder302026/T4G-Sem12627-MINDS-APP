@@ -263,34 +263,38 @@ describe('how a volunteer note is shared', () => {
 
 describe('the registration form follows MINDS\'s Google Form', () => {
   const answers = {
-    gender: 'Female', occupation: 'Student', organisation: 'NTU', languages: ['English', 'Mandarin'],
-    projects: ['West End (WE)'], experience: 'No', photoConsent: 'Yes', shirtSize: 'M',
+    shortName: 'Nia', nric4: '567b', address: 'Blk 1 Woodlands Ave 1, #01-01', project: 'West End', startYear: '2025', shirtSize: 'M',
+    emergencyRelation: 'Mother', emergencyPhone: '9123 4567',
   };
 
-  test('the questions come from Config.gs, projects from the Projects tab', () => {
+  test('the questions come from Config.gs, in the form\'s order', () => {
     const form = ok(rt.call('registrationForm', {}));
-    assert.ok(form.fields.length >= 8);
-    const projects = form.fields.find((f) => f.key === 'projects');
-    assert.ok(projects.options.includes('Regular Service Project for the Intellectually Disabled (RSPID)'));
-    assert.deepEqual(form.fields.find((f) => f.key === 'experience').options, ['Yes', 'No']);
+    assert.deepEqual(form.fields.map((f) => f.key), ['shortName', 'nric4', 'address', 'project', 'courseYear', 'matricNo', 'schoolEmail',
+      'startYear', 'shirtSize', 'committee', 'dietary', 'languages', 'emergencyRelation', 'emergencyPhone']);
+    assert.deepEqual(form.fields.find((f) => f.key === 'project').options, ['RSPID (CTDC)', 'RSPID (WGS)', 'West End', 'RSPID (CTDC) Alumni', 'RSPID (WGS) Alumni']);
+    assert.deepEqual(form.fields.find((f) => f.key === 'matricNo').showIf, { key: 'project', startsWith: 'RSPID' });
+    assert.equal(form.fields.find((f) => f.key === 'nric4').private, true);
   });
 
   test('answers are checked and saved in their own columns', () => {
     const base = { name: 'Nia New', email: 'nia@example.com', password: PW, birthday: '2003-02-03', phone: '+65 9876 5432', consent: true };
-    fails(rt.call('register', { ...base, answers: { ...answers, gender: '' } }), 'VALIDATION_ERROR');
+    fails(rt.call('register', { ...base, answers: { ...answers, shortName: '' } }), 'VALIDATION_ERROR');
     fails(rt.call('register', { ...base, answers: { ...answers, shirtSize: 'Huge' } }), 'VALIDATION_ERROR');
     fails(rt.call('register', { ...base, answers: { ...answers, favouriteColour: 'blue' } }), 'VALIDATION_ERROR');
-    const v = ok(rt.call('register', { ...base, answers: { ...answers, languages: ['English', 'Hokkien'] } })); // "Other" lets people type their own
+    const v = ok(rt.call('register', { ...base, answers: { ...answers, matricNo: 'U123', courseYear: 'MAE, Y2' } }));
     const row = rt.records(MAIN, 'Volunteers').find((r) => r.Email === 'nia@example.com');
-    assert.equal(row.Gender, 'Female');
-    assert.equal(row['Languages Spoken'], 'English, Hokkien');
-    assert.equal(row['School / Organisation'], 'NTU');
-    assert.equal(row['Photo Consent'], 'Yes');
-    assert.equal(v.user.answers.find((a) => a.key === 'occupation').value, 'Student');
+    assert.equal(row['Short Name'], 'Nia');
+    assert.equal(row['NRIC (Last 4)'], '567B');
+    assert.equal(row.Project, 'West End');
+    assert.equal(row['Emergency Contact Phone'].trim(), '+65 91234567');
+    assert.equal(row['Matriculation Number'], '', 'RSPID-only questions are cleared for a West End volunteer');
+    assert.equal(row['Course and Year'], '');
+    assert.equal(v.user.shortName, 'Nia');
+    assert.ok(!v.user.answers.some((a) => a.key === 'matricNo'), 'not shown when they do not apply');
 
     const res = ok(rt.call('updateProfile', { answers: { shirtSize: 'L' } }, v.token));
-    assert.match(res.message, /t-shirt size/);
-    fails(rt.call('updateProfile', { answers: { gender: '' } }, v.token), 'VALIDATION_ERROR');
+    assert.match(res.message, /t-shirt size/i);
+    fails(rt.call('updateProfile', { answers: { emergencyPhone: '' } }, v.token), 'VALIDATION_ERROR');
     assert.equal(ok(call('personDetail', { userId: v.user.userId })).person.answers.find((a) => a.key === 'shirtSize').value, 'L');
   });
 });

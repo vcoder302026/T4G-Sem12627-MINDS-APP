@@ -47,13 +47,15 @@ export function createDemoRuntime() {
   rt.evaluate("guideFileLinks_ = function (fileId) { const u = '/__drive/' + encodeURIComponent(fileId); return { imageUrl: u, previewUrl: u, openUrl: u }; };");
   rt.evaluate("driveImageUrl_ = function (fileId) { return '/__drive/' + encodeURIComponent(fileId); };");
 
-  // Answers to the registration form's other questions (Config.gs → REGISTRATION).
+  // Answers to MINDS's registration form questions (Config.gs → REGISTRATION). Fictional.
   const answers = (more = {}) => ({
-    gender: 'Female', occupation: 'Student', organisation: 'NTU', languages: ['English', 'Mandarin'], shirtSize: 'M',
-    projects: ['Regular Service Project for the Intellectually Disabled (RSPID)'], experience: 'No', heardFrom: 'School', photoConsent: 'Yes', ...more,
+    shortName: '', nric4: '123A', address: 'Blk 100 Woodlands Ave 1, #01-01', project: 'RSPID (WGS)',
+    courseYear: 'MAE, Y2', matricNo: 'U2312345A', schoolEmail: 'demo001@e.ntu.edu.sg', startYear: '2025', shirtSize: 'M',
+    committee: '', dietary: '', languages: 'English, Mandarin', emergencyRelation: 'Mother', emergencyPhone: '+65 8000 0000', ...more,
   });
   const reg = (name, email, password, extra = {}) => rt.call('register', {
-    name, email, password, birthday: '2000-01-15', phone: '+65 9000 0000', telegram: '', consent: true, answers: answers(), ...extra,
+    name, email, password, birthday: '2000-01-15', phone: '+65 9000 0000', telegram: '', consent: true,
+    ...extra, answers: { ...answers({ shortName: name.split(' ')[0] }), ...(extra.answers || {}) },
   }).data;
   const ada = reg('Ada Admin', DEMO.admin.email, DEMO.admin.password, { telegram: 'ada_admin' });
   rt.call('acknowledgeGuide', {}, ada.token);
@@ -75,15 +77,15 @@ export function createDemoRuntime() {
     data: fs.readFileSync(path.join(here, 'demo-infographic.png')).toString('base64'),
     body: 'A sample infographic. Admins can replace it with MINDS\'s own picture or PDF.',
   });
-  const rex = reg('Rex Regular', DEMO.regular.email, DEMO.regular.password, { telegram: 'rex_regular', phone: '+65 9333 4444', answers: answers({ gender: 'Male', occupation: 'Working', organisation: 'DBS Bank', experience: 'Yes' }) });
+  const rex = reg('Rex Regular', DEMO.regular.email, DEMO.regular.password, { telegram: 'rex_regular', phone: '+65 9333 4444', answers: { project: 'West End', startYear: '2022', committee: '2024 - Sports carnival logistics', languages: 'English, Hokkien' } });
   const rina = reg('Rina Regular', 'rina@example.com', 'RegularDemo123', { telegram: 'rina_r' });
   const vera = reg('Vera Volunteer', DEMO.volunteer.email, DEMO.volunteer.password, { telegram: 'vera_volunteers' });
-  const sam = reg('Sam Siva', 'sam@example.com', 'VolunteerDemo123', { phone: '+65 9111 2222', telegram: 'sam_siva', answers: answers({ gender: 'Male', languages: ['English', 'Tamil'] }) });
+  const sam = reg('Sam Siva', 'sam@example.com', 'VolunteerDemo123', { phone: '+65 9111 2222', telegram: 'sam_siva', answers: { languages: 'English, Tamil', dietary: 'Vegetarian' } });
   // Everyone in the demo has read the Volunteer Guide; a newly registered account has not.
   [rex, rina, vera, sam].forEach((v) => rt.call('acknowledgeGuide', {}, v.token));
 
   const SCHOOL = 'MINDS Woodlands Gardens School';
-  const PROJECT = ['West End (WE)', 'Regular Service Project for the Intellectually Disabled (RSPID)'];
+  const PROJECT = ['West End', 'RSPID (WGS)'];
   const today = rt.context.todayStr_();
   const day = (n) => rt.context.addDays_(today, n);
   const mk = (title, date, startTime, endTime, capacity, notes = '', extra = {}) =>

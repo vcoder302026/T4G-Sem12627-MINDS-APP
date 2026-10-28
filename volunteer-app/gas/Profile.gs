@@ -58,6 +58,7 @@ function registrationForm_() {
     fields: REGISTRATION.fields.map((f) => ({
       key: f.key, label: f.label, type: f.type, section: f.section, required: Boolean(f.required), hint: f.hint || '',
       options: f.type === 'yesno' ? ['Yes', 'No'] : registrationOptions_(f),
+      placeholder: f.placeholder || '', private: Boolean(f.private), showIf: f.showIf || null,
     })),
   };
 }
@@ -67,13 +68,20 @@ function registrationForm_() {
  * only the questions sent are checked, and a required one can't be cleared.
  * Returns { key: cell text }; several choices are stored as "A, B".
  */
-function registrationAnswers_(answers, partial) {
+function registrationAnswers_(answers, partial, current) {
   const a = answers === undefined || answers === null ? {} : obj_(answers, 'Answers');
   const known = REGISTRATION.fields.map((f) => f.key);
   Object.keys(a).forEach((k) => { if (known.indexOf(k) === -1) throw err_.validation(`Unknown question "${k}".`); });
   const out = {};
+  // The answer a showIf question depends on: the one sent now, else the one saved.
+  const answerOf = (key) => String(Object.prototype.hasOwnProperty.call(a, key) ? a[key] : (current && current[key]) || '');
+  const applies = (f) => !f.showIf || answerOf(f.showIf.key).toLowerCase().indexOf(String(f.showIf.startsWith).toLowerCase()) === 0;
   REGISTRATION.fields.forEach((f) => {
-    if (partial && !Object.prototype.hasOwnProperty.call(a, f.key)) return;
+    if (partial && !Object.prototype.hasOwnProperty.call(a, f.key) && !(f.showIf && Object.prototype.hasOwnProperty.call(a, f.showIf.key))) return;
+    if (!applies(f)) {
+      out[f.key] = ''; // e.g. the RSPID questions for a West End volunteer: not asked, cleared
+      return;
+    }
     const raw = a[f.key];
     const options = f.type === 'yesno' ? ['Yes', 'No'] : registrationOptions_(f);
     const free = options.indexOf('Other') >= 0; // "Other" lets people type their own answer
@@ -92,6 +100,22 @@ function registrationAnswers_(answers, partial) {
       value = list.map(pick).filter(Boolean).filter((x, i, all) => all.indexOf(x) === i).join(', ');
     } else if (f.type === 'choice' || f.type === 'yesno') {
       value = pick(raw);
+    } else if (f.type === 'phone') {
+      value = sgPhone_(raw, f.label, { optional: true });
+    } else if (f.type === 'email') {
+      const text = str_(raw, f.label, { max: 254 });
+      value = text ? emailAs_(text, f.label) : '';
+    } else if (f.type === 'year') {
+      value = str_(raw, f.label, { max: 10 });
+      const y = Number(value);
+      const thisYear = Number(todayStr_().slice(0, 4));
+      if (value && (!/^\d{4}$/.test(value) || y < 1970 || y > thisYear)) throw err_.validation(`${f.label}: a year like ${thisYear}, not later than this year.`);
+    } else if (f.type === 'nric4') {
+      value = str_(raw, f.label, { max: 10 }).toUpperCase().replace(/\s/g, '');
+      if (value && !/^\d{3}[A-Z]$/.test(value)) throw err_.validation('NRIC: just the last 4 characters, 3 digits and a letter, e.g. 123A.');
+    } else if (f.type === 'matric') {
+      value = str_(raw, f.label, { max: 20 }).toUpperCase().replace(/\s/g, '');
+      if (value && !/^[A-Z0-9]{5,12}$/.test(value)) throw err_.validation(`${f.label}: letters and numbers only, e.g. U2312345A.`);
     } else {
       value = str_(raw, f.label, { max: f.type === 'textarea' ? LIMITS.NOTES : LIMITS.NAME });
     }
@@ -103,7 +127,9 @@ function registrationAnswers_(answers, partial) {
 
 /** A person's answers, for their Me page and the admin profile: [{ key, label, value }]. */
 function registrationAnswersOut_(u) {
-  return REGISTRATION.fields.map((f) => ({ key: f.key, label: f.label, value: u[f.key] === undefined ? '' : String(u[f.key]) }));
+  return REGISTRATION.fields
+    .filter((f) => !f.showIf || String(u[f.showIf.key] || '').toLowerCase().indexOf(String(f.showIf.startsWith).toLowerCase()) === 0)
+    .map((f) => ({ key: f.key, label: f.label, value: u[f.key] === undefined ? '' : String(u[f.key]), private: Boolean(f.private) }));
 }
 
 /** Keeps only the fields whose value actually changes. */
@@ -154,7 +180,7 @@ function updateProfile_(p, user) {
   onlyFields_(p, PROFILE_FIELDS.concat(['currentPassword', 'answers']));
   const users = table_('users');
   const target = users.find((u) => u.userId === user.userId);
-  const changes = changedOnly_(target, Object.assign(profilePatch_(p), registrationAnswers_(p.answers, true)));
+  const changes = changedOnly_(target, Object.assign(profilePatch_(p), registrationAnswers_(p.answers, true, target)));
   if (changes.email) {
     const authRow = table_('auth').find((a) => a.userId === user.userId);
     if (typeof p.currentPassword !== 'string' || !p.currentPassword
@@ -258,6 +284,15 @@ function updatePerson_(p, admin) {
   const oldName = target.name;
   applyProfileChanges_(users, target, changes, admin);
   const madeRegular = !wasAdmin && willBeAdmin && makeRegularAsAdmin_(target); // admins are regular volunteers by default
+  // Deactivated volunteers can't come, so they come off upcoming sessions (marked cancelled, not deleted).
+  let offSessions = 0;
+  if (changes.status === 'inactive') {
+    const bookings = table_('bookings');
+    bookings.filter((b) => b.userId === target.userId && b.status !== 'cancelled' && String(b.sessionDate) >= todayStr_()).forEach((b) => {
+      bookings.update(b, { status: 'cancelled', decidedBy: `${admin.name} (deactivated the volunteer)`, decidedAt: fmtDateTime_(now_()) });
+      offSessions += 1;
+    });
+  }
   const profileChanges = {};
   Object.keys(changes).filter((k) => PROFILE_FIELDS.indexOf(k) >= 0).forEach((k) => { profileChanges[k] = changes[k]; });
   const parts = [];
@@ -265,6 +300,7 @@ function updatePerson_(p, admin) {
   if (changes.role) parts.push(changes.role === 'admin' ? `${target.name} is now an admin.` : `${target.name} is no longer an admin.`);
   if (madeRegular) parts.push('Admins are regular volunteers, so they are now a regular too.');
   if (changes.status) parts.push(changes.status === 'inactive' ? `${target.name} is deactivated and can no longer sign in.` : `${target.name} is active again.`);
+  if (offSessions) parts.push(`Taken off ${offSessions} upcoming session${offSessions === 1 ? '' : 's'}.`);
   if (changes.email) parts.push(`They now sign in with ${changes.email}.`);
   const message = parts.join(' ') || 'No changes to save.';
   const hasAccount = Boolean(table_('auth').find((a) => a.userId === target.userId));

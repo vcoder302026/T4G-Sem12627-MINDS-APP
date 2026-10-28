@@ -13,6 +13,8 @@ MINDS, a 10-minute demo, and how to upgrade. [VERSION-1.md](VERSION-1.md) descri
 first version.
 [STEVEN-UPDATE.md](STEVEN-UPDATE.md) covers the changes after Mr Sadil's feedback on Version 2
 (many-to-many pairing with drag and drop, note sharing, registration questions).
+**[VERSION-3.md](VERSION-3.md)**: the Version 3 prototype (registration exactly as MINDS's
+Google Form, warnings before major admin actions, project names, and what's still open).
 
 ## Quick start
 

@@ -1,31 +1,28 @@
-// Section 5: House visits — add-only visit history, newest first.
+// House visits: the visit history (add-only, newest first) and the House Visit
+// Form, laid out like MINDS's own form: coloured sections, each question with
+// its guide text, 1–5 scales, the date wheel, prefilled with the trainee's
+// current answers. Server: gas/Visits.gs.
 
 import { personName, traineeName } from '../../../js/quickview.js';
 import { call } from '../../../js/api.js';
-import { el, fuzzyFilter, labelled, mount, searchBox, todaySG, toast } from '../../../js/ui.js';
-import { day, field, formModal, icon, load, pageHead, panel, plural, row, stat, statGrid, toolbar, traineePicker, volunteerPicker } from '../kit.js';
+import { busy, el, fuzzyFilter, hvLabel, hvSections, labelled, loading, mount, searchBox, todaySG, toast } from '../../../js/ui.js';
+import { day, icon, load, pageHead, panel, plural, stat, statGrid, toolbar } from '../kit.js';
 
-const AREAS = [
-  ['family', 'Family', 'How the family is coping, changes at home'],
-  ['dailyLiving', 'Daily living', 'Meals, hygiene, routines, independence'],
-  ['social', 'Social', 'Friends, activities, community'],
-  ['health', 'Health', 'Physical and mental health, medication'],
-];
+// Visits saved before the House Visit Form (four boxes and a follow-up).
+const OLD_AREAS = [['family', 'Family'], ['dailyLiving', 'Daily living'], ['social', 'Social'], ['health', 'Health'], ['followUp', 'Follow-up']];
 
 function visitCard(v) {
+  const old = OLD_AREAS.filter(([k]) => v[k]);
   return el('article', { class: 'card overflow-hidden' },
     el('header', { class: 'flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-4 py-3 dark:border-neutral-800' },
       el('div', {},
         el('a', { href: `#/trainee/${encodeURIComponent(v.traineeId)}`, class: 'link text-base' }, traineeName(v.traineeName, v.traineeId)),
-        el('p', { class: 'text-xs muted' }, 'Visited by ', personName(v.volunteerName, v.userId), ` · recorded by ${v.createdBy}`)),
+        el('p', { class: 'text-xs muted' }, v.volunteerName ? ['Visited by ', personName(v.volunteerName, v.userId), ' · '] : null, `Recorded by ${v.createdBy}`)),
       el('span', { class: 'badge badge-indigo' }, day(v.date))),
-    el('dl', { class: 'grid gap-x-6 gap-y-3 p-4 text-sm sm:grid-cols-2' },
-      AREAS.filter(([k]) => v[k]).map(([k, label]) => el('div', {},
+    v.sections && v.sections.length ? el('div', { class: 'px-3 pb-3' }, hvSections(v.sections, { open: false }))
+      : old.length ? el('dl', { class: 'grid gap-x-6 gap-y-3 p-4 text-sm sm:grid-cols-2' }, old.map(([k, label]) => el('div', {},
         el('dt', { class: 'text-xs font-bold uppercase tracking-wider muted' }, label),
-        el('dd', { class: 'mt-0.5 whitespace-pre-line' }, v[k])))),
-    v.followUp ? el('div', { class: 'border-t border-amber-100 bg-amber-50 px-4 py-3 text-sm dark:border-amber-900/40 dark:bg-amber-950/30' },
-      el('p', { class: 'text-xs font-bold uppercase tracking-wider text-amber-800 dark:text-amber-300' }, 'Follow-up'),
-      el('p', { class: 'mt-0.5 whitespace-pre-line' }, v.followUp)) : null);
+        el('dd', { class: 'mt-0.5 whitespace-pre-line' }, v[k])))) : null);
 }
 
 export function renderVisits(root, app, ctx) {
@@ -35,23 +32,12 @@ export function renderVisits(root, app, ctx) {
   let query = '';
   let traineeFilter = '';
 
-  const record = () => formModal('Record a house visit', [
-    row(traineePicker(data.options.trainees), volunteerPicker(data.options.volunteers, { label: 'Visited by' })),
-    field('date', 'Visit date', { type: 'date', value: todaySG(), max: todaySG(), required: true }),
-    el('p', { class: 'text-sm muted' }, 'Fill in at least one area. Visit records can\'t be changed afterwards.'),
-    AREAS.map(([k, label, hint]) => field(k, label, { type: 'textarea', rows: 2, placeholder: hint, optional: true })),
-    field('followUp', 'Follow-up', { type: 'textarea', rows: 2, optional: true, placeholder: 'What should happen next, and who does it' }),
-  ], 'Save visit', async (d) => {
-    const res = await call('createVisit', d);
-    toast(res.message);
-    draw(res);
-  }, { wide: true });
-
+  const words = (v) => (v.sections || []).flatMap((s) => s.fields.map((f) => f.value)).concat(OLD_AREAS.map(([k]) => v[k] || ''));
   const drawList = () => {
     let rows = traineeFilter ? data.visits.filter((v) => v.traineeId === traineeFilter) : data.visits;
-    rows = fuzzyFilter(rows, query, (v) => [v.traineeName, v.volunteerName, v.family, v.dailyLiving, v.social, v.health, v.followUp]);
+    rows = fuzzyFilter(rows, query, (v) => [v.traineeName, v.volunteerName, v.createdBy].concat(words(v)));
     mount(listHost, rows.length ? rows.map(visitCard)
-      : el('p', { class: 'py-8 text-center text-sm muted' }, data.visits.length ? 'No visits match.' : 'No house visits recorded yet.'));
+      : el('p', { class: 'py-8 text-center text-sm muted' }, data.visits.length ? 'No visits match.' : 'No house visits yet.'));
   };
 
   const draw = (d) => {
@@ -64,18 +50,106 @@ export function renderVisits(root, app, ctx) {
     traineeSelect.addEventListener('change', () => { traineeFilter = traineeSelect.value; drawList(); });
     mount(host,
       statGrid(
-        stat('Visits recorded', d.visits.length, { tone: 'indigo' }),
-        stat('This month', d.visits.filter((v) => v.date.slice(0, 7) === month).length),
-        stat('Trainees visited', traineeIds.length, { tone: 'purple' }),
-        stat('With follow-up', d.visits.filter((v) => v.followUp).length, { tone: 'amber' })),
-      el('div', { class: 'mt-6' }, panel(`Visit history (${plural(d.visits.length, 'visit')}, newest first)`,
-        el('button', { class: 'btn btn-primary btn-sm', onclick: record }, icon('plus', 'size-4'), 'Record a visit'),
+        stat('Visits', d.visits.length, { tone: 'indigo' }),
+        stat('This month', d.visits.filter((v) => String(v.date).slice(0, 7) === month).length),
+        stat('Trainees visited', traineeIds.length, { tone: 'purple' })),
+      el('div', { class: 'mt-6' }, panel(`Visit history (${plural(d.visits.length, 'visit')})`,
+        el('a', { href: '#/visit-new', class: 'btn btn-primary btn-sm' }, icon('plus', 'size-4'), 'New visit'),
         toolbar(labelled('Trainee', traineeSelect),
-          el('div', { class: 'min-w-64 flex-1' }, labelled('Search', searchBox('Names or anything written in a visit', (q) => { query = q; drawList(); })))),
+          el('div', { class: 'min-w-64 flex-1' }, labelled('Search', searchBox('Search visits', (q) => { query = q; drawList(); })))),
         listHost)));
     drawList();
   };
 
-  mount(root, pageHead('House visits', 'Notes from visits to trainees\' homes. History is add-only, so it stays a true record.'), host);
+  mount(root, pageHead('House visits', ''), host);
   return load(host, ctx, () => call('listVisits', {}), draw);
+}
+
+/* ---------------- the House Visit Form ---------------- */
+
+const TONES = ['blue', 'green', 'yellow', 'red', 'purple', 'indigo', 'pink'];
+
+/** One question: label, guide text, and the right control for its type. */
+function question(f, i) {
+  const q = hvLabel(f.label);
+  const id = `hv-${i}`;
+  let control;
+  if (f.type === 'likert') {
+    control = el('div', { class: 'hv-likert' },
+      el('div', { class: 'hv-likert-ends' }, el('span', {}, f.likert.left), el('span', {}, f.likert.right)),
+      el('div', { class: 'hv-likert-row', role: 'radiogroup', 'aria-label': q.label },
+        [1, 2, 3, 4, 5].map((n) => el('label', { class: 'hv-likert-opt' },
+          el('input', { type: 'radio', name: id, value: String(n), class: 'sr-only', checked: f.value === String(n), 'data-key': f.key }),
+          el('span', {}, String(n))))));
+  } else if (f.type === 'project') {
+    control = el('select', { id, class: 'input', 'data-key': f.key },
+      el('option', { value: '' }, 'Select Project…'),
+      (f.options || []).map((o) => el('option', { value: o, selected: o === f.value }, o)));
+  } else if (f.type === 'date') {
+    control = el('input', { id, type: 'date', class: 'input', value: f.value, max: /visit/i.test(f.label) ? todaySG() : null, 'data-key': f.key });
+  } else if (f.type === 'textarea') {
+    control = el('textarea', { id, class: 'input min-h-[100px]', rows: 3, maxlength: 5000, 'data-key': f.key });
+    control.value = f.value || '';
+  } else {
+    control = el('input', { id, type: 'text', class: 'input', value: f.value, maxlength: 500, 'data-key': f.key });
+  }
+  return el('div', {},
+    el(f.type === 'likert' ? 'p' : 'label', { class: 'block text-sm font-semibold text-slate-800 dark:text-neutral-200', for: f.type === 'likert' ? null : id }, q.label),
+    q.guide ? el('p', { class: 'hv-q-guide' }, q.guide) : null,
+    control);
+}
+
+/** Admin → House visits → New visit (#/visit-new, or #/visit-new/<trainee ID>). */
+export function renderVisitForm(root, app, ctx, param) {
+  const preset = param ? decodeURIComponent(param) : '';
+  const formHost = el('div', {});
+  const pickHost = el('div', { class: 'card p-4' });
+  let current = null;
+
+  const drawForm = (d) => {
+    current = d;
+    let n = 0;
+    const update = el('input', { type: 'checkbox', checked: true, class: 'size-5 accent-indigo-600' });
+    const submit = el('button', { type: 'submit', class: 'btn btn-primary w-full' }, 'Submit');
+    const form = el('form', { novalidate: true, class: 'space-y-6' },
+      d.sections.map((s, i) => el('details', { class: 'card group overflow-hidden', open: true },
+        el('summary', { class: `section-head section-${TONES[i % TONES.length]} cursor-pointer list-none select-none` }, s.title,
+          icon('down', 'size-5 transition-transform duration-200 group-open:rotate-180')),
+        el('div', { class: 'space-y-5 p-4' }, s.fields.map((f) => question(f, n++))))),
+      el('label', { class: 'flex items-center gap-3 text-sm font-bold' }, update, 'Also update the trainee\u2019s details'),
+      el('div', { class: 'action-bar' }, el('div', { class: 'mx-auto max-w-2xl' }, submit)));
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const answers = {};
+      form.querySelectorAll('[data-key]').forEach((c) => {
+        if (c.type === 'radio') { if (c.checked) answers[c.dataset.key] = c.value; else if (!(c.dataset.key in answers)) answers[c.dataset.key] = ''; return; }
+        answers[c.dataset.key] = c.value.trim();
+      });
+      busy(submit, 'Submitting…', async () => {
+        const res = await call('createVisit', { traineeId: d.trainee.id, answers, updateTrainee: update.checked });
+        toast(res.message);
+        app.go('#/visits');
+      });
+    });
+    mount(formHost, form);
+  };
+
+  const choose = (id) => {
+    if (!id) { mount(formHost, null); return; }
+    mount(formHost, loading());
+    call('houseVisitForm', { traineeId: id }).then((d) => { if (ctx.alive()) drawForm(d); })
+      .catch((err) => { if (ctx.alive()) { mount(formHost, null); toast(err.message, 'error'); } });
+  };
+
+  mount(root, el('h1', { class: 'page-title mb-4' }, 'New visit'), pickHost, el('div', { class: 'mt-6' }, formHost));
+  mount(pickHost, loading());
+  return call('listVisits', {}).then((d) => {
+    if (!ctx.alive()) return;
+    const select = el('select', { class: 'input', 'aria-label': 'Trainee' },
+      el('option', { value: '' }, 'Select trainee…'),
+      d.options.trainees.map((t) => el('option', { value: t.id, selected: t.id === preset }, `${t.name} (${t.id})`)));
+    select.addEventListener('change', () => choose(select.value));
+    mount(pickHost, labelled('Trainee', select));
+    if (preset) choose(preset);
+  });
 }

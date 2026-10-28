@@ -54,7 +54,7 @@ export function shareChooser({ audiences, volunteers, audience = 'all', userIds 
     const radio = el('input', { type: 'radio', name, value: a.key, checked: a.key === value });
     radio.addEventListener('change', () => { if (radio.checked) { value = a.key; pickHost.hidden = value !== 'selected'; } });
     return el('label', { class: 'share-opt' }, radio,
-      el('span', { class: 'min-w-0' }, el('span', { class: 'block text-sm font-bold' }, a.label), el('span', { class: 'block text-xs muted' }, a.hint)));
+      el('span', { class: 'min-w-0' }, el('span', { class: 'block text-sm font-bold' }, a.label)));
   });
   return {
     el: el('div', { class: 'space-y-2' }, opts, pickHost),
@@ -94,7 +94,7 @@ function notesList(notes, isAdmin) {
     isAdmin && n.audience ? el('p', { class: 'mt-1' }, audienceBadge(n)) : null)));
 }
 
-/* ---------------- "Your trainee" on Home ---------------- */
+/* ---------------- "Paired trainee" on session cards ---------------- */
 
 /**
  * One line on Home: photo, name and a hint. Details stay out of the way:
@@ -105,9 +105,9 @@ export function traineeLine(trainee, pairing, label) {
   return asTrainee(el('a', { href: `#/info/${encodeURIComponent(trainee.id)}`, class: 'well mt-3 flex items-center gap-3 p-3 hover:shadow-sm' },
     traineeAvatar(trainee, 'sm'),
     el('span', { class: 'min-w-0 flex-1' },
-      el('span', { class: 'block text-xs font-bold uppercase tracking-wider muted' }, label || (pairing === 'standing' ? 'With your regular trainee' : 'Your trainee')),
+      el('span', { class: 'block text-xs font-bold uppercase tracking-wider muted' }, label || 'Paired trainee'),
       traineeName(trainee.name, trainee.id, 'block truncate font-bold text-slate-900 dark:text-white'),
-      el('span', { class: 'block text-xs muted' }, 'Press and hold for details')),
+      null),
     icon('chevron', 'size-5 text-slate-400')), trainee.id);
 }
 
@@ -118,7 +118,6 @@ function updateForm(trainee, onSent) {
     field('note', `Something the next volunteer should know about ${trainee.preferredName || trainee.name}`, {
       type: 'textarea', rows: 3, maxlength: 5000,
       placeholder: 'e.g. Calmer with a 5-minute warning before changing activity.',
-      hint: 'An admin reads it first and decides who can read it: all future volunteers, regulars only, or specific volunteers.',
     }),
     el('button', { type: 'submit', class: 'btn btn-primary w-full' }, icon('send', 'size-4'), 'Send update'));
   form.addEventListener('submit', (e) => {
@@ -190,7 +189,6 @@ export function renderDirectory(root, app, ctx) {
   };
   mount(root,
     el('h1', { class: 'page-title' }, 'Trainees'),
-    el('p', { class: 'mb-4 mt-1 text-sm muted' }, 'As a regular volunteer you can read about any trainee and send updates about them.'),
     searchBox('Search by name', (q) => { query = q; draw(); }, 'Search trainees'),
     host);
   mount(host, loading());
@@ -237,7 +235,6 @@ export function renderReview(root, app, ctx) {
             badge(it.kind === 'update' ? 'Trainee update' : 'Session feedback', it.kind === 'update' ? 'indigo' : 'slate'),
             it.rating ? badge(`Session ${it.rating}/5`, 'slate') : null)),
         el('div', { class: 'mt-3' }, text),
-        el('p', { class: 'hint' }, 'Edit before sharing if needed, e.g. remove anything private or not helpful to other volunteers.'),
         el('p', { class: 'label mt-4' }, 'Who can read it?'),
         share.el,
         el('div', { class: 'mt-3 flex justify-end' }, save));
@@ -251,7 +248,6 @@ export function renderReview(root, app, ctx) {
     }));
     mount(root,
       el('h1', { class: 'page-title' }, 'Notes to review'),
-      el('p', { class: 'mb-4 mt-1 text-sm muted' }, 'Session feedback and updates volunteers sent about trainees. Choose who can read each one: all future volunteers, regulars only, selected volunteers, or keep it private (only admins can read it; it stays on the trainee\'s page).'),
       q.items.length ? chips : null,
       items.length ? el('div', { class: 'space-y-3' }, items.map(item))
         : el('div', { class: 'flex flex-col items-center rounded-2xl border border-dashed border-slate-200 px-6 py-10 text-center muted dark:border-neutral-800' },

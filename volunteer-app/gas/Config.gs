@@ -27,6 +27,7 @@ const CONFIG = {
 
   PROP_SPREADSHEET_ID: 'SPREADSHEET_ID',
   PROP_TRAINEE_SPREADSHEET_ID: 'TRAINEE_SPREADSHEET_ID',
+  PROP_VISITS_SPREADSHEET_ID: 'VISITS_SPREADSHEET_ID', // optional: house visit records in their own sheet (else the volunteer sheet)
   PROP_SECRET: 'APP_SECRET',
   PROP_FIRST_ADMIN_EMAIL: 'FIRST_ADMIN_EMAIL',
   PROP_GUIDE_FOLDER_ID: 'GUIDE_FOLDER_ID', // automatic: the Drive folder for guide infographics (created on first upload)
@@ -85,7 +86,13 @@ const CONFIG = {
     times: [{ label: '2:30 pm – 5:30 pm', startTime: '14:30', endTime: '17:30' }],
     venue: 'MINDS Woodlands Gardens School', // the venue chosen by default (must be on the Venues tab)
     // Projects ticked by default. setup() adds any that aren't on the Projects tab yet.
-    projects: ['West End (WE)', 'Regular Service Project for the Intellectually Disabled (RSPID)'],
+    projects: ['West End', 'RSPID (WGS)'],
+  },
+  // Projects renamed to match the registration form (WGS = Woodlands Gardens School).
+  // setup() renames them on the Projects tab and in sessions; old names keep working.
+  PROJECT_RENAMES: {
+    'West End (WE)': 'West End',
+    'Regular Service Project for the Intellectually Disabled (RSPID)': 'RSPID (WGS)',
   },
   ADD_MISSING_TRAINEE_COLUMNS: true,  // setup() adds empty columns for volunteer-visible fields the trainee tab lacks
 
@@ -138,7 +145,7 @@ const CONFIG = {
         startTime: 'Start Time',
         endTime: 'End Time',
         venue: 'Venue',
-        project: 'Project',      // one or more projects, e.g. "West End (WE), Regular Service Project for the Intellectually Disabled (RSPID)"
+        project: 'Project',      // one or more projects, e.g. "West End, RSPID (WGS)"
         capacity: 'Capacity',
         notes: 'Notes',
         traineeIds: 'Trainees Attending', // optional "T-0001, T-0004": auto-pairing picks only from these
@@ -483,6 +490,7 @@ const CONFIG = {
     },
     houseVisits: {
       tab: 'House Visits',
+      book: 'visits', // lives in the house visit database (VISITS_SPREADSHEET_ID), or the volunteer sheet if not set
       columns: {
         visitId: 'Visit ID',
         traineeId: 'Trainee ID',
@@ -583,33 +591,63 @@ const NOTE_AUDIENCES = {
 };
 const NOTE_AUDIENCE_KEYS = Object.keys(NOTE_AUDIENCES);
 
-/* The volunteer registration form, in the order of MINDS's Google Form.
-   Name, birthday, email, phone, Telegram and the password are always asked
-   (they are the account); these extra questions follow them. Each answer is
+/* The volunteer registration form: MINDS's "CONSOLIDATED VOLUNTEER RECORDS"
+   Google Form, question for question. Full Name, D.O.B, Email, Contact No and
+   the password are the account (always asked; Telegram is an extra, because
+   admins message volunteers there). These questions follow them. Each answer is
    saved in its own column of the Volunteers tab (setup() adds missing columns).
      key       code name (letters only)        header   the column in the Volunteers tab
      type      text | textarea | choice (one) | multi (several) | yesno
+               | email | phone (+65 and 8 digits) | year (YYYY) | nric4 (e.g. 123A) | matric
      options   for choice / multi; "Other" lets the volunteer type their own
      required  true = must be answered          section  heading the question is shown under
+     showIf    { key, startsWith }: only asked when that answer starts with the text
+               (e.g. the RSPID questions); otherwise left blank and not required
+     private   true = personal particulars: shown only to the volunteer and admins
+               (never to other volunteers, never saved to Google Contacts)
    To match a new version of the form: edit, add or remove entries here, run
    setup() again, and publish a new version. Old answers stay in the sheet. */
+const RSPID_ONLY = { key: 'project', startsWith: 'RSPID' };
 const REGISTRATION = {
-  sections: ['Personal particulars', 'About you', 'Volunteering with MINDS'],
+  sections: ['Personal particulars', 'Project', 'Other information', 'Emergency contact'],
   fields: [
-    { key: 'preferredName', header: 'Preferred Name', label: 'Preferred name', type: 'text', section: 'Personal particulars', hint: 'What should trainees and staff call you?' },
-    { key: 'gender', header: 'Gender', label: 'Gender', type: 'choice', options: ['Male', 'Female'], required: true, section: 'Personal particulars' },
-    { key: 'occupation', header: 'Occupation', label: 'Are you studying or working?', type: 'choice', options: ['Student', 'Working', 'Other'], required: true, section: 'About you' },
-    { key: 'organisation', header: 'School / Organisation', label: 'School or organisation', type: 'text', required: true, section: 'About you', hint: 'e.g. NTU, or your company.' },
-    { key: 'languages', header: 'Languages Spoken', label: 'Languages you speak', type: 'multi', options: ['English', 'Mandarin', 'Malay', 'Tamil', 'Other'], required: true, section: 'About you' },
-    { key: 'shirtSize', header: 'T-Shirt Size', label: 'T-shirt size', type: 'choice', options: ['XS', 'S', 'M', 'L', 'XL', 'XXL'], section: 'About you' },
-    { key: 'dietary', header: 'Dietary Restrictions', label: 'Dietary restrictions', type: 'text', section: 'About you', hint: 'e.g. vegetarian, halal, no beef. Leave blank if none.' },
-    { key: 'medical', header: 'Medical Conditions', label: 'Medical conditions or allergies we should know about', type: 'textarea', section: 'About you' },
-    { key: 'projects', header: 'Projects Interested In', label: 'Which projects are you interested in?', type: 'multi', options: 'projects', required: true, section: 'Volunteering with MINDS' }, // 'projects' = the active projects (Projects tab)
-    { key: 'experience', header: 'Experience with Persons with Intellectual Disability', label: 'Have you volunteered with persons with intellectual disability before?', type: 'yesno', required: true, section: 'Volunteering with MINDS' },
-    { key: 'heardFrom', header: 'How Did You Hear About Us', label: 'How did you hear about us?', type: 'choice', options: ['Friends or family', 'School', 'Social media', 'MINDS website', 'Other'], section: 'Volunteering with MINDS' },
-    { key: 'photoConsent', header: 'Photo Consent', label: 'May MINDS use photos of you taken at sessions (e.g. on social media)?', type: 'yesno', required: true, section: 'Volunteering with MINDS' },
+    { key: 'shortName', header: 'Short Name', label: 'Short Name', type: 'text', required: true, section: 'Personal particulars', hint: 'What trainees and staff call you, e.g. Wei Ling.' },
+    { key: 'nric4', header: 'NRIC (Last 4)', label: 'NRIC (last 4 characters, e.g. 123A)', type: 'nric4', required: true, private: true, section: 'Personal particulars', placeholder: '123A' },
+    { key: 'address', header: 'Address', label: 'Address', type: 'text', required: true, private: true, section: 'Personal particulars' },
+    { key: 'project', header: 'Project', label: 'Project', type: 'choice', options: ['RSPID (CTDC)', 'RSPID (WGS)', 'West End', 'RSPID (CTDC) Alumni', 'RSPID (WGS) Alumni'], required: true, section: 'Project' },
+    { key: 'courseYear', header: 'Course and Year', label: 'Course and Year [upcoming] (e.g. MAE, Y2)', type: 'text', showIf: RSPID_ONLY, section: 'Project', hint: 'RSPID volunteers.' },
+    { key: 'matricNo', header: 'Matriculation Number', label: 'Matriculation Number', type: 'matric', showIf: RSPID_ONLY, private: true, section: 'Project', hint: 'RSPID volunteers.' },
+    { key: 'schoolEmail', header: 'School Email', label: 'School Email', type: 'email', showIf: RSPID_ONLY, section: 'Project', hint: 'RSPID volunteers.' },
+    { key: 'startYear', header: 'Start Year', label: 'Start Year (in RSPID or West End, whichever is earlier)', type: 'year', required: true, section: 'Project', placeholder: 'YYYY' },
+    { key: 'shirtSize', header: 'T-Shirt Size', label: 'T-Shirt Size', type: 'choice', options: ['XS', 'S', 'M', 'L', 'XL', 'XXL'], required: true, section: 'Other information' },
+    { key: 'committee', header: 'Events / Project Committee Participation', label: 'Events\' / Project Committee Participation (roles/appointment, include year)', type: 'textarea', section: 'Other information', hint: 'e.g. 2017 - ACID Logs.' },
+    { key: 'dietary', header: 'Dietary Restrictions', label: 'Dietary Restrictions', type: 'text', section: 'Other information' },
+    { key: 'languages', header: 'Spoken Languages / Dialects', label: 'Spoken languages / dialects', type: 'text', section: 'Other information' },
+    // The emergency contact (the form asks for the relationship and the number, not a name).
+    { key: 'emergencyRelation', header: 'Emergency Contact Relationship', label: 'Emergency Contact\'s Relationship (e.g. Father, Mother, Wife, GF, BF...)', type: 'text', required: true, private: true, section: 'Emergency contact' },
+    { key: 'emergencyPhone', header: 'Emergency Contact Phone', label: 'Emergency Contact No.', type: 'phone', required: true, private: true, section: 'Emergency contact', placeholder: '+65 91234567' },
   ],
 };
+/* The house visit form (Admin → More → House visits) asks the trainee sheet's
+   own questions (its columns, grouped by the Map (Fixed) tab), as MINDS's House
+   Visit Form does, prefilled with the trainee's current answers.
+     likert        1–5 questions ("Select the … level / ability"): the words at
+                   each end, as in MINDS's House Visit app (matched by a word in the question)
+     shortAnswers  questions answered in one line (the rest get a bigger box) */
+const HOUSE_VISIT = {
+  likert: [
+    { match: 'mobility', left: 'Need support to walk and can be clumsy', right: 'Agile and stable' },
+    { match: 'comprehension', left: 'Very Low (unable to follow instructions)', right: 'High (able to follow instructions effectively)' },
+    { match: 'verbal', left: 'Very Low (non-verbal)', right: 'High (able to engage in conversations)' },
+  ],
+  shortAnswers: /name|nric|contact|blood|race|size|gender|religion|height|weight|relation|language|under minds|working hours|address|location/i,
+  skipHeaders: ['Timestamp'], // form bookkeeping, not a question
+  // Section order, as on MINDS's House Visit Form (used by the form and the trainee pages).
+  sectionOrder: ['General Details', "Volunteers' Details", "Trainee's Details", 'Emergency Contacts', 'Family Background',
+    'Medical & Health', 'Behaviour', 'Abilities / Skills', 'For Working Trainees Only', 'For Schooling Trainees Only',
+    'Additional Updates from Caregivers', "Volunteers' Observations"],
+};
+
 // Each registration answer has its own column in the Volunteers tab.
 REGISTRATION.fields.forEach((f) => { CONFIG.TABLES.users.columns[f.key] = f.header; });
 

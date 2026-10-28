@@ -100,7 +100,16 @@ export function pairDrag(root, onDrop) {
   const pMove = (e) => { if (e.pointerType !== 'touch' && moveTo(e.clientX, e.clientY)) e.preventDefault(); };
   const pUp = (e) => { if (e.pointerType !== 'touch') finish(e.clientX, e.clientY, false); };
   // Touch: touch events, so a sideways drag can stop the page scrolling.
-  const tStart = (e) => { if (e.touches.length === 1) begin(e.target, e.touches[0].clientX, e.touches[0].clientY, true); else finish(0, 0, true); };
+  const tStart = (e) => {
+    if (e.touches.length !== 1) { finish(0, 0, true); return; }
+    begin(e.target, e.touches[0].clientX, e.touches[0].clientY, true);
+    // Touch events keep going to the touched element even if the board redraws and
+    // removes it; there they no longer reach the document, so listen on it directly.
+    const target = e.target;
+    const onEnd = (ev) => { target.removeEventListener('touchend', onEnd); target.removeEventListener('touchcancel', onEnd); if (!target.isConnected) tEnd(ev); };
+    target.addEventListener('touchend', onEnd);
+    target.addEventListener('touchcancel', onEnd);
+  };
   const tMove = (e) => { const t = e.touches[0]; if (t && moveTo(t.clientX, t.clientY) && e.cancelable) e.preventDefault(); };
   const tEnd = (e) => { const t = e.changedTouches[0]; finish(t ? t.clientX : 0, t ? t.clientY : 0, e.type === 'touchcancel'); };
   const click = (e) => {
@@ -115,7 +124,11 @@ export function pairDrag(root, onDrop) {
   document.addEventListener('touchend', tEnd);
   document.addEventListener('touchcancel', tEnd);
   document.addEventListener('click', click, true);
+  const reset = () => finish(0, 0, true); // the app went to the background mid-drag
+  document.addEventListener('visibilitychange', reset);
   return () => {
+    finish(0, 0, true);
+    document.removeEventListener('visibilitychange', reset);
     root.removeEventListener('pointerdown', pDown);
     document.removeEventListener('pointermove', pMove);
     document.removeEventListener('pointerup', pUp);

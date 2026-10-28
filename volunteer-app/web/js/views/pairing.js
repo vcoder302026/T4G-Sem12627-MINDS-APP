@@ -61,7 +61,15 @@ function filterSeg(value, label, onPick) {
 function pairBoard(o) {
   const state = { vq: '', tq: '', vf: 'all', tf: 'all', flash: null };
   let pending = 0;
+  let failed = false;
   const host = el('div', {});
+  // "Saved" / "Saving…" / "Not saved", as on the Overseas Trip Planner's pairing page.
+  const syncPill = el('span', { class: 'pb-sync', role: 'status', 'aria-live': 'polite' });
+  const showSync = () => {
+    syncPill.className = `pb-sync ${pending ? 'pb-sync-busy' : failed ? 'pb-sync-failed' : ''}`;
+    syncPill.textContent = pending ? 'Saving…' : failed ? 'Not saved' : 'Saved';
+  };
+  showSync();
   const pairedTo = () => {
     const map = {};
     o.volunteers.forEach((v) => v.trainees.forEach((t) => { (map[t.id] = map[t.id] || []).push(v); }));
@@ -80,12 +88,17 @@ function pairBoard(o) {
     state.flash = op === 'add' ? { key: v.key, id: t.id } : null;
     draw();
     pending += 1;
+    failed = false;
+    showSync();
     Promise.resolve(o.save(op, v, t)).then((res) => {
       pending -= 1;
+      showSync();
       if (res && res.message) toast(res.message);
       if (!pending && o.settled) o.settled(res);
     }).catch((err) => {
       pending -= 1;
+      failed = true;
+      showSync();
       toast(err.message, 'error');
       if (o.reload) o.reload();
     });
@@ -120,7 +133,6 @@ function pairBoard(o) {
         past.length && !q ? el('div', { class: 'well mb-2 p-3 text-xs' },
           el('p', { class: 'font-bold uppercase tracking-wider muted' }, 'Been with before'),
           el('ul', { class: 'mt-1 space-y-0.5' }, past.slice(0, 6).map((x) => el('li', {}, el('span', { class: 'font-bold' }, x.t.name), ` · ${historyText(x.h)}`)))) : null,
-        el('p', { class: 'px-1 pb-1 text-xs muted' }, `Tap to pair or unpair. ${v.name.split(' ')[0]} can have several trainees.${o.newFirst ? ' Trainees new for them are listed first.' : ''}`),
         shown.slice(0, 60).map((t) => {
           const here = isPaired(v, t);
           const others = (byTrainee[t.id] || []).filter((x) => x.key !== v.key);
@@ -132,7 +144,7 @@ function pairBoard(o) {
               el('span', { class: 'pb-sub' }, [here ? 'Paired: tap to unpair' : '', t.note, others.length ? `With ${others.map((x) => x.name).join(', ')}` : 'No one yet'].filter(Boolean).join(' · '))),
             here ? icon('tick', 'size-5 text-emerald-600') : icon('plus', 'size-5 text-slate-400')), t.id);
         }),
-        shown.length > 60 ? el('p', { class: 'px-3 text-xs muted' }, `Showing 60 of ${shown.length}. Search to narrow it down.`) : null,
+        shown.length > 60 ? el('p', { class: 'px-3 text-xs muted' }, `Showing 60 of ${shown.length}.`) : null,
         !shown.length ? el('p', { class: 'p-3 text-sm muted' }, 'No trainee matches.') : null);
     };
     const done = el('button', { type: 'button', class: 'btn btn-primary btn-sm mt-3 w-full' }, 'Done');
@@ -149,7 +161,6 @@ function pairBoard(o) {
       const pool = fuzzyFilter(o.volunteers, q, (v) => [v.name, v.trainees.map((x) => x.name).join(' ')]);
       const sorted = [...pool.filter((v) => isPaired(v, t)), ...pool.filter((v) => !v.trainees.length), ...pool.filter((v) => v.trainees.length && !isPaired(v, t))];
       mount(listHost,
-        el('p', { class: 'px-1 pb-1 text-xs muted' }, `Tap to pair or unpair. ${t.name} can have several volunteers.`),
         sorted.map((v) => {
           const here = isPaired(v, t);
           return asPerson(el('button', { type: 'button', class: `pick-row ${here ? 'select-ring' : ''}`, onclick: () => change(here ? 'remove' : 'add', v, t) },
@@ -223,10 +234,10 @@ function pairBoard(o) {
     const empty = (filter, query, text) => el('p', { class: 'p-2 text-xs muted' }, query || filter !== 'all' ? 'No one matches.' : text);
 
     mount(host,
-      el('div', { class: 'mb-3 flex flex-wrap items-center gap-2' }, unpairedBtn,
+      el('div', { class: 'mb-3 flex flex-wrap items-center gap-2' }, unpairedBtn, syncPill,
         el('span', { class: 'pb-legend' }, el('span', { class: 'pb-dot pb-dot-paired' }), 'Paired'),
         el('span', { class: 'pb-legend' }, el('span', { class: 'pb-dot pb-dot-unpaired' }), 'Not yet'),
-        el('span', { class: 'text-xs muted' }, 'Drag a card onto the other column, or tap it. ✕ unpairs. Press and hold for details.')),
+        null),
       el('div', { class: 'pb' },
         el('section', { class: 'pb-col pb-vol', 'aria-label': o.volunteerLabel },
           el('div', { class: 'pb-head' }, el('span', {}, `${o.volunteerLabel} (${o.volunteers.length})`),
@@ -370,7 +381,7 @@ function renderHistory(host, app, ctx) {
     const pairs = fuzzyFilter(data.pairs, query, match);
     mount(listHost,
       el('div', { class: 'mt-4' }, panel(`Regular pairing changes (${periods.length})`, null,
-        el('p', { class: 'px-4 pt-3 text-xs muted' }, 'Each regular volunteer\'s fixed trainees over time, newest last. Change one under Regular pairings.'),
+        null,
         table([
           { label: 'Regular', cell: (x) => personName(x.volunteerName, x.userId, 'font-bold') },
           { label: 'Trainee', cell: (x) => traineeName(x.traineeName, x.traineeId) },
@@ -379,7 +390,7 @@ function renderHistory(host, app, ctx) {
           { label: 'Sessions together', cell: (x) => String(x.sessions), class: 'text-right' },
         ], periods, { empty: query ? 'No match.' : 'No regular pairings yet.' }))),
       el('div', { class: 'mt-6' }, panel(`Sessions together (${pairs.length} pairs)`, null,
-        el('p', { class: 'px-4 pt-3 text-xs muted' }, 'Every volunteer and trainee who have been at a session together (clocked in), most recent first.'),
+        null,
         table([
           { label: 'Volunteer', cell: (x) => el('span', { class: 'flex flex-wrap items-center gap-1' }, personName(x.volunteerName, x.userId, 'font-bold'),
             x.type === 'regular' ? badge('Regular', 'emerald') : null) },
@@ -404,15 +415,11 @@ export function renderStandingPairings(root, app, ctx, tab) {
   if (tab === 'history') {
     mount(root,
       el('h1', { class: 'page-title mb-1' }, 'Pairing history'),
-      el('p', { class: 'mb-4 text-sm muted' }, 'Who has been with whom. Use it to pair someone familiar, or to give a regular a trainee they haven\'t been with yet.'),
       host);
     return renderHistory(host, app, ctx);
   }
   mount(root,
-    el('h1', { class: 'page-title mb-1' }, 'Pairing'),
-    el('p', { class: 'mb-4 text-sm muted' }, regular
-      ? 'Give each regular volunteer one or more fixed trainees. They are paired with them every time they say they\'re coming, until you change it here.'
-      : 'Volunteers (new / ad hoc) are paired by an admin for each session. Regulars with a fixed trainee are paired automatically.'),
+    el('h1', { class: 'page-title mb-4' }, regular ? 'Regular pairings' : 'Pairing'),
     host);
 
   if (!regular) {
@@ -446,7 +453,7 @@ export function renderStandingPairings(root, app, ctx, tab) {
     newFirst: true,
     volunteerLabel: 'Regulars',
     warnLabel: 'Without a regular',
-    emptyVolunteers: 'No regular volunteers yet. Volunteers become regulars after 10 sessions, or promote them under Volunteers.',
+    emptyVolunteers: 'No regular volunteers yet.',
     save: (op, v, t) => call('setStandingPairing', op === 'add' ? { userId: v.userId, addTraineeId: t.id } : { userId: v.userId, removeTraineeId: t.id })
       .then((res) => { app.dropAdminHome(); return res; }),
     settled: (res) => { if (ctx.alive() && res) draw(res); },

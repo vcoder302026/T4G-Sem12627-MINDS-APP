@@ -301,3 +301,202 @@ body.wide .app-bar, body.wide .app-main, body.wide .app-tabs, body.wide .app-sub
 .pb-drop-foot .pb-add { margin-left: auto; }
 .pb-unpaired.pb-all-paired { border-color: #bbf7d0; background: #dcfce7; color: #166534; }
 .dark .pb-unpaired.pb-all-paired { border-color: #14532d; background: rgba(20, 83, 45, .4); color: #86efac; }
+
+/* Warning before a major change (ui.js → majorActionPrompt). */
+.major-warning { border: 2px solid #fca5a5; border-radius: .75rem; background: #fef2f2; padding: .75rem 1rem; color: #7f1d1d; }
+.major-warning-title { font-weight: 800; color: #b91c1c; }
+.dark .major-warning { border-color: #7f1d1d; background: rgba(127, 29, 29, .25); color: #fecaca; }
+.dark .major-warning-title { color: #f87171; }
+
+/* ===== Controls shared with MINDS's other apps (js/controls.js, ui.js searchBox) ===== */
+/* Wheel date picker, like the House Visit app's "Rolodex" picker. */
+.wheel-display { display: block; width: 100%; text-align: left; cursor: pointer; }
+.wheel-display.wheel-empty { color: #94a3b8; }
+.wheel-overlay { position: fixed; inset: 0; z-index: 200; display: flex; align-items: flex-end; justify-content: center; background: rgba(0, 0, 0, .6); backdrop-filter: blur(2px); }
+@media (min-width: 640px) { .wheel-overlay { align-items: center; } }
+.wheel-sheet { width: 100%; max-width: 24rem; border-radius: 1rem 1rem 0 0; background: #fff; padding: 1.25rem; padding-bottom: calc(1.25rem + env(safe-area-inset-bottom, 0px)); box-shadow: 0 25px 50px -12px rgba(0, 0, 0, .35); }
+@media (min-width: 640px) { .wheel-sheet { border-radius: 1rem; } }
+.dark .wheel-sheet { background: #171717; color: #f5f5f5; }
+.wheel-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
+.wheel-title { font-size: 1.125rem; font-weight: 700; }
+.wheel-x { font-size: 1.25rem; color: #64748b; }
+.wheel-box { position: relative; display: flex; gap: .5rem; height: 12rem; overflow: hidden; border: 1px solid #e2e8f0; border-radius: .75rem; background: #f8fafc; }
+.dark .wheel-box { border-color: #262626; background: #000; }
+.wheel-band { pointer-events: none; position: absolute; left: 0; right: 0; top: 50%; height: 40px; margin-top: -20px; border-top: 1px solid rgba(79, 70, 229, .3); border-bottom: 1px solid rgba(79, 70, 229, .3); background: rgba(79, 70, 229, .08); }
+.wheel-col { position: relative; z-index: 1; flex: 1; overflow-y: auto; scroll-snap-type: y mandatory; text-align: center; scrollbar-width: none; outline: none; }
+.wheel-col::-webkit-scrollbar { display: none; }
+.wheel-pad { height: 76px; }
+.wheel-item { display: flex; height: 40px; align-items: center; justify-content: center; scroll-snap-align: center; cursor: pointer; font-size: 1.05rem; color: #94a3b8; }
+.wheel-item.wheel-on { color: #4f46e5; font-weight: 800; font-size: 1.2rem; }
+.dark .wheel-item.wheel-on { color: #a5b4fc; }
+.wheel-note { margin-top: .5rem; font-size: .875rem; font-weight: 700; color: #dc2626; }
+.wheel-actions { display: flex; gap: .75rem; margin-top: 1.25rem; }
+.wheel-actions .btn { flex: 1; }
+/* Show / hide password, as in the House Visit and Overseas Trip Planner logins. */
+.pw-wrap { position: relative; display: block; }
+.pw-wrap > input { padding-right: 2.75rem; }
+.pw-eye { position: absolute; top: 0; bottom: 0; right: .5rem; display: flex; align-items: center; padding: 0 .25rem; color: #64748b; }
+.pw-eye:hover { color: #4f46e5; }
+/* Clear (×) inside search boxes, as in the Overseas Trip Planner. */
+.search-input { padding-right: 2.5rem; }
+.search-input::-webkit-search-cancel-button { display: none; }
+.search-clear { position: absolute; top: 0; bottom: 0; right: .75rem; display: flex; align-items: center; font-size: .9rem; color: #94a3b8; }
+.search-clear:hover { color: #475569; }
+/* "Saved" / "Saving…" on the pairing board, as in the Overseas Trip Planner. */
+.pb-sync { display: inline-flex; align-items: center; gap: .25rem; border: 2px solid #d1d5db; border-radius: .375rem; background: #fff; padding: .125rem .5rem; font-size: .7rem; font-weight: 800; color: #374151; }
+.pb-sync::before { content: '✓'; color: #16a34a; }
+.pb-sync-busy::before { content: ''; width: .7rem; height: .7rem; border: 2px solid #93c5fd; border-top-color: #2563eb; border-radius: 9999px; animation: spin 1s linear infinite; }
+.pb-sync-failed { border-color: #fca5a5; color: #b91c1c; }
+.pb-sync-failed::before { content: '!'; color: #b91c1c; }
+.dark .pb-sync { border-color: #3f3f46; background: #27272a; color: #e5e7eb; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Loading placeholders: skeletons over spinners (MINDS web app template). */
+.skeleton { border-radius: .5rem; background: linear-gradient(90deg, #e2e8f0 25%, #f1f5f9 37%, #e2e8f0 63%); background-size: 400% 100%; animation: skeleton-shimmer 1.4s ease infinite; }
+.dark .skeleton { background: linear-gradient(90deg, #171717 25%, #262626 37%, #171717 63%); background-size: 400% 100%; }
+.skeleton-title { height: 1.75rem; width: 45%; }
+.skeleton-line { height: .8rem; margin-top: .6rem; }
+.skeleton-card { border: 1px solid #e2e8f0; border-radius: 1rem; background: #fff; padding: 1rem; }
+.dark .skeleton-card { border-color: #171717; background: #0a0a0a; }
+@keyframes skeleton-shimmer { 0% { background-position: 100% 50%; } 100% { background-position: 0 50%; } }
+@media (prefers-reduced-motion: reduce) { .skeleton { animation: none; } }
+/* Advanced settings. */
+.danger-zone { border: 2px solid #fca5a5; border-radius: .75rem; background: #fef2f2; padding: .75rem 1rem; color: #7f1d1d; }
+.dark .danger-zone { border-color: #7f1d1d; background: rgba(127, 29, 29, .25); color: #fecaca; }
+.report { white-space: pre-wrap; overflow-x: auto; border-radius: .75rem; background: #0f172a; padding: .75rem 1rem; font-size: .75rem; line-height: 1.5; color: #e2e8f0; }
+
+/* "OR CONNECT EXISTING" dividers (Settings → Google Sheets), as in CSL Attendance. */
+.or-divider { display: flex; align-items: center; gap: .75rem; margin: 1.25rem 0 .75rem; font-size: .7rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: #64748b; }
+.or-divider::before, .or-divider::after { content: ''; flex: 1; height: 1px; background: #e2e8f0; }
+.dark .or-divider::before, .dark .or-divider::after { background: #262626; }
+.btn-dark { background: #0f172a; color: #fff; }
+.btn-dark:hover { background: #1e293b; }
+.dark .btn-dark { background: #f5f5f5; color: #0a0a0a; }
+.major-warning { line-height: 1.5; }
+
+/* Header like the Comm Dashboard: ← back + page title on the left, square icon buttons on the right. */
+.nav-sq { display: inline-flex; width: 2.25rem; height: 2.25rem; flex-shrink: 0; align-items: center; justify-content: center; border: 1px solid #e5e7eb; border-radius: .5rem; background: #f3f4f6; color: #374151; font-size: 1rem; box-shadow: 0 1px 2px rgba(0, 0, 0, .05); transition: background-color .15s; }
+.nav-sq:hover { background: #e5e7eb; color: #111827; }
+.dark .nav-sq { border-color: #3f3f46; background: #27272a; color: #d4d4d8; }
+.dark .nav-sq:hover { background: #3f3f46; color: #fff; }
+.nav-sq.text-red-500 { color: #ef4444; }
+/* The page's own title and back link live in the header when signed in. */
+body.has-sidebar .title-in-header, body.has-sidebar .app-main a.back-link { display: none !important; }
+
+/* Admin home laid out like the Comm Dashboard (WERONE outing app). */
+.dash-grid { display: grid; gap: 1.5rem; }
+@media (min-width: 1024px) { .dash-grid { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); align-items: start; } }
+.dash-card { border: 1px solid #e5e7eb; border-radius: 1rem; background: #fff; padding: 1.5rem; box-shadow: 0 4px 14px rgba(15, 23, 42, .06); }
+.dark .dash-card { border-color: #27272a; background: #18181b; box-shadow: none; }
+.dash-head { display: flex; align-items: center; gap: .5rem; font-size: 1.15rem; font-weight: 800; color: #0f172a; }
+.dark .dash-head { color: #fff; }
+.dash-ico { display: inline-flex; }
+.dash-blue { color: #3b82f6; } .dash-green { color: #10b981; } .dash-purple { color: #8b5cf6; }
+.dash-label { display: block; margin: 1rem 0 .35rem; font-size: .7rem; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: #64748b; }
+.dash-btn { display: flex; min-height: 3rem; align-items: center; justify-content: center; gap: .5rem; border: 1px solid; border-radius: .75rem; background: #fff; padding: .5rem .75rem; font-weight: 800; text-align: center; transition: background-color .15s; }
+.dark .dash-btn { background: #18181b; }
+.dash-btn-green { border-color: #99f6e4; color: #0f766e; } .dash-btn-green:hover { background: #f0fdfa; }
+.dash-btn-blue { border-color: #bfdbfe; color: #1d4ed8; } .dash-btn-blue:hover { background: #eff6ff; }
+.dash-btn-purple { border-color: #e9d5ff; color: #7e22ce; } .dash-btn-purple:hover { background: #faf5ff; }
+.dash-btn-orange { border-color: #fed7aa; color: #c2410c; } .dash-btn-orange:hover { background: #fff7ed; }
+.dash-btn-slate { border-color: #e5e7eb; background: #f9fafb; color: #1f2937; } .dash-btn-slate:hover { background: #f3f4f6; }
+.dark .dash-btn-green { border-color: #115e59; color: #5eead4; } .dark .dash-btn-blue { border-color: #1e3a8a; color: #93c5fd; }
+.dark .dash-btn-purple { border-color: #581c87; color: #d8b4fe; } .dark .dash-btn-orange { border-color: #7c2d12; color: #fdba74; }
+.dark .dash-btn-slate { border-color: #3f3f46; background: #27272a; color: #e4e4e7; }
+.dark .dash-btn:hover { background: #27272a; }
+.dash-session { border: 1px solid #e5e7eb; border-radius: .75rem; padding: 1rem; }
+.dark .dash-session { border-color: #27272a; }
+.dash-sq { display: inline-flex; width: 2.25rem; height: 2.25rem; align-items: center; justify-content: center; border-radius: .5rem; background: #f3f4f6; }
+.dash-sq-purple { color: #9333ea; } .dash-sq-blue { color: #2563eb; } .dash-sq-green { color: #16a34a; }
+.dark .dash-sq { background: #27272a; }
+.dash-table { width: 100%; font-size: .8rem; border-collapse: collapse; }
+.dash-table th { padding: .35rem .25rem; border-bottom: 1px solid #e5e7eb; text-align: center; font-weight: 700; color: #374151; }
+.dash-table th:first-child, .dash-table td:first-child { text-align: left; }
+.dash-table td { padding: .4rem .25rem; border-bottom: 1px solid #f1f5f9; text-align: center; font-weight: 600; color: #1f2937; }
+.dash-table .dash-total td { border-top: 2px solid #e5e7eb; font-weight: 800; }
+.dash-table .dash-muted td { font-style: italic; color: #9ca3af; font-weight: 400; }
+.dark .dash-table th, .dark .dash-table td { border-color: #27272a; color: #e4e4e7; }
+.dash-act { display: flex; align-items: center; justify-content: center; gap: .35rem; border: 1px solid #e5e7eb; border-radius: .5rem; background: #f9fafb; padding: .55rem; font-size: .8rem; font-weight: 700; color: #374151; }
+.dash-act:hover { background: #f3f4f6; }
+.dark .dash-act { border-color: #3f3f46; background: #27272a; color: #e4e4e7; }
+.dash-grid { grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 1024px) { .dash-grid { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); } }
+.dash-card select { max-width: 100%; min-width: 0; }
+.dash-span2 { grid-column: 1 / -1; }
+
+/* House Visit Form (admin/js/views/visits.js), as in MINDS's House Visit app. */
+.hv-q-guide { margin: .1rem 0 .5rem; font-size: .75rem; font-style: italic; color: #64748b; }
+.dark .hv-q-guide { color: #a3a3a3; }
+.hv-likert { margin-top: .5rem; border: 1px solid #e5e7eb; border-radius: .75rem; background: #f9fafb; padding: 1rem; box-shadow: inset 0 1px 2px rgba(0, 0, 0, .04); }
+.dark .hv-likert { border-color: #262626; background: #000; }
+.hv-likert-ends { display: flex; justify-content: space-between; gap: 1rem; margin-bottom: .75rem; font-size: .7rem; font-weight: 500; line-height: 1.3; color: #6b7280; }
+.hv-likert-ends span:last-child { text-align: right; }
+.hv-likert-row { display: flex; gap: .5rem; }
+.hv-likert-opt { flex: 1; cursor: pointer; }
+.hv-likert-opt span, .hv-likert-cell { display: flex; flex: 1; align-items: center; justify-content: center; border: 1px solid #d1d5db; border-radius: .5rem; background: #fff; padding: .6rem 0; font-weight: 700; color: #374151; }
+.hv-likert-opt input:checked + span, .hv-likert-cell.hv-on { border-color: #4f46e5; background: #4f46e5; color: #fff; }
+.hv-likert-opt input:focus-visible + span { outline: 2px solid #4f46e5; outline-offset: 2px; }
+.dark .hv-likert-opt span, .dark .hv-likert-cell { border-color: #404040; background: #171717; color: #e5e5e5; }
+.dark .hv-likert-opt input:checked + span, .dark .hv-likert-cell.hv-on { border-color: #6366f1; background: #4f46e5; color: #fff; }
+.hv-likert-view { padding: .6rem .75rem; }
+.hv-likert-view .hv-likert-cell { padding: .3rem 0; font-size: .8rem; }
+.section-yellow { background: #fefce8; color: #a16207; }
+.section-pink { background: #fdf2f8; color: #be185d; }
+.dark .section-yellow { background: rgba(113, 63, 18, .35); color: #fde68a; }
+.dark .section-pink { background: rgba(131, 24, 67, .35); color: #fbcfe8; }
+
+/* ===== Phones of every size ===== */
+/* Notched phones: keep the header below the status bar (installed app) and content clear of side notches (landscape). */
+.safe-top { padding-top: env(safe-area-inset-top, 0px); background: #fff; }
+.dark .safe-top { background: #0a0a0a; }
+body { padding-left: env(safe-area-inset-left, 0px); padding-right: env(safe-area-inset-right, 0px); }
+/* Admin sections on phones: wrap onto two lines instead of running off both edges. */
+@media (max-width: 1023px) {
+  .app-subnav { flex-wrap: wrap; overflow-x: visible; }
+  .sub-link { flex: 1 1 auto; justify-content: center; }
+}
+/* Filter rows (dashboard pages): each control full width on phones. */
+@media (max-width: 639px) {
+  main .flex.flex-wrap.items-end.gap-3 > * { flex: 1 1 100%; min-width: 0 !important; }
+  main select.input { width: 100%; }
+}
+/* Very narrow phones (Galaxy Fold folded, 320 px): smaller header buttons; Home is in the tab bar. */
+@media (max-width: 359px) {
+  .nav-sq { width: 2rem; height: 2rem; }
+  #header-actions { gap: .25rem; padding-left: .375rem; }
+  #nav-context { gap: .375rem; }
+  .app-bar { padding-left: .75rem; padding-right: .75rem; }
+}
+@media (max-width: 339px) {
+  #header-actions [aria-label="Home"] { display: none; }
+  #nav-title { font-size: .9375rem; }
+  .app-main { padding-left: .75rem !important; padding-right: .75rem !important; }
+}
+
+#subnav-wrap:has(> nav[hidden]) { display: none; }
+@media (min-width: 1024px) { body.has-sidebar #subnav-wrap { display: none; } }
+/* Phones: section buttons without icons (the labels say it), so they fit on two lines. */
+@media (max-width: 479px) {
+  .sub-link > span[aria-hidden="true"] { display: none; }
+  .sub-link { padding: .4rem .55rem; font-size: .8rem; }
+  .app-subnav { gap: .3rem; }
+}
+
+/* Dropdowns as a list sheet (js/controls.js). */
+.select-display { display: flex; align-items: center; justify-content: space-between; gap: .5rem; text-align: left; cursor: pointer; }
+.select-display:disabled { cursor: not-allowed; opacity: .6; }
+.select-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.select-chev { flex-shrink: 0; width: .55rem; height: .55rem; margin-right: .15rem; border-right: 2px solid #64748b; border-bottom: 2px solid #64748b; transform: translateY(-25%) rotate(45deg); }
+.list-sheet { display: flex; max-height: min(80vh, 36rem); flex-direction: column; }
+.list-rows { overflow-y: auto; overscroll-behavior: contain; margin: 0 -.5rem; }
+.list-row { display: flex; width: 100%; align-items: center; gap: .5rem; border-radius: .75rem; padding: .8rem .75rem; text-align: left; font-size: 1rem; font-weight: 600; color: #1e293b; }
+.list-row:hover, .list-row:focus-visible { background: #f1f5f9; outline: none; }
+.list-row.list-on { background: #eef2ff; color: #4338ca; font-weight: 800; }
+.list-row:disabled { opacity: .45; }
+.list-tick { width: 1.1rem; flex-shrink: 0; color: #4f46e5; font-weight: 900; }
+.list-text { min-width: 0; overflow-wrap: anywhere; }
+.list-empty { padding: 1rem .75rem; font-size: .875rem; color: #64748b; }
+.dark .list-row { color: #e5e5e5; }
+.dark .list-row:hover, .dark .list-row:focus-visible { background: #262626; }
+.dark .list-row.list-on { background: rgba(79, 70, 229, .25); color: #c7d2fe; }
+.dark .select-chev { border-color: #a3a3a3; }

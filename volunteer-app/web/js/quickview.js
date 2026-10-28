@@ -54,10 +54,14 @@ function personCard(userId) {
   cached(`p:${userId}`, () => call('personDetail', { userId })).then((d) => {
     const p = d.person;
     m.el.querySelector('h2').textContent = p.name;
-    const link = (href, iconName, text) => el('a', { href, target: href.startsWith('http') ? '_blank' : null, rel: 'noopener', class: 'pick-row font-bold text-indigo-700 dark:text-indigo-300' }, icon(iconName, 'size-5'), text);
+    // label: what a screen reader (and the hover tooltip) says, when the text alone isn't enough.
+    const link = (href, iconName, text, label) => el('a', {
+      href, target: href.startsWith('http') ? '_blank' : null, rel: 'noopener', title: label || null, 'aria-label': label || null,
+      class: 'pick-row font-bold text-indigo-700 dark:text-indigo-300',
+    }, icon(iconName, 'size-5'), text);
     mount(body, el('div', { class: 'space-y-2' },
       el('div', { class: 'flex flex-wrap gap-1.5' }, typeBadges(p), p.status === 'inactive' ? badge('Deactivated', 'red') : null),
-      p.telegram ? link(`https://t.me/${p.telegram}`, 'send', `Telegram @${p.telegram}`) : el('p', { class: 'text-sm muted' }, 'No Telegram handle saved.'),
+      p.telegram ? link(`https://t.me/${p.telegram}`, 'send', `@${p.telegram}`, `Message @${p.telegram} on Telegram`) : el('p', { class: 'text-sm muted' }, 'No Telegram handle saved.'),
       p.phone ? link(`tel:${p.phone.replace(/\s/g, '')}`, 'phone', p.phone) : null,
       (d.regularTrainees || []).length ? el('p', { class: 'text-sm' }, d.regularTrainees.length > 1 ? 'Regular trainees: ' : 'Regular trainee: ',
         d.regularTrainees.map((t, i) => [i ? ', ' : '', traineeName(t.name, t.id, 'font-bold')])) : null,
@@ -123,6 +127,7 @@ export function installQuickView(app) {
     if (timer && start && Math.hypot(e.clientX - start.x, e.clientY - start.y) > 10) cancel();
   }, true);
   ['pointerup', 'pointercancel', 'scroll'].forEach((type) => document.addEventListener(type, cancel, true));
+  window.addEventListener('app:leave', cancel);
   document.addEventListener('contextmenu', (e) => {
     const t = targetOf(e.target);
     if (!t) return;
