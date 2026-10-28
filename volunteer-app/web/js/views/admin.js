@@ -138,10 +138,11 @@ export function renderActivityLog(root, app, ctx) {
           el('h2', { class: 'group-label' }, fmtDay(day)),
           el('div', { class: 'card divide-y divide-slate-100 overflow-hidden dark:divide-neutral-900' }, byDay[day].map((e) => el('div', { class: 'flex gap-3 p-3 text-sm' },
             el('span', { class: 'w-12 shrink-0 font-mono text-xs muted' }, e.at.slice(11, 16)),
+            // Who did it sits under the details (not a third column), so phones keep the text wide.
             el('span', { class: 'min-w-0 flex-1' },
               el('span', { class: 'block font-bold text-slate-900 dark:text-white' }, e.action),
-              el('span', { class: 'block break-words text-slate-600 dark:text-neutral-400' }, e.summary)),
-            personName(e.adminName, e.adminId, 'shrink-0 text-right text-xs font-bold text-indigo-700 dark:text-indigo-300')))),
+              el('span', { class: 'block break-words text-slate-600 dark:text-neutral-400' }, e.summary),
+              el('span', { class: 'mt-0.5 block text-xs' }, personName(e.adminName, e.adminId, 'font-bold text-indigo-700 dark:text-indigo-300')))))),
         ]) : el('p', { class: 'text-sm muted' }, 'Nothing matches these filters.'));
     }).catch((err) => { if (ctx.alive()) mount(host, errorBlock(err, load)); });
   };
@@ -217,7 +218,7 @@ export function renderVisibility(root, app, ctx, traineeId) {
     };
     mount(root,
       forTrainee ? backLink(`#/trainee/${encodeURIComponent(d.trainee.id)}`, d.trainee.name) : null,
-      el('h1', { class: 'page-title mb-4' }, forTrainee ? `What volunteers see about ${d.trainee.name}` : 'What volunteers see about trainees'),
+      el('h1', { class: 'page-title mb-4' }, forTrainee ? `What volunteers see: ${d.trainee.name}` : 'What volunteers see'),
       el('div', { class: 'grid gap-4 lg:grid-cols-2' }, editor('volunteer'), editor('regular')));
   };
   mount(root, loading());

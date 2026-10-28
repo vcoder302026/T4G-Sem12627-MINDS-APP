@@ -224,7 +224,7 @@ function enhancePassword(input) {
 // Phones (and Chrome's phone emulator) draw native dropdowns differently, some
 // as a tiny box in a corner. This shows every <select> as the app's own list:
 // a sheet with the options, a ✓ on the current one, and a search box for long
-// lists. The real <select> stays (hidden) with its value and events.
+// lists, opening right below the box. The real <select> stays (hidden) with its value and events.
 
 const nativeSelectValue = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value');
 const nativeSelectIndex = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'selectedIndex');
@@ -233,7 +233,7 @@ function openList(select, display) {
   const opts = [...select.options].filter((o) => !o.hidden);
   const labelEl = select.id ? document.querySelector(`label[for="${CSS.escape(select.id)}"]`) : null;
   const title = (labelEl && labelEl.textContent.trim()) || select.getAttribute('aria-label') || 'Choose';
-  const close = () => { if (!overlay.isConnected) return; overlay.remove(); document.removeEventListener('keydown', onKey, true); if (display.isConnected) display.focus({ preventScroll: true }); };
+  let close = () => { if (!overlay.isConnected) return; overlay.remove(); document.removeEventListener('keydown', onKey, true); if (display.isConnected) display.focus({ preventScroll: true }); };
   const onKey = (e) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(); } };
   const choose = (value) => {
     nativeSelectValue.set.call(select, value);
@@ -254,20 +254,39 @@ function openList(select, display) {
     }));
     if (!shown.length) list.append(make('p', { class: 'list-empty' }, 'No matches.'));
   };
-  const search = opts.length > 8 ? make('input', { type: 'search', class: 'input search-input mb-3', placeholder: 'Search…', 'aria-label': `Search: ${title}` }) : null;
-  if (search) search.addEventListener('input', () => draw(search.value));
-  const sheet = make('div', { class: 'wheel-sheet list-sheet', role: 'dialog', 'aria-modal': 'true', 'aria-label': title },
-    make('div', { class: 'wheel-head' },
-      make('h3', { class: 'wheel-title' }, title),
-      make('button', { type: 'button', class: 'wheel-x', 'aria-label': 'Close', onclick: close }, '✕')),
-    search, list);
-  const overlay = make('div', { class: 'wheel-overlay', onclick: (e) => { if (e.target === overlay) close(); } }, sheet);
+  const search = opts.length > 8 ? make('input', { type: 'search', class: 'input search-input list-search', placeholder: 'Search…', 'aria-label': `Search: ${title}` }) : null;
+  if (search) search.addEventListener('input', () => { draw(search.value); place(); });
+  // A dropdown right below the box (or just above it when there's no room below),
+  // the same width as the box. Tapping anywhere else closes it.
+  const pop = make('div', { class: 'list-pop', role: 'dialog', 'aria-label': title }, search, list);
+  const overlay = make('div', { class: 'wheel-overlay list-overlay', onclick: (e) => { if (e.target === overlay) close(); } }, pop);
+  const place = () => {
+    if (!overlay.isConnected) return;
+    const r = display.getBoundingClientRect();
+    const gap = 6;
+    const edge = 8;
+    const below = window.innerHeight - r.bottom - gap - edge;
+    const above = r.top - gap - edge;
+    pop.style.left = `${Math.max(edge, r.left)}px`;
+    pop.style.width = `${Math.min(r.width, window.innerWidth - 2 * edge)}px`;
+    const natural = Math.min(pop.scrollHeight, 360);
+    const down = below >= natural || below >= above;
+    pop.style.maxHeight = `${Math.max(120, Math.min(360, down ? below : above))}px`;
+    if (down) { pop.style.top = `${r.bottom + gap}px`; pop.style.bottom = ''; } else { pop.style.bottom = `${window.innerHeight - r.top + gap}px`; pop.style.top = ''; }
+  };
+  const replace = () => place();
+  const cleanup = () => { window.removeEventListener('scroll', replace, true); window.removeEventListener('resize', replace); };
+  const baseClose = close;
+  close = () => { cleanup(); baseClose(); };
   (display.closest('dialog[open]') || document.body).append(overlay);
   document.addEventListener('keydown', onKey, true);
   window.addEventListener('hashchange', close, { once: true }); // Back, or any page change, closes it
+  window.addEventListener('scroll', replace, true); // follows the box if the page scrolls
+  window.addEventListener('resize', replace); // e.g. the phone keyboard opening for the search box
   draw();
+  place();
   const current = list.querySelector('.list-on');
-  if (current) current.scrollIntoView({ block: 'center' });
+  if (current) current.scrollIntoView({ block: 'nearest' });
   (search || current || list.querySelector('.list-row'))?.focus({ preventScroll: true });
 }
 

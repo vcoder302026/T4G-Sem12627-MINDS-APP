@@ -36,7 +36,7 @@ Patterns already shared (keep them; reuse the helpers rather than writing new on
 | Indigo primary (#4F46E5), green secondary; gray-50 / black backgrounds; Tailwind; dark mode by class | House Visit | `web/src/input.css` |
 | Coloured, collapsible section headers (uppercase), guide text under questions | House Visit | `ui.js` `section`, `hvSections` |
 | Dates: the browser's own calendar (as in the outing app; MINDS chose it over the House Visit "Rolodex" wheel) | MYG Outing | plain `<input type="date">` |
-| Time wheel (HH · MM) and dropdowns as the app's own list sheet (✓, search for long lists), never the browser's own pop-ups | MINDS template (Rolodex) | `web/js/controls.js` (every `<input type="time">` and `<select>`, automatically) |
+| Time wheel (HH · MM); dropdowns as the app's own list right below the box (above it when there's no room), same width, ✓ on the current choice, search for long lists; never the browser's own pop-ups | MINDS template (Rolodex) | `web/js/controls.js` (every `<input type="time">` and `<select>`, automatically) |
 | Show / hide eye on password boxes | House Visit, Overseas | `ui.js` `field()`; `controls.js` for any other password box |
 | Fixed bottom action bar for the main button | House Visit | `.action-bar` |
 | Top-centre toasts, green / red | House Visit | `ui.js` `toast` |
@@ -66,6 +66,7 @@ where it differs on purpose:
 | Header: ← back + page title left; square ↻ · 🌗 · 🏠 (· sign out) right | Yes (`web/index.html`, `app.js` `syncHeaderTitle`) |
 | Dashboard layout: action cards left (big primary button, select + coloured outlined buttons), list of upcoming items right with a compact table and icon buttons | Admin home (`views/admin.js` `renderAdminHub`), modelled on the Comm Dashboard |
 | Nothing may stay on top of the page after it changes (sheets, wheels, pop-ups, a dragged card): `app.js` clears them on every page change | `python3 volunteer-app/dev/check-scroll.py`: every tall page scrolls with a swipe, and nothing is left over after Back |
+| No squashed text on phones or tablets: a row of text + badges / buttons wraps (the text keeps ~11rem), status badges go above titles, long header titles use 2 lines (3 on the narrowest), label/value lines let long values drop below, third columns move under the text | `python3 volunteer-app/dev/check-squash.py` (280–1024 px) must print "nothing squashed" |
 | Works on every phone: check 280 px (Galaxy Fold folded) to 430 px (iPhone Pro Max) and phones held sideways | `python3 volunteer-app/dev/check-phones.py` must print "all clean"; keep inputs at 16 px text (no iPhone zoom), leave room for notches (`safe-area-inset-*`), and keep only the header and tab bar pinned |
 | Keep text short: no explanation lines under titles, no hint text under options or obvious fields; admins know the workflow | Yes. Only add text that carries information, gives a format, or prevents a mistake (and keep it to a few words) |
 | Warnings before major actions | Short: "Warning: You are <action>. Do you wish to continue?" (`ui.js` `majorActionPrompt`) |

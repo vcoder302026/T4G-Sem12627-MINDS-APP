@@ -201,7 +201,10 @@ function pairBoard(o) {
       const c = card('vol', v.key, flashed(v.key, null),
         `${v.name}: ${v.trainees.length ? `with ${v.trainees.map((t) => t.name).join(', ')}` : 'unpaired'}. Tap to pair, or drag onto a trainee.`,
         el('span', { class: 'pb-top' }, el('span', { class: 'pb-name' }, v.name), add),
-        v.project ? el('span', { class: 'pb-sub' }, v.project) : null,
+        // Regular or new / ad hoc, then the project they registered under.
+        el('span', { class: 'pb-meta' },
+          v.type === 'regular' ? badge('Regular', 'emerald') : badge('New / Ad hoc', 'indigo'),
+          v.project ? el('span', { class: 'pb-sub' }, v.project) : null),
         el('span', { class: 'pb-drop' },
           v.trainees.length
             ? v.trainees.map((t) => pill(t.name, t.id, () => change('remove', v, traineeById(t.id)), true, flashed(null, t.id) && String(state.flash.key) === String(v.key) ? 'pb-pill-new' : ''))
