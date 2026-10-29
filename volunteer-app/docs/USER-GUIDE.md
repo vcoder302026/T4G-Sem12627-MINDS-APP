@@ -73,7 +73,7 @@ Good to know:
 
 ## For admins
 
-Open **Admin** (phone) or **Dashboard** in the sidebar (computer). The Dashboard's **Home** tab has:
+Open **Admin** (phone) or **Dashboard** in the sidebar (computer). The Dashboard's **Home** tab has **Create Session**, **Session Management** (pick a session, then **Pair**, **Who's coming**, **Scan** or **Clock in**: each session's actions are here, once) and **Upcoming Sessions** (who's coming, paired and to pair by project, and **Copy Info** for Telegram). It also has:
 
 - **Create New Session** (pick a date and go).
 - **Session Management:** choose a session, then **Pair**, **Who's coming**, **Scan**,
@@ -89,8 +89,8 @@ Then six sections, plus **More**:
 | --- | --- |
 | See what needs attention | **Dashboard** → **Overview**: volunteers, regulars, trainees without a regular, hours this month, who still needs pairing |
 | Check who changed what | **Dashboard** → **Activity log**: every admin change, with who did it; filter by admin, date or words like "pairing" |
-| Add sessions | **Sessions** → **New session** → pick the date. It's a Regular session, 2:30–5:30 pm at Woodlands, for West End and RSPID (WGS), unless you change it. **Add another date** adds the same session on several days |
-| See who's coming | **Sessions** → a session: everyone coming, their trainees, and no-shows after the day. **Edit or close this session** changes times, closes sign-ups or cancels it (with a warning) |
+| Add sessions | **All sessions** → **New session** → pick the date. It's a Regular session, 2:30–5:30 pm at Woodlands, for West End and RSPID (WGS), unless you change it. **Add another date** adds the same session on several days |
+| See who's coming | **All sessions** → a session: everyone coming, their trainees, and no-shows after the day. **Edit or close this session** changes times, closes sign-ups or cancels it (with a warning) |
 | Pair volunteers for a session | **Pairing** → **Sessions to pair** → a session (or **Pair** on the Admin home). The board works like the WERONE outing app's Manual Pair page: **Volunteers** on the left, **Trainees** on the right, a search box for each. Each card shows the name, the **Regular** / **Volunteer** label (and **Admin**), the project, and who they're paired with. **Drag** a card onto a card in the other column, or tap a card (or **+Trn** / **+Vol**) and tick names in the pop-up. **✕** unpairs. Many to many: a volunteer can have several trainees and a trainee several volunteers. Each column's **All** button switches to **Paired** (and back). The red **N unpaired** count and **Saved** sit above the board |
 | Share the pairings | The session's board → **Pairing list**: a table to screenshot |
 | Give a regular their fixed trainees | **Pairing** → **Regular pairings**: the same board, with regulars on the left. The pop-up shows who they've been with before, then trainees new for them. Their upcoming sessions follow the change |

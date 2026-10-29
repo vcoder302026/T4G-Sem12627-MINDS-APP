@@ -15,7 +15,6 @@ export function renderAdminHub(root, app, ctx) {
   let selected = '';
   const cardHead = (iconName, tone, text) => el('h2', { class: 'dash-head' }, el('span', { class: `dash-ico dash-${tone}` }, icon(iconName, 'size-5')), text);
   const outline = (href, tone, text, iconName) => el('a', { href, class: `dash-btn dash-btn-${tone}` }, iconName ? icon(iconName, 'size-5') : null, text);
-  const sq = (href, iconName, label, tone) => el('a', { href, class: `dash-sq dash-sq-${tone}`, title: label, 'aria-label': label }, icon(iconName, 'size-4'));
 
   /** "Copy Info": the session, venue and who's coming (with trainees), ready to paste into Telegram. */
   const copyInfo = (s, btn) => busy(btn, 'Copying…', async () => {
@@ -36,17 +35,14 @@ export function renderAdminHub(root, app, ctx) {
   const sessionCard = (s, today) => {
     const st = s.stats || {};
     const rows = st.byProject && st.byProject.length ? st.byProject : [];
-    const copyBtn = el('button', { type: 'button', class: 'dash-act' }, icon('copy', 'size-4'), 'Copy Info');
+    const copyBtn = el('button', { type: 'button', class: 'dash-act w-full' }, icon('copy', 'size-4'), 'Copy Info');
     copyBtn.addEventListener('click', () => copyInfo(s, copyBtn));
     return el('div', { class: 'dash-session' },
       el('div', { class: 'flex items-start justify-between gap-2' },
         el('div', { class: 'min-w-0' },
           el('p', { class: 'truncate font-bold text-slate-900 dark:text-white' }, s.title, s.date === today ? el('span', { class: 'ml-2' }, badge('Today', 'emerald')) : null),
           el('p', { class: 'text-xs muted' }, `${fmtDay(s.date, today)} · ${fmtTimes(s)}`)),
-        el('div', { class: 'flex shrink-0 gap-1.5' },
-          sq(`#/session/${s.sessionId}`, 'pencil', 'Open session', 'purple'),
-          sq(`#/pair/${s.sessionId}`, 'sparkle', 'Pair', 'blue'),
-          s.date === today ? sq(`#/scan/${s.sessionId}`, 'scan', 'Scan passes', 'green') : null)),
+        null),
       el('div', { class: 'mt-3 overflow-x-auto' },
         el('table', { class: 'dash-table' },
           el('thead', {}, el('tr', {}, el('th', {}, 'Proj'), el('th', {}, 'Coming'), el('th', {}, 'Paired'), el('th', {}, 'To pair'))),
@@ -55,11 +51,8 @@ export function renderAdminHub(root, app, ctx) {
               el('td', {}, projectShort(r.project) || r.project), el('td', {}, String(r.coming)), el('td', {}, String(r.paired)), el('td', {}, String(r.unpaired)))),
             el('tr', { class: 'dash-total' }, el('td', {}, 'Total'), el('td', {}, String(st.booked || 0)), el('td', {}, String(st.paired || 0)),
               el('td', { class: st.unpaired ? 'text-red-600 dark:text-red-400' : '' }, String(st.unpaired || 0)))))),
-      el('div', { class: 'mt-3 grid grid-cols-2 gap-2' },
-        copyBtn,
-        s.date === today
-          ? el('a', { href: `#/clock/${s.sessionId}`, class: 'dash-act' }, icon('clock', 'size-4'), 'Clock in')
-          : el('a', { href: `#/pair/${s.sessionId}`, class: 'dash-act' }, icon('sparkle', 'size-4'), 'Pair')));
+      // The session's actions (Pair, Who's coming, Scan, Clock in) are in Session Management, once.
+      el('div', { class: 'mt-3' }, copyBtn));
   };
 
   const draw = (h) => {
@@ -81,7 +74,6 @@ export function renderAdminHub(root, app, ctx) {
         outline(`#/session/${id}`, 'blue', "Who's coming"),
         dayOnly(`#/scan/${id}`, 'purple', 'Scan'),
         dayOnly(`#/clock/${id}`, 'orange', 'Clock in'),
-        el('a', { href: '#/pairings/regular', class: 'dash-btn dash-btn-slate dash-span2' }, icon('users', 'size-5'), 'Regular pairings'),
       ] : el('p', { class: 'dash-span2 text-sm muted' }, 'No upcoming sessions.'));
     };
     pick.addEventListener('change', () => { selected = pick.value; drawManage(); });
@@ -94,15 +86,7 @@ export function renderAdminHub(root, app, ctx) {
             el('a', { href: '#/new-session', class: 'btn btn-primary mt-4 w-full' }, 'Create Session')),
           el('section', { class: 'dash-card' }, cardHead('list', 'green', 'Session Management'),
             el('label', { class: 'dash-label' }, 'Select session'), pick,
-            el('div', { class: 'mt-3' }, manage)),
-          el('section', { class: 'dash-card' }, cardHead('dashboard', 'purple', 'Records'),
-            el('div', { class: 'mt-4 grid grid-cols-2 gap-2' },
-              outline('#/volunteers', 'slate', 'Volunteers', 'users'),
-              outline('#/trainees', 'slate', h && h.reviewCount ? `Trainees (${h.reviewCount})` : 'Trainees', 'heart'),
-              outline('#/hours', 'slate', 'Hours', 'clock'),
-              outline('#/overview', 'slate', 'Overview', 'dashboard'),
-              outline('#/guide-edit', 'slate', 'Settings', 'pencil'),
-              outline('#/fundraising', 'slate', 'More', 'list')))),
+            el('div', { class: 'mt-3' }, manage))),
         el('section', { class: 'dash-card' }, cardHead('calendar', 'purple', 'Upcoming Sessions'),
           el('div', { class: 'mt-4 space-y-4' },
             upcoming.length ? upcoming.map((s) => sessionCard(s, today)) : el('p', { class: 'text-sm muted' }, 'No upcoming sessions.')))));

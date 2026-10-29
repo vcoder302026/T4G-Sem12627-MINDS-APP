@@ -211,7 +211,7 @@ const ADMIN_SECTIONS = [
   // The Admin home (Create New Session, Session Management, Records, Upcoming Sessions) is the
   // Dashboard's first page, so it's in the sidebar and the admin row, one click from anywhere.
   { key: 'admin', label: 'Dashboard', icon: 'dashboard', pages: [['admin', 'Home'], ['overview', 'Overview'], ['log', 'Activity log']] },
-  { key: 'today', label: 'Sessions', icon: 'calendar', also: ['session', 'new-session', 'scan', 'clock'] },
+  { key: 'today', label: 'All sessions', icon: 'calendar', also: ['session', 'new-session', 'scan', 'clock'] },
   { key: 'pairings', label: 'Pairing', icon: 'sparkle', pages: [['pairings', 'Sessions to pair'], ['pairings/regular', 'Regular pairings'], ['pairings/history', 'History']], also: ['pair'] },
   { key: 'volunteers', label: 'Volunteers', icon: 'users', pages: [['volunteers', 'People'], ['attendance', 'Attendance'], ['hours', 'Hours']], also: ['volunteer'] },
   { key: 'trainees', label: 'Trainees', icon: 'heart', pages: [['trainees', 'Trainees'], ['review', 'Notes to review'], ['visibility', 'What volunteers see']], also: ['trainee', 'trainee-new'] },
@@ -441,11 +441,8 @@ function renderChrome(name, full = name) {
       el('p', { class: 'side-group' }, 'My volunteering'),
       volunteerItems.map(sideLink),
       admin ? [el('p', { class: 'side-group' }, 'Admin'),
-        // The section you're in shows its pages underneath, so each is one click away.
-        ADMIN_SECTIONS.map((sec) => [sideLink({ ...sec, active: sec === section }),
-          sec === section && sec.pages && sec.pages.length > 1 ? el('div', { class: 'side-sub' }, sec.pages.map(([r, label]) => el('a', {
-            href: `#/${r}`, class: 'side-sub-link', 'aria-current': r === full ? 'page' : null,
-          }, label, count(r) ? el('span', { class: 'side-count' }, String(count(r))) : null))) : null])] : null),
+        // A section's pages are the tabs at the top of the page (not repeated here).
+        ADMIN_SECTIONS.map((sec) => sideLink({ ...sec, active: sec === section }))] : null),
     el('div', { class: 'border-t border-slate-200 p-4 text-xs dark:border-neutral-900' },
       el('p', { class: 'truncate font-bold text-slate-900 dark:text-white' }, u.name),
       el('p', { class: 'truncate muted' }, u.email)));
