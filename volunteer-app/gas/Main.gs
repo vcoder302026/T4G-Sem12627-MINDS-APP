@@ -32,7 +32,7 @@ function routes_() {
     traineeDirectory: { auth: 'user', fn: traineeDirectory_ },
     submitTraineeUpdate: { auth: 'user', write: true, fn: submitTraineeUpdate_ },
     noteFile: { auth: 'user', fn: noteFile_ }, // a file attached to a note (NoteFiles.gs)
-    changes: { auth: 'user', fn: changes_ }, // "has anything changed?" for live updates (Speed.gs)
+    changes: { auth: 'user', fn: changesWithData_ }, // "has anything changed?" (+ the new data) for live updates (Speed.gs)
 
     adminHome: { auth: 'admin', fn: adminHome_ },
     createSession: { auth: 'admin', write: true, fn: createSession_ },
@@ -145,6 +145,7 @@ function json_(obj) {
 
 function handle_(e) {
   resetDbCache_();
+  PEOPLE_CHANGED_ = false;
   try {
     const raw = e && e.postData && e.postData.contents;
     if (!raw) throw err_.validation('Empty request.');
@@ -167,7 +168,7 @@ function handle_(e) {
 
     let user = null;
     if (route.auth !== 'public') {
-      user = requireUser_(body.token);
+      user = requireUser_(body.token, Boolean(route.write)); // reads may use the remembered sign-in (Speed.gs)
       if (route.auth === 'admin' && user.role !== 'admin') throw err_.forbidden();
     }
     const run = () => {
@@ -186,7 +187,17 @@ function handle_(e) {
     const shared = route.write ? '' : sharedReadKey_(body.action, payload, user);
     if (shared) return { ok: true, data: cachedForVersion_(shared, () => applyDisplayNames_(body.action, run())) };
     const data = route.write ? withLock_(run) : run();
-    if (route.write) bumpDataVersion_(); // every save makes cached copies out of date
+    if (route.write) {
+      bumpDataVersion_(); // every save makes cached copies out of date
+      if (PEOPLE_CHANGED_) bumpPeopleVersion_(); // and remembered sign-ins, when someone's row changed
+    }
+    // A save's reply (e.g. the whole pairing board) is built after the lock is released, so the
+    // next save doesn't wait for it.
+    if (data && typeof data.afterLock === 'function') {
+      const more = data.afterLock();
+      delete data.afterLock;
+      Object.assign(data, more);
+    }
     return { ok: true, data: applyDisplayNames_(body.action, data) }; // short names (DisplayNames.gs)
   } catch (error) {
     if (error instanceof AppError) return { ok: false, error: { code: error.code, message: error.message } };

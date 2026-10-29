@@ -59,17 +59,24 @@ function issueToken_(user, authRow) {
   return `v1.${body}.${sign_(`auth|${body}`)}`;
 }
 
-function requireUser_(token) {
+function requireUser_(token, fresh) {
   if (typeof token !== 'string' || !token) throw err_.unauthorized('Please sign in.');
   const parts = token.split('.');
   if (parts.length !== 5 || parts[0] !== 'v1') throw err_.unauthorized();
   const body = parts.slice(1, 4).join('.');
   if (!safeEqual_(parts[4], sign_(`auth|${body}`))) throw err_.unauthorized();
   if (Number(parts[3]) < now_().getTime()) throw err_.unauthorized('Your sign-in has expired. Please sign in again.');
+  // Reads (fresh = false) use who's signed in from the cache (Speed.gs), skipping two sheet reads;
+  // saves always check the sheet.
+  if (!fresh) {
+    const remembered = rememberedUser_(parts[1], parts[2]);
+    if (remembered) return remembered;
+  }
   const user = table_('users').find((u) => u.userId === parts[1]);
   if (!user || user.status === 'inactive') throw err_.unauthorized('This account is not active.');
   const authRow = table_('auth').find((a) => a.userId === user.userId);
   if (!authRow || String(Number(authRow.tokenVersion) || 1) !== parts[2]) throw err_.unauthorized();
+  rememberUser_(user, parts[2]);
   return user;
 }
 

@@ -1277,6 +1277,28 @@ describe('Version 4.1: speed (cached pages, data version, live updates)', () => 
     assert.deepEqual(board2.bookings[0].trainees.map((t) => t.id), ['T-0001'], 'no stale copy after a change');
   });
 
+  test('a remembered sign-in never outlives a change: deactivated volunteers are refused straight away', () => {
+    const v = ok(rt.call('login', { email: 'v1@example.com', password: 'password123' }));
+    ok(rt.call('volunteerHome', {}, v.token)); // now remembered
+    ok(rt.call('updatePerson', { userId: v.user.userId, status: 'inactive' }, adminA));
+    fails(rt.call('volunteerHome', {}, v.token), 'UNAUTHORIZED');
+  });
+
+  test('`changes` sends the board only when something changed; a pairing reply still has the board', () => {
+    const watch = { action: 'sessionDetail', payload: { sessionId } };
+    const first = ok(rt.call('changes', {}, adminB));
+    const same = ok(rt.call('changes', { since: first.version, watch }, adminB));
+    assert.equal(same.data, undefined, 'nothing changed: no data');
+    const saved = ok(rt.call('updateBooking', { bookingId: booking.bookingId, addTraineeId: 'T-0001' }, adminA));
+    assert.deepEqual(saved.detail.bookings[0].trainees.map((t) => t.id), ['T-0001'], 'the reply has the updated board');
+    const changed = ok(rt.call('changes', { since: first.version, watch }, adminB));
+    assert.notEqual(changed.version, first.version);
+    assert.deepEqual(changed.data.bookings[0].trainees.map((t) => t.id), ['T-0001'], 'the new board, in the same request');
+    // Volunteers can't use it to read admin pages.
+    const v = ok(rt.call('login', { email: 'v1@example.com', password: 'password123' }));
+    assert.equal(ok(rt.call('changes', { since: 'old', watch }, v.token)).data, undefined);
+  });
+
   test('repeated reads of a shared admin page come from the cache until something changes', () => {
     ok(rt.call('listTrainees', {}, adminA));
     rt.fillTab(SHEET, 'Trainees', [['Trainee ID', 'Name'], ['T-0001', 'Alpha One'], ['T-0002', 'Beta Two'], ['T-0003', 'Gamma Three']]); // typed into the sheet

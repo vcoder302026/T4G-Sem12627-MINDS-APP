@@ -17,6 +17,7 @@ function checkConfig() {
 function setup() {
   const report = setupInternal_(false);
   bumpDataVersion_(); // cached pages (Speed.gs) are out of date after setup
+  bumpPeopleVersion_();
   return report;
 }
 
@@ -155,6 +156,7 @@ function makeFirstAdmin() {
   if (!user) throw new Error(`No registered account for ${email}. Register in the app first, then run this again.`);
   users.update(user, { role: 'admin' });
   makeRegularAsAdmin_(user); // admins are regular volunteers by default
+  bumpPeopleVersion_(); // their next request sees the admin role (Speed.gs)
   const msg = `${user.name} (${email}) is now an admin and a regular volunteer.`;
   logAdminAction_({ userId: '', name: 'Apps Script editor' }, 'makeFirstAdmin', { userId: user.userId }, null);
   console.log(msg);
