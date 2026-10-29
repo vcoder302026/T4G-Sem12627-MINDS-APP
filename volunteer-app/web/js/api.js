@@ -64,12 +64,17 @@ export const isNetworkError = (err) => err instanceof ApiError && err.code === '
  * extra ones before the app's code runs (or the app replies BUSY while another save finishes),
  * so trying again is always safe: nothing was saved. Up to 3 tries, waiting a little longer each time.
  */
+// Requests that only read: safe to send again after a Google error (HTTP 500), since nothing was saved.
+const READS = new Set(['me', 'changes', 'volunteerHome', 'guide', 'adminHome', 'sessionDetail', 'listTrainees', 'listPeople',
+  'listStandingPairings', 'traineeInfo', 'traineeDirectory', 'traineeProfile', 'reviewQueue', 'listVisits', 'pairingHistory', 'personDetail']);
+
 export async function call(action, payload = {}, options = {}) {
   for (let attempt = 0; ; attempt += 1) {
     try {
       return await callOnce(action, payload, options);
     } catch (err) {
-      if (!err || !err.busy || attempt >= 3) throw err;
+      const retry = err && (err.busy || (err.serverError && READS.has(action) && attempt < 1));
+      if (!retry || attempt >= 3) throw err;
       await new Promise((r) => setTimeout(r, 700 * 2 ** attempt + Math.random() * 400));
     }
   }
@@ -110,6 +115,11 @@ async function callOnce(action, payload = {}, options = {}) {
       err.permissionUrl = CONFIG.API_URL;
       throw err;
     }
+    if (response.status >= 500) {
+      const server = new ApiError('BAD_RESPONSE', 'The server had a problem. Please try again.');
+      server.serverError = true; // reads are tried once more (call)
+      throw server;
+    }
     if (response.status === 429 || /too many|simultaneous|invoked too many|try again later/i.test(text.slice(0, 4000))) {
       const busy = new ApiError('BUSY', 'The app is busy right now. Please try again in a moment.');
       busy.busy = true; // refused before the app ran: safe to try again
@@ -127,12 +137,12 @@ async function callOnce(action, payload = {}, options = {}) {
 }
 
 /**
- * Live updates: every few seconds (10 by default), asks the server "has anything changed?" and,
+ * Live updates: every few seconds (5 by default), asks the server "has anything changed?" and,
  * if so, calls onChange() so the page reloads its data. Pauses while the tab is hidden, while
  * something is being dragged or a pop-up is open (the next check catches up), and stops when
  * the person leaves the page.
  */
-export function watchChanges(ctx, onChange, ms = 10000) {
+export function watchChanges(ctx, onChange, ms = 5000, watch = null) {
   let last = null;
   let running = false;
   const tick = async () => {
@@ -140,9 +150,10 @@ export function watchChanges(ctx, onChange, ms = 10000) {
     if (document.querySelector('.dnd-ghost, dialog[open], .list-pop')) return;
     running = true;
     try {
-      const { version } = await call('changes', {}, { timeoutMs: 8000 });
-      if (last !== null && version !== last && ctx.alive()) await onChange();
-      last = version;
+      // With `watch`, a change brings the page's new data back in the same request (Speed.gs).
+      const res = await call('changes', last !== null && watch ? { since: last, watch } : {}, { timeoutMs: 8000 });
+      if (last !== null && res.version !== last && ctx.alive()) await onChange(res.data);
+      last = res.version;
     } catch (e) {
       // offline or busy: try again next time
     } finally {

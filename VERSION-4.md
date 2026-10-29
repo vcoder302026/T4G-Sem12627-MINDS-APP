@@ -78,3 +78,27 @@ show on the other admins' boards**. Run it at a quiet time: it uses the Exp app 
 
 Locally (the demo, about 0.8 s a request): changes showed on other admins' boards after a median
 of 9.7 s (slowest 11.7 s).
+
+## 5. Version 4.2: faster with many users
+
+From the first load test on Exp (100 volunteers, 10 admins): every request took about 2.5 s
+before doing any work, saving a pairing took 12.5 s (median, 39 s for 1 in 20) because saves
+queued, and changes reached other admins in 10.5 s (27 s for 1 in 20).
+
+- **Who's signed in is remembered** (Apps Script cache, 5 minutes) for reads, instead of reading
+  the Volunteers and sign-in tabs on every request. Saves always check the sheet. Anything written
+  to those tabs (a profile edit, deactivation, a password change, becoming a regular after 10
+  sessions, …) clears the remembered sign-ins at once.
+- **Saves hold the lock for less time:** a pairing save writes, releases the lock, then builds the
+  updated board for its reply (and caches it for the other admins), so the next save doesn't wait.
+- **Live updates every 5 seconds, with the data:** when something changed, the check brings the new
+  board back in the same request. Locally another admin's change showed in about 3–4 s
+  (load test dry run: median 2.8 s, slowest 5.5 s).
+- **Reads are tried once more** after a Google error (HTTP 500); saves aren't, as they may have
+  been saved.
+- `dev/load-test.mjs` checks every 5 s, as the app does (`--poll` to change).
+
+**What Apps Script can't do:** each request still costs about 1 s of Google's own start-up, at most
+30 run at once, and saves are one at a time. For instant syncing with hundreds of people at once,
+the long-term option is a real-time database (e.g. Firebase Firestore) with the Google Sheet as a
+copy; that's a bigger change.

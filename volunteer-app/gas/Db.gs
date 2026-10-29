@@ -186,7 +186,13 @@ class Table {
     return this.rows().filter(pred);
   }
 
+  /** Writing to the Volunteers or sign-in tab makes remembered sign-ins out of date (Speed.gs). */
+  touched_() {
+    if (this.cacheKey === 'app:users' || this.cacheKey === 'app:auth') PEOPLE_CHANGED_ = true;
+  }
+
   insert(record) {
+    this.touched_();
     const st = this.load_();
     const out = new Array(st.width).fill('');
     Object.keys(record).forEach((key) => {
@@ -210,12 +216,14 @@ class Table {
 
   /** Deletes the row from the sheet (rows below move up, so the cache is dropped). */
   remove(row) {
+    this.touched_();
     const st = this.load_();
     st.sheet.deleteRow(row._row);
     delete DB_.cache[this.cacheKey];
   }
 
   update(row, patch) {
+    this.touched_();
     const st = this.load_();
     Object.keys(patch).forEach((key) => {
       if (!(key in st.colIndex)) return; // optional column not present in this sheet

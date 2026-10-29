@@ -294,5 +294,7 @@ function updateBooking_(p, admin) {
     const user = table_('users').find((u) => u.userId === booking.userId);
     if (user) applyStanding_(booking, user);
   }
-  return { detail: sessionDetail_({ sessionId: booking.sessionId }), message };
+  // The board is built after the lock is released (Main.gs), and cached for the other admins' boards.
+  const sessionId = booking.sessionId;
+  return { message, afterLock: () => ({ detail: cachedForVersion_(sharedReadKey_('sessionDetail', { sessionId }, admin), () => applyDisplayNames_('sessionDetail', sessionDetail_({ sessionId }))) }) };
 }

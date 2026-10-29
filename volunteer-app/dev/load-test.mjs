@@ -9,7 +9,7 @@
  * Uses the mock Exp database's accounts (dev/make-exp-database.py): volunteers sign in with
  * VolunteerDemo123 (several sessions share an account when there are more volunteers than
  * accounts), admins with admin@example.com / AdminDemo123. Options: --volunteer-emails a,b,c, --admin-email,
- * --admin-password, --volunteer-password, --session <Session ID>, --poll <seconds> (10).
+ * --admin-password, --volunteer-password, --session <Session ID>, --poll <seconds> (5).
  *
  * What it does:
  *   - volunteers sign in (spread over 30 s), then open Home, the guide and their sessions every
@@ -34,7 +34,7 @@ if (!URL) { console.error('Usage: node dev/load-test.mjs --url <the app\'s /exec
 const VOLUNTEERS = Number(args.volunteers || 100);
 const ADMINS = Number(args.admins || 10);
 const MINUTES = Number(args.minutes || 3);
-const POLL_S = Number(args.poll || 10);
+const POLL_S = Number(args.poll || 5);
 const ADMIN = { email: args['admin-email'] || 'admin@example.com', password: args['admin-password'] || 'AdminDemo123' };
 const VOL_PASSWORD = args['volunteer-password'] || 'VolunteerDemo123';
 const FIRST = ['Aisha', 'Benjamin', 'Chloe', 'Daniel', 'Ethan', 'Farah', 'Grace', 'Hafiz', 'Isabel', 'Jun Wei', 'Kavya', 'Lucas',
@@ -98,8 +98,7 @@ async function volunteer(i) {
 // Changes made by admins, and which other admins have seen each one.
 const changes = [];
 
-async function adminBoard(token, sessionId, me, state) {
-  const d = await api('sessionDetail', { sessionId }, token);
+function seeBoard(d, me, state) {
   if (!d) return;
   const now = Date.now();
   changes.forEach((c) => {
@@ -109,6 +108,10 @@ async function adminBoard(token, sessionId, me, state) {
     if (has === c.added) { c.seen.add(me); propagation.push(now - c.doneAt); }
   });
   state.board = d;
+}
+
+async function adminBoard(token, sessionId, me, state) {
+  seeBoard(await api('sessionDetail', { sessionId }, token), me, state);
 }
 
 async function admin(i, sessionId, plan) {
@@ -124,13 +127,17 @@ async function admin(i, sessionId, plan) {
   let paired = false;
   while (Date.now() < endAt) {
     await sleep(POLL_S * 1000);
-    const v = (await api('changes', {}, token) || {}).version;
-    if (v && v !== version) { version = v; await adminBoard(token, sessionId, i, state); }
+    // As the app does: the check sends the new board when something changed (one request).
+    const res = await api('changes', { since: version, watch: { action: 'sessionDetail', payload: { sessionId } } }, token) || {};
+    if (res.version && res.version !== version) {
+      version = res.version;
+      if (res.data) seeBoard(res.data, i, state); else await adminBoard(token, sessionId, i, state);
+    }
     if (plan && Date.now() >= nextChange) {
       const change = { by: i, bookingId: plan.bookingId, traineeId: plan.traineeId, added: !paired, doneAt: null, seen: new Set() };
       changes.push(change);
       const ok = await api('updateBooking', paired ? { bookingId: plan.bookingId, removeTraineeId: plan.traineeId } : { bookingId: plan.bookingId, addTraineeId: plan.traineeId }, token);
-      if (ok) { change.doneAt = Date.now(); paired = !paired; } else changes.pop();
+      if (ok) { change.doneAt = Date.now(); paired = !paired; if (ok.detail) seeBoard(ok.detail, i, state); } else changes.pop();
       nextChange = Date.now() + rand(20000, 40000);
     }
   }

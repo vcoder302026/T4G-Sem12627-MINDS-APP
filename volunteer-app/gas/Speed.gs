@@ -81,3 +81,53 @@ function sharedReadKey_(action, payload, user) {
 function changes_() {
   return { version: dataVersion_() };
 }
+
+/* ---------- who's signed in, remembered for reads ---------- */
+
+// Set when this request wrote to the Volunteers or sign-in tab (Db.gs): any save that changes
+// someone (a profile edit, becoming a regular after 10 sessions, a password change…) makes the
+// remembered sign-ins out of date.
+let PEOPLE_CHANGED_ = false;
+
+function peopleVersion_() {
+  const c = cache_();
+  if (!c) return 'none';
+  let v = c.get('people-version');
+  if (!v) { v = `${Date.now()}`; c.put('people-version', v, 21600); }
+  return v;
+}
+
+function bumpPeopleVersion_() {
+  const c = cache_();
+  if (c) c.put('people-version', `${Date.now()}${Math.random().toString(36).slice(2, 6)}`, 21600);
+}
+
+function rememberedUser_(userId, tokenVersion) {
+  const c = cache_();
+  if (!c) return null;
+  const hit = c.get(`who:${userId}:${tokenVersion}:${peopleVersion_()}`);
+  if (!hit) return null;
+  try { return JSON.parse(hit); } catch (e) { return null; }
+}
+
+function rememberUser_(user, tokenVersion) {
+  const c = cache_();
+  if (!c) return;
+  try { c.put(`who:${user.userId}:${tokenVersion}:${peopleVersion_()}`, JSON.stringify(user), 300); } catch (e) { /* fine */ }
+}
+
+/** "Has anything changed?", and if so (and asked for) the page's new data in the same request. */
+function changesWithData_(p, user) {
+  onlyFields_(p, ['since', 'watch']);
+  const version = dataVersion_();
+  const out = { version };
+  if (!p.watch || p.since === undefined || String(p.since) === version) return out;
+  const w = obj_(p.watch, 'Watch');
+  const action = String(w.action || '');
+  const payload = w.payload && typeof w.payload === 'object' ? w.payload : {};
+  const key = sharedReadKey_(action, payload, user);
+  if (!key) return out; // only admin pages that are the same for every admin
+  out.data = cachedForVersion_(key, () => applyDisplayNames_(action, routes_()[action].fn(payload, user)));
+  return out;
+}
+
