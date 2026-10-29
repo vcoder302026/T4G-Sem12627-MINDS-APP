@@ -9,7 +9,7 @@
  * Uses the mock Exp database's accounts (dev/make-exp-database.py): volunteers sign in with
  * VolunteerDemo123 (several sessions share an account when there are more volunteers than
  * accounts), admins with admin@example.com / AdminDemo123. Options: --volunteer-emails a,b,c, --admin-email,
- * --admin-password, --volunteer-password, --session <Session ID>, --poll <seconds> (5).
+ * --admin-password, --volunteer-password, --session <Session ID>, --poll <seconds> (3).
  *
  * What it does:
  *   - volunteers sign in (spread over 30 s), then open Home, the guide and their sessions every
@@ -34,7 +34,7 @@ if (!URL) { console.error('Usage: node dev/load-test.mjs --url <the app\'s /exec
 const VOLUNTEERS = Number(args.volunteers || 100);
 const ADMINS = Number(args.admins || 10);
 const MINUTES = Number(args.minutes || 3);
-const POLL_S = Number(args.poll || 5);
+const POLL_S = Number(args.poll || 3);
 const ADMIN = { email: args['admin-email'] || 'admin@example.com', password: args['admin-password'] || 'AdminDemo123' };
 const VOL_PASSWORD = args['volunteer-password'] || 'VolunteerDemo123';
 const FIRST = ['Aisha', 'Benjamin', 'Chloe', 'Daniel', 'Ethan', 'Farah', 'Grace', 'Hafiz', 'Isabel', 'Jun Wei', 'Kavya', 'Lucas',

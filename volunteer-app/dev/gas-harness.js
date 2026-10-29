@@ -44,6 +44,8 @@ class FakeRange {
     Object.assign(this, { sheet, row, col, numRows, numCols });
   }
   getValues() {
+    if (this.numRows > 1) globalThis.__sheetReads = (globalThis.__sheetReads || 0) + 1; // dev/count-reads.mjs
+
     const out = [];
     for (let r = 0; r < this.numRows; r++) {
       const line = [];
@@ -113,6 +115,10 @@ class FakeSheet {
   }
   getParent() {
     return this.parent;
+  }
+  appendRow(values) {
+    this.getRange(this.getLastRow() + 1, 1, 1, values.length).setValues([values]);
+    return this;
   }
   getLastRow() {
     let last = 0;
@@ -397,6 +403,7 @@ export function createGasRuntime() {
       computeHmacSha256Signature(value, key) {
         return toSigned(crypto.createHmac('sha256', toBuffer(key)).update(toBuffer(value)).digest());
       },
+      sleep() {}, // the stand-in runs one request at a time
       base64Encode(bytes) {
         return toBuffer(bytes).toString('base64');
       },

@@ -367,8 +367,8 @@ export function renderSessionPairing(root, app, ctx, sessionId) {
   const cached = app.cachedDetail(sessionId);
   if (cached) draw(cached);
   else mount(root, loading());
-  // Another admin's pairing shows within about 5 seconds; the new board comes with the check.
-  watchChanges(ctx, (d) => (d ? (app.cacheDetail(sessionId, d), ctx.alive() && draw(d)) : load().catch(() => {})), 5000,
+  // Another admin's pairing shows within about 3 seconds; the new board comes with the check.
+  watchChanges(ctx, (d) => (d ? (app.cacheDetail(sessionId, d), ctx.alive() && draw(d)) : load().catch(() => {})), 3000,
     { action: 'sessionDetail', payload: { sessionId } });
   return load().catch((err) => { if (ctx.alive() && !cached) mount(root, errorBlock(err, () => app.rerender())); });
 }
@@ -472,7 +472,7 @@ export function renderStandingPairings(root, app, ctx, tab) {
     mount(host, board.el); // like the outing app: just the board (its unpaired count and "Saved" are on top)
   };
   const load = () => call('listStandingPairings').then((d) => { if (ctx.alive()) draw(d); });
-  watchChanges(ctx, (d) => (d ? ctx.alive() && draw(d) : load().catch(() => {})), 5000, { action: 'listStandingPairings', payload: {} });
+  watchChanges(ctx, (d) => (d ? ctx.alive() && draw(d) : load().catch(() => {})), 3000, { action: 'listStandingPairings', payload: {} });
   mount(host, loading());
   return load().catch((err) => { if (ctx.alive()) mount(host, errorBlock(err, () => app.rerender())); });
 }

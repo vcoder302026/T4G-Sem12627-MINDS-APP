@@ -245,7 +245,8 @@ function updateBooking_(p, admin) {
     const op = pairOps[0];
     const current = bookingTrainees_(booking);
     const findTrainee = (value) => {
-      const trainee = traineeById_(str_(value, 'Trainee', { required: true, max: 40 }));
+      const id = str_(value, 'Trainee', { required: true, max: 40 });
+      const trainee = traineeFromCopy_(id) || traineeById_(id); // the recent copy first: only the name is used (Speed.gs)
       if (!trainee) throw err_.validation('Trainee not found in the trainee list.');
       if (!CONFIG.ALLOW_SHARED_TRAINEE) {
         const other = bookings.find((b) => b.sessionId === booking.sessionId && b.bookingId !== booking.bookingId &&
@@ -294,7 +295,8 @@ function updateBooking_(p, admin) {
     const user = table_('users').find((u) => u.userId === booking.userId);
     if (user) applyStanding_(booking, user);
   }
-  // The board is built after the lock is released (Main.gs), and cached for the other admins' boards.
+  // The board is built after the lock is released (Main.gs), from the recent copies of the tabs,
+  // and cached: the other admins' next check gets this same board.
   const sessionId = booking.sessionId;
   return { message, afterLock: () => ({ detail: cachedForVersion_(sharedReadKey_('sessionDetail', { sessionId }, admin), () => applyDisplayNames_('sessionDetail', sessionDetail_({ sessionId }))) }) };
 }

@@ -146,6 +146,9 @@ function json_(obj) {
 function handle_(e) {
   resetDbCache_();
   PEOPLE_CHANGED_ = false;
+  TOUCHED_TABLES_ = {};
+  IN_LOCK_ = false;
+  TABLE_CACHE_ON_ = null;
   try {
     const raw = e && e.postData && e.postData.contents;
     if (!raw) throw err_.validation('Empty request.');
@@ -179,14 +182,18 @@ function handle_(e) {
         const contact = syncContactSafe_(contactUserId);
         if (contact && out && typeof out === 'object') out.contact = contact;
       }
-      // Every change an admin makes goes in the Admin Activity Log (AdminLog.gs), in the same lock.
-      if (route.auth === 'admin' && route.write) logAdminAction_(user, body.action, payload, out);
       return out;
     };
     // Admin pages that look the same for every admin come from the cache until something changes (Speed.gs).
     const shared = route.write ? '' : sharedReadKey_(body.action, payload, user);
     if (shared) return { ok: true, data: cachedForVersion_(shared, () => applyDisplayNames_(body.action, run())) };
     const data = route.write ? withLock_(run) : run();
+    bumpTouchedTables_(); // copies of the tabs this request wrote to are out of date (Speed.gs)
+    // Every change an admin makes goes in the Admin Activity Log (AdminLog.gs): appended after the
+    // lock is released, so the next save doesn't wait for it.
+    if (route.auth === 'admin' && route.write) {
+      try { logAdminAction_(user, body.action, payload, data); } catch (e) { console.error(e); }
+    }
     if (route.write) {
       bumpDataVersion_(); // every save makes cached copies out of date
       if (PEOPLE_CHANGED_) bumpPeopleVersion_(); // and remembered sign-ins, when someone's row changed
@@ -211,10 +218,12 @@ function withLock_(fn) {
   if (!lock.tryLock(20000)) throw new AppError('BUSY', 'The system is busy. Please try again in a moment.');
   try {
     resetDbCache_(); // re-read inside the lock so checks (capacity, duplicates) see the latest rows
+    IN_LOCK_ = true; // and from the sheet itself, not a cached copy (Speed.gs)
     const out = fn();
     SpreadsheetApp.flush();
     return out;
   } finally {
+    IN_LOCK_ = false;
     lock.releaseLock();
   }
 }

@@ -424,6 +424,7 @@ describe('Start New Blank Visit (a trainee not in the sheet yet)', () => {
 
 describe('Version 4: trainees and house visits in one spreadsheet', () => {
   test('a new Google Form response gets an ID; the same trainee again updates them (newest row)', () => {
+    rt.props.set('TABLE_CACHE', 'off'); // rows added straight to the sheet: read it now, not a copy (shows within 60 s otherwise)
     const sheet = rt.tab(TRAINEE_FILE, 'Form Responses 1');
     const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
     const col = (re) => headers.findIndex((h) => re.test(String(h)));
