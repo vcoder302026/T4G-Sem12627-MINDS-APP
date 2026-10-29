@@ -87,7 +87,7 @@ export function renderAdminHub(root, app, ctx) {
     pick.addEventListener('change', () => { selected = pick.value; drawManage(); });
     drawManage();
     mount(root,
-      el('h1', { class: 'page-title' }, 'Admin'),
+      el('h1', { class: 'page-title' }, 'Dashboard'),
       el('div', { class: 'dash-grid' },
         el('div', { class: 'space-y-6' },
           el('section', { class: 'dash-card' }, cardHead('plus', 'blue', 'Create New Session'),
@@ -100,7 +100,7 @@ export function renderAdminHub(root, app, ctx) {
               outline('#/volunteers', 'slate', 'Volunteers', 'users'),
               outline('#/trainees', 'slate', h && h.reviewCount ? `Trainees (${h.reviewCount})` : 'Trainees', 'heart'),
               outline('#/hours', 'slate', 'Hours', 'clock'),
-              outline('#/overview', 'slate', 'Dashboard', 'dashboard'),
+              outline('#/overview', 'slate', 'Overview', 'dashboard'),
               outline('#/guide-edit', 'slate', 'Settings', 'pencil'),
               outline('#/fundraising', 'slate', 'More', 'list')))),
         el('section', { class: 'dash-card' }, cardHead('calendar', 'purple', 'Upcoming Sessions'),
