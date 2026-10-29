@@ -120,6 +120,7 @@ function notesFor_(traineeId, user, kind, limit) {
     source: n.source,
     from: noteFrom_(n),
     audience: noteAudience_(n),
+    attachments: attachmentsOut_(n.attachments),
   }));
 }
 
@@ -170,7 +171,7 @@ function listTrainees_() {
 /* ---------- notes ---------- */
 
 /** Adds a trainee note. `sharing` (from noteSharing_) defaults to everyone. */
-function addNote_(trainee, text, author, source, leaderName, feedbackId, dateStr, sharing) {
+function addNote_(trainee, text, author, source, leaderName, feedbackId, dateStr, sharing, attachments) {
   const share = sharing || { audience: 'all', status: 'shared', sharedWith: '', sharedWithNames: '' };
   const note = table_('traineeNotes').insert(Object.assign({
     noteId: newId_('N'),
@@ -183,6 +184,7 @@ function addNote_(trainee, text, author, source, leaderName, feedbackId, dateStr
     feedbackId: feedbackId || '',
     addedBy: leaderName,
     addedAt: fmtDateTime_(now_()),
+    attachments: attachments || '',
   }, share));
   // Only notes for everyone are copied onto MINDS's own trainee row.
   if (share.audience === 'all') writeLatestObservation_(trainee, text, author, note.date);
@@ -204,11 +206,11 @@ function writeLatestObservation_(trainee, text, author, dateStr) {
 
 /** An admin adds a note straight onto a trainee's profile, shared with everyone unless they choose otherwise. */
 function addTraineeNote_(p, admin) {
-  onlyFields_(p, ['traineeId', 'note', 'audience', 'userIds']);
+  onlyFields_(p, ['traineeId', 'note', 'audience', 'userIds', 'files']);
   const trainee = traineeById_(str_(p.traineeId, 'Trainee', { required: true, max: 40 }));
   if (!trainee) throw err_.notFound('Trainee not found.');
   const text = str_(p.note, 'Note', { required: true, max: LIMITS.NOTES });
-  addNote_(trainee, text, admin.name, 'Leader', admin.name, '', todayStr_(), noteSharing_(p, 'all'));
+  addNote_(trainee, text, admin.name, 'Leader', admin.name, '', todayStr_(), noteSharing_(p, 'all'), saveNoteFiles_(p.files));
   return traineeDetail_({ traineeId: String(trainee.id) });
 }
 
@@ -252,6 +254,7 @@ function reviewQueue_() {
       observation: f.traineeObservation,
       rating: f.rating,
       kind: f.sessionId ? 'session' : 'update', // end-of-session feedback, or "Send update" on a trainee's page
+      attachments: attachmentsOut_(f.attachments),
     })),
     audiences: NOTE_AUDIENCE_KEYS.map((key) => ({ key, label: NOTE_AUDIENCES[key].label, hint: NOTE_AUDIENCES[key].hint })),
     volunteers: volunteerOptions_(),
@@ -277,7 +280,7 @@ function reviewObservation_(p, admin) {
   if (!trainee) throw err_.notFound('The trainee for this note is no longer on the trainee list.');
   const text = p.note === undefined ? f.traineeObservation : str_(p.note, 'Note', { required: true, max: LIMITS.NOTES });
   const source = f.sessionId ? 'Volunteer feedback' : 'Volunteer update';
-  addNote_(trainee, text, f.volunteerName, source, admin.name, f.feedbackId, f.date, share);
+  addNote_(trainee, text, f.volunteerName, source, admin.name, f.feedbackId, f.date, share, f.attachments);
   feedback.update(f, { noteStatus: share.audience === 'private' ? 'private' : 'shared', reviewedBy: admin.name });
   return Object.assign(reviewQueue_(), { message: share.audience === 'private'
     ? `Kept private on ${trainee.name}'s profile: only admins can read it.`

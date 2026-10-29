@@ -31,6 +31,7 @@ function routes_() {
     traineeInfo: { auth: 'user', fn: traineeInfo_ },
     traineeDirectory: { auth: 'user', fn: traineeDirectory_ },
     submitTraineeUpdate: { auth: 'user', write: true, fn: submitTraineeUpdate_ },
+    noteFile: { auth: 'user', fn: noteFile_ }, // a file attached to a note (NoteFiles.gs)
 
     adminHome: { auth: 'admin', fn: adminHome_ },
     createSession: { auth: 'admin', write: true, fn: createSession_ },
@@ -155,7 +156,9 @@ function handle_(e) {
       throw err_.validation('Request is not valid JSON.');
     }
     if (!body || typeof body !== 'object' || typeof body.action !== 'string') throw err_.validation('Missing action.');
-    if (body.action !== 'addGuideFile' && raw.length > 200000) throw err_.validation('Request is too large.');
+    // Uploads: guide files, and files attached to notes and updates (NoteFiles.gs).
+    const uploads = ['addGuideFile', 'setTraineePhoto', 'submitTraineeUpdate', 'submitFeedback', 'addTraineeNote'];
+    if (uploads.indexOf(body.action) === -1 && raw.length > 200000) throw err_.validation('Request is too large.');
     const routes = routes_();
     if (!Object.prototype.hasOwnProperty.call(routes, body.action)) throw err_.notFound(`Unknown action "${body.action}".`);
     const route = routes[body.action];
@@ -178,7 +181,8 @@ function handle_(e) {
       if (route.auth === 'admin' && route.write) logAdminAction_(user, body.action, payload, out);
       return out;
     };
-    return { ok: true, data: route.write ? withLock_(run) : run() };
+    const data = route.write ? withLock_(run) : run();
+    return { ok: true, data: applyDisplayNames_(body.action, data) }; // short names (DisplayNames.gs)
   } catch (error) {
     if (error instanceof AppError) return { ok: false, error: { code: error.code, message: error.message } };
     console.error(error && error.stack ? error.stack : error);

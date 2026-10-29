@@ -5,7 +5,7 @@
 import { call, isNetworkError } from '../api.js';
 import { drawQr } from '../qr.js';
 import {
-  backLink, badge, busy, clockTime, el, errorBlock, field, fmtDay, fmtHours, fmtTimes, formData, fuzzyFilter, icon, initials, likert, loading, majorActionPrompt, mapsLink, mount, projectBadges, searchBox, section, statusBadge, toast, todaySG, typeBadges,
+  attachPicker, backLink, badge, busy, clockTime, el, errorBlock, field, fmtDay, fmtHours, fmtTimes, formData, fuzzyFilter, icon, initials, likert, loading, majorActionPrompt, mapsLink, mount, projectBadges, searchBox, section, statusBadge, toast, todaySG, typeBadges,
 } from '../ui.js';
 import { traineeLine } from './trainees.js';
 import { traineeName } from '../quickview.js';
@@ -393,33 +393,37 @@ export function renderFeedback(root, app, ctx, bookingId) {
       return;
     }
     const submit = el('button', { type: 'submit', class: 'btn btn-primary flex-1' }, 'Send feedback');
+    const pickers = Object.fromEntries(feedbackTrainees(item).map((t) => [t.id, attachPicker()])); // files about each trainee
     const form = el('form', { novalidate: true, class: 'space-y-6' },
       section('How did it go?', 'blue',
         el('div', {}, el('p', { class: 'label' }, 'Overall, how was the session?'), likert('rating', 'Very difficult', 'Went really well')),
         field('sessionFeedback', 'What went well, or what could be better?', { type: 'textarea', optional: true, maxlength: 5000 })),
       // One box per trainee they were with (a volunteer can be paired with several).
       feedbackTrainees(item).map((t) => section(`About ${t.name}`, 'green',
-        field(`obs-${t.id}`, `Notes for future volunteers working with ${t.name}`, {
+        field(`obs-${t.id}`, `Notes for volunteers working with ${t.name}`, {
           type: 'textarea', optional: true, rows: 4, maxlength: 5000,
           placeholder: 'e.g. Calmer with a 5-minute warning before changing activity. Loved the colouring sheets.',
-        }))),
+        }),
+        pickers[t.id].el)),
       el('div', { class: 'action-bar' }, el('div', { class: 'mx-auto flex max-w-2xl gap-3' },
         el('a', { href: '#/home', class: 'btn btn-secondary' }, 'Not now'), submit)));
 
     form.addEventListener('submit', (e) => {
       e.preventDefault();
       const d = formData(form);
-      const observations = feedbackTrainees(item).map((t) => ({ traineeId: t.id, note: (d[`obs-${t.id}`] || '').trim() })).filter((o) => o.note);
+      const observations = feedbackTrainees(item).map((t) => ({ traineeId: t.id, note: (d[`obs-${t.id}`] || '').trim(), picker: pickers[t.id] })).filter((o) => o.note);
       if (!d.rating && !d.sessionFeedback && !observations.length) {
         toast('Pick a rating or write a comment first.', 'warn');
         return;
       }
       busy(submit, 'Sending…', async () => {
+        const withFiles = [];
+        for (const o of observations) withFiles.push({ traineeId: o.traineeId, note: o.note, files: await o.picker.files() });
         const res = await call('submitFeedback', {
           bookingId,
           rating: d.rating ? Number(d.rating) : '',
           sessionFeedback: d.sessionFeedback || '',
-          observations,
+          observations: withFiles,
         });
         app.saveHome(res.home);
         toast(res.message);

@@ -297,7 +297,7 @@ function tempPassword_() {
 function createVolunteer_(p, admin) {
   onlyFields_(p, PROFILE_FIELDS.concat(['role', 'createLogin', 'adminPassword']));
   const rec = {
-    ...nameFields_(p), // firstName, lastName and the Full Name
+    name: str_(p.name, 'Full name', { required: true, max: LIMITS.SHORT }),
     email: email_(p.email),
     phone: sgPhone_(p.phone, 'Phone', { optional: true }),
     birthday: date_(p.birthday, 'Birthday', { optional: true }),

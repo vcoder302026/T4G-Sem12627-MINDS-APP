@@ -5,7 +5,7 @@
 
 import { call } from '../api.js';
 import {
-  backLink, badge, busy, el, errorBlock, field, fmtDay, fmtTimes, fuzzyFilter, hvSections, icon, loading, modal, mount, multiPick, searchBox, toast, traineeAvatar,
+  attachmentList, attachPicker, backLink, badge, busy, el, errorBlock, field, fmtDay, fmtTimes, fuzzyFilter, hvSections, icon, loading, modal, mount, multiPick, searchBox, toast, traineeAvatar,
 } from '../ui.js';
 import { asTrainee, personName, traineeName } from '../quickview.js';
 
@@ -18,7 +18,7 @@ const sourceLabel = (source) => (source === 'Leader' ? 'Admin' : 'Volunteer');
 /* ---------------- who can read a note ---------------- */
 
 const AUDIENCE_BADGE = {
-  all: ['All future volunteers', 'emerald'],
+  all: ['All volunteers', 'emerald'],
   regular: ['Regulars only', 'purple'],
   selected: ['Selected volunteers', 'indigo'],
   private: ['Private: admins only', 'slate'],
@@ -124,6 +124,7 @@ function notesBlock(notes, isAdmin) {
 function notesList(notes, isAdmin) {
   return el('ul', { class: 'space-y-3' }, notes.map((n) => el('li', { class: 'border-l-2 border-indigo-200 pl-3 text-sm dark:border-indigo-800' },
     el('p', { class: 'whitespace-pre-line text-slate-700 dark:text-neutral-300' }, n.note),
+    attachmentList(n.attachments, { noteId: n.noteId }),
     el('p', { class: 'mt-0.5 text-xs muted' }, `${n.author || sourceLabel(n.source)}, ${fmtDay(n.date)}${n.source === 'Volunteer update' ? ' · update' : ''}`),
     isAdmin && n.audience ? el('p', { class: 'mt-1' }, audienceBadge(n)) : null)));
 }
@@ -148,19 +149,22 @@ export function traineeLine(trainee, pairing, label) {
 /* ---------------- a trainee's page (volunteers and regulars) ---------------- */
 
 function updateForm(trainee, onSent) {
+  const files = attachPicker(); // photos, documents, videos
   const form = el('form', { class: 'space-y-3', novalidate: true },
     field('note', `Something the next volunteer should know about ${trainee.preferredName || trainee.name}`, {
       type: 'textarea', rows: 3, maxlength: 5000,
       placeholder: 'e.g. Calmer with a 5-minute warning before changing activity.',
     }),
+    files.el,
     el('button', { type: 'submit', class: 'btn btn-primary w-full' }, icon('send', 'size-4'), 'Send update'));
   form.addEventListener('submit', (e) => {
     e.preventDefault();
     const note = form.note.value.trim();
     if (!note) { toast('Write your update first.', 'warn'); return; }
     busy(form.querySelector('button[type=submit]'), 'Sending…', async () => {
-      const res = await call('submitTraineeUpdate', { traineeId: trainee.id, note });
+      const res = await call('submitTraineeUpdate', { traineeId: trainee.id, note, files: await files.files() });
       form.reset();
+      files.clear();
       toast(res.message);
       if (onSent) onSent();
     });
@@ -178,7 +182,7 @@ export function renderTraineeInfo(root, app, ctx, traineeId) {
         // Beside the photo: short name, gender and language (the full name is the page title);
         // the sections below don't repeat them. Only what this person may see comes from the server.
         el('div', { class: 'min-w-0' },
-          el('h1', { class: 'page-title leading-tight' }, t.name),
+          el('h1', { class: 'page-title leading-tight' }, t.fullName || t.name),
           el('dl', { class: 'qv-facts text-sm' },
             [['Short name', t.preferredName], ['Gender', t.gender], ['Language', t.language]]
               .filter(([, v]) => v).map(([k, v]) => [el('dt', {}, k), el('dd', {}, v)])),
@@ -217,7 +221,7 @@ export function renderDirectory(root, app, ctx) {
     mine ? badge('Yours', 'emerald') : icon('chevron', 'size-5 text-slate-300 dark:text-neutral-700')), t.id);
   const draw = () => {
     if (!data) return;
-    const shown = fuzzyFilter(data.trainees, query, (t) => [t.name, t.preferredName, t.id, t.regulars.join(' ')]);
+    const shown = fuzzyFilter(data.trainees, query, (t) => [t.name, t.fullName, t.preferredName, t.id, t.regulars.join(' ')]);
     const myIds = data.myTraineeIds || (data.myTraineeId ? [data.myTraineeId] : []);
     const mine = data.trainees.filter((t) => myIds.includes(t.id));
     mount(host,
@@ -274,6 +278,7 @@ export function renderReview(root, app, ctx) {
             it.rating ? badge(`Session ${it.rating}/5`, 'slate') : null)),
         el('div', { class: 'mt-3' }, text),
         el('p', { class: 'label mt-4' }, 'Who can read it?'),
+        attachmentList(it.attachments, { feedbackId: it.feedbackId }),
         share.el,
         el('div', { class: 'mt-3 flex justify-end' }, save));
     };

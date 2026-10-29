@@ -15,8 +15,6 @@ function publicUser_(u) {
   return {
     userId: u.userId,
     name: u.name,
-    firstName: u.firstName || '',
-    lastName: u.lastName || '',
     shortName: u.shortName || '', // "Short Name" from the registration form: used in greetings
     email: u.email,
     phone: u.phone,
@@ -78,9 +76,9 @@ function requireUser_(token) {
 /* ---------- actions ---------- */
 
 function register_(p) {
-  onlyFields_(p, ['name', 'firstName', 'lastName', 'birthday', 'email', 'phone', 'telegram', 'emergencyName', 'emergencyPhone', 'emergencyRelation', 'password', 'consent', 'answers']);
+  onlyFields_(p, ['name', 'birthday', 'email', 'phone', 'telegram', 'emergencyName', 'emergencyPhone', 'emergencyRelation', 'password', 'consent', 'answers']);
   const rec = {
-    ...nameFields_(p), // firstName, lastName and the Full Name
+    name: str_(p.name, 'Full name', { required: true, max: LIMITS.SHORT }),
     birthday: date_(p.birthday, 'Birthday'),
     email: email_(p.email),
     phone: sgPhone_(p.phone, 'Phone'),
@@ -151,7 +149,7 @@ function login_(p) {
 }
 
 function me_(p, user) {
-  return { user: publicUser_(user) };
+  return { user: publicUser_(user), contactsSync: contactsOn_() }; // contactsSync: Edit my details warns that the contact updates too
 }
 
 function changePassword_(p, user) {

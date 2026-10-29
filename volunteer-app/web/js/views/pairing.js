@@ -118,7 +118,7 @@ function pairBoard(o) {
       const v = volByKey(vIn.key);
       if (!v) return;
       const byTrainee = pairedTo();
-      let shown = fuzzyFilter(o.trainees, q, (t) => [t.name, t.preferredName, t.id]);
+      let shown = fuzzyFilter(o.trainees, q, (t) => [t.name, t.fullName, t.preferredName, t.id]);
       if (o.newFirst && !q) {
         // Regular pairings: trainees this regular hasn't been with come first, to encourage variety.
         const seen = (t) => { const h = historyOf(o, v.userId, t.id); return h ? 1 + (h.sessions || 0) : 0; };
@@ -158,7 +158,7 @@ function pairBoard(o) {
     let q = '';
     const listHost = el('div', { class: 'mt-3 space-y-1' });
     const draw2 = () => {
-      const pool = fuzzyFilter(o.volunteers, q, (v) => [v.name, v.trainees.map((x) => x.name).join(' ')]);
+      const pool = fuzzyFilter(o.volunteers, q, (v) => [v.name, v.fullName, v.trainees.map((x) => x.name).join(' ')]);
       const sorted = [...pool.filter((v) => isPaired(v, t)), ...pool.filter((v) => !v.trainees.length), ...pool.filter((v) => v.trainees.length && !isPaired(v, t))];
       mount(listHost,
         sorted.map((v) => {
@@ -181,10 +181,10 @@ function pairBoard(o) {
   const draw = () => {
     const byTrainee = pairedTo();
     const unpairedVols = o.volunteers.filter((v) => !v.trainees.length);
-    let vols = fuzzyFilter(o.volunteers, state.vq, (v) => [v.name, v.trainees.map((t) => t.name).join(' ')]);
+    let vols = fuzzyFilter(o.volunteers, state.vq, (v) => [v.name, v.fullName, v.trainees.map((t) => t.name).join(' ')]);
     if (state.vf === 'paired') vols = vols.filter((v) => v.trainees.length);
     if (state.vf === 'unpaired') vols = vols.filter((v) => !v.trainees.length);
-    let trainees = fuzzyFilter(o.trainees, state.tq, (t) => [t.name, t.preferredName, t.id, (byTrainee[t.id] || []).map((v) => v.name).join(' ')]);
+    let trainees = fuzzyFilter(o.trainees, state.tq, (t) => [t.name, t.fullName, t.preferredName, t.id, (byTrainee[t.id] || []).map((v) => v.name).join(' ')]);
     if (state.tf === 'paired') trainees = trainees.filter((t) => (byTrainee[t.id] || []).length);
     if (state.tf === 'unpaired') trainees = trainees.filter((t) => !(byTrainee[t.id] || []).length);
     const flashed = (key, id) => state.flash && ((key !== null && String(state.flash.key) === String(key)) || (id !== null && state.flash.id === id));

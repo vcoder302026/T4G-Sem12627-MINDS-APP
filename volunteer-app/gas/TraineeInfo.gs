@@ -361,12 +361,13 @@ function traineeDirectory_(p, user) {
 
 /** A volunteer or regular sends an update about a trainee; an admin reviews it like session feedback. */
 function submitTraineeUpdate_(p, user) {
-  onlyFields_(p, ['traineeId', 'note']);
+  onlyFields_(p, ['traineeId', 'note', 'files']);
   const traineeId = str_(p.traineeId, 'Trainee', { required: true, max: 40 });
   const trainee = traineeById_(traineeId);
   if (!trainee) throw err_.notFound('Trainee not found.');
   traineeAccess_(user, traineeId);
   const note = str_(p.note, 'Update', { required: true, max: LIMITS.NOTES });
+  const attachments = saveNoteFiles_(p.files); // photos, documents, videos (NoteFiles.gs)
   const shareNow = Boolean(CONFIG.AUTO_SHARE_OBSERVATIONS);
   const fb = table_('feedback').insert({
     feedbackId: newId_('F'),
@@ -380,8 +381,9 @@ function submitTraineeUpdate_(p, user) {
     traineeObservation: note,
     noteStatus: shareNow ? 'shared' : 'pending',
     submittedAt: fmtDateTime_(now_()),
+    attachments,
   });
-  if (shareNow) addNote_(trainee, note, user.name, 'Volunteer update', 'automatic', fb.feedbackId, todayStr_());
+  if (shareNow) addNote_(trainee, note, user.name, 'Volunteer update', 'automatic', fb.feedbackId, todayStr_(), null, attachments);
   // Goes to Trainees → Notes to review, next to session feedback, where an admin chooses who can read it.
   return {
     message: shareNow ? `Thanks! Your update is now in ${trainee.name}'s notes.` : `Thanks! An admin will review your update about ${trainee.name}.`,

@@ -56,16 +56,16 @@ function contactBody_(u, group) {
     u.emergencyPhone ? `Emergency contact: ${u.emergencyPhone}${u.emergencyRelation ? ` (${u.emergencyRelation})` : ''}` : '',
     `MINDS volunteer${u.role === 'admin' ? ' (admin)' : volunteerType_(u) === 'regular' ? ' (regular)' : ''}.`,
   ].filter(Boolean).join('\n');
-  // First and last name into Google's own fields (older records only have the Full Name: it
-  // goes in First name); the short name volunteers go by is the contact's nickname.
-  const first = String(u.firstName || '').trim();
-  const last = String(u.lastName || '').trim();
-  const short = String(u.shortName || '').trim();
+  // First name only, as MINDS asked: "Short Name_[Full Name]_Project", e.g.
+  // "Xin Yi_[Ng Xin Yi]_RSPID (WGS)". Missing parts are left out.
+  const full = String(u.name || '').trim();
+  const short = String(u.shortName || '').trim() || full;
+  const project = String(u.project || '').trim();
+  const given = [short, `[${full}]`, project].filter((x) => x && x !== '[]').join('_');
   const b = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(u.birthday || ''));
   const digits = String(u.phone || '').replace(/\D/g, '');
   return {
-    names: [first ? { givenName: first, familyName: last } : { givenName: String(u.name || '').trim() }],
-    nicknames: short ? [{ value: short }] : [],
+    names: [{ givenName: given }],
     birthdays: b ? [{ date: { year: Number(b[1]), month: Number(b[2]), day: Number(b[3]) } }] : [],
     emailAddresses: u.email ? [{ value: u.email, type: 'home' }] : [],
     phoneNumbers: digits ? [{ value: digits.slice(-8), type: 'mobile' }] : [], // the 8-digit number, e.g. 92334014
@@ -74,7 +74,7 @@ function contactBody_(u, group) {
   };
 }
 
-const CONTACT_FIELDS_ = 'names,nicknames,birthdays,emailAddresses,phoneNumbers,biographies,memberships';
+const CONTACT_FIELDS_ = 'names,birthdays,emailAddresses,phoneNumbers,biographies,memberships';
 
 /** Saves or updates one volunteer's contact. Throws on failure (see syncContactSafe_). */
 function syncContact_(userId) {
@@ -131,12 +131,13 @@ function syncContactSafe_(userId) {
 /** Which volunteer a request should sync, if any (called after the request succeeds; Main.gs). */
 function contactSyncTarget_(action, payload, user, out) {
   const answers = payload.answers && typeof payload.answers === 'object' ? payload.answers : {};
-  const touches = ['name', 'firstName', 'lastName', 'birthday', 'email', 'phone', 'telegram'].some((k) => payload[k] !== undefined)
+  const touches = ['name', 'birthday', 'email', 'phone', 'telegram', 'role'].some((k) => payload[k] !== undefined)
     || ['shortName', 'project', 'emergencyPhone', 'emergencyRelation'].some((k) => answers[k] !== undefined);
   if (action === 'register') return out && out.user ? out.user.userId : '';
   if (action === 'createVolunteer') return out && out.person ? out.person.userId : '';
   if (action === 'updateProfile' && touches) return user.userId;
   if (action === 'updatePerson' && touches) return payload.userId;
+  if (action === 'setVolunteerType' || action === 'setRole') return payload.userId; // "(regular)" / "(admin)" in the notes
   return '';
 }
 

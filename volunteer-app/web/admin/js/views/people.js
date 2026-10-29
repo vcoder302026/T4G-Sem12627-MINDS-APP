@@ -4,7 +4,7 @@ import { personName, traineeName } from '../../../js/quickview.js';
 import { audienceBadge, shareChooser } from '../../../js/views/trainees.js';
 import { call } from '../../../js/api.js';
 import {
-  badge, busy, el, filePicker, fuzzyFilter, hvSections, labelled, majorActionPrompt, modal, mount, passwordPrompt, searchBox, toast, traineeAvatar, typeBadges,
+  attachmentList, attachPicker, badge, busy, el, filePicker, fuzzyFilter, hvSections, labelled, majorActionPrompt, modal, mount, passwordPrompt, searchBox, toast, traineeAvatar, typeBadges,
 } from '../../../js/ui.js';
 import {
   backTo, dateRangeText, day, field, formModal, hours, icon, load, pageHead, panel, plural, row, selectField, stat, statGrid, table,
@@ -14,8 +14,7 @@ import {
 /* ---------------- volunteers ---------------- */
 
 const PROFILE = [
-  ['firstName', 'First name', { required: true }],
-  ['lastName', 'Last name'],
+  ['name', 'Full name (as per NRIC)', { required: true }],
   ['email', 'Email', { type: 'email', required: true }],
   ['phone', 'Phone', { type: 'tel', inputmode: 'tel', placeholder: '+65 91234567', hint: '+65 followed by 8 digits.' }],
   ['birthday', 'Birthday', { type: 'date' }],
@@ -26,11 +25,9 @@ const PROFILE = [
 ];
 
 function profileFields(p = {}) {
-  // Older records only have the Full Name: it starts in First name until someone splits it.
-  const v = { ...p, firstName: p.firstName || (p.lastName ? '' : p.name) };
-  const f = ([key, label, attrs]) => field(key, label, { ...attrs, value: v[key] || '' });
-  return [row(f(PROFILE[0]), f(PROFILE[1])), row(f(PROFILE[2]), f(PROFILE[3])), row(f(PROFILE[4]), f(PROFILE[5])),
-    el('p', { class: 'group-label mt-2!' }, 'Emergency contact'), row(f(PROFILE[6]), f(PROFILE[7]))];
+  const f = ([key, label, attrs]) => field(key, label, { ...attrs, value: p[key] || '' });
+  return [row(f(PROFILE[0]), f(PROFILE[1])), row(f(PROFILE[2]), f(PROFILE[3])), f(PROFILE[4]),
+    el('p', { class: 'group-label mt-2!' }, 'Emergency contact'), row(f(PROFILE[5]), f(PROFILE[6]))];
 }
 
 function showTempPassword(name, email, password) {
@@ -82,7 +79,7 @@ export function renderVolunteers(root, app, ctx) {
     const payload = { ...d, createLogin: d.createLogin === 'yes' };
     Object.keys(payload).forEach((k) => { if (payload[k] === '') delete payload[k]; });
     if (payload.role === 'admin') {
-      const ok = await majorActionPrompt({ action: `adding ${[payload.firstName, payload.lastName].filter(Boolean).join(' ') || 'this person'} as an admin`, needsPassword: true });
+      const ok = await majorActionPrompt({ action: `adding ${payload.name || 'this person'} as an admin`, needsPassword: true });
       if (!ok) throw new Error('Not added: admin access needs your confirmation.');
       payload.adminPassword = ok.password;
     }
@@ -97,7 +94,7 @@ export function renderVolunteers(root, app, ctx) {
     if (!people) return;
     let rows = show === 'all' ? people : people.filter((p) => (show === 'inactive' ? p.status === 'inactive' : p.status !== 'inactive'));
     if (type !== 'all') rows = rows.filter((p) => (type === 'admin' ? p.role === 'admin' : p.volunteerType === type));
-    rows = fuzzyFilter(rows, query, (p) => [p.name, p.email, p.phone, p.telegram, p.role === 'admin' ? 'admin' : '', p.volunteerType, p.regularTraineeName]);
+    rows = fuzzyFilter(rows, query, (p) => [p.name, p.fullName, p.email, p.phone, p.telegram, p.role === 'admin' ? 'admin' : '', p.volunteerType, p.regularTraineeName]);
     const statusButton = (p) => {
       const b = el('button', { class: p.status === 'inactive' ? 'btn btn-success btn-sm' : 'btn btn-danger btn-sm' }, p.status === 'inactive' ? 'Reactivate' : 'Deactivate');
       b.addEventListener('click', async () => {
@@ -158,23 +155,23 @@ export function renderVolunteer(root, app, ctx, userId) {
   const host = el('div', {});
   const refresh = () => load(host, ctx, () => call('personDetail', { userId }), draw);
 
+  let lastDetail = null; // the person page's data (e.g. whether Google Contacts sync is on)
   const edit = (p) => formModal(`Edit ${p.name}`, profileFields(p), 'Save changes', async (d) => {
     // Send only what changed, so blank optional fields that were already blank aren't re-checked.
     const changes = {};
-    const before = { ...p, firstName: p.firstName || (p.lastName ? '' : p.name) };
-    PROFILE.forEach(([key]) => { if ((d[key] || '') !== (before[key] || '')) changes[key] = d[key]; });
-    // The server rebuilds the Full Name from both, so they always go together.
-    if (changes.firstName !== undefined || changes.lastName !== undefined) {
-      changes.firstName = d.firstName || '';
-      changes.lastName = d.lastName || '';
-    }
+    PROFILE.forEach(([key]) => { if ((d[key] || '') !== (p[key] || '')) changes[key] = d[key]; });
     if (!Object.keys(changes).length) { toast('No changes to save.'); return; }
+    // Saving also updates their Google contact (when sync is on): confirm first.
+    const sync = Boolean(lastDetail && lastDetail.contact && lastDetail.contact.on);
+    const ok = await majorActionPrompt({ action: sync ? `saving ${p.name}'s details, which also updates their Google contact` : `saving ${p.name}'s details` });
+    if (!ok) return;
     const res = await call('updatePerson', { userId, ...changes });
     toast(res.message);
     refresh();
   }, { wide: true });
 
   const draw = (d) => {
+    lastDetail = d;
     const p = d.person;
     const save = (btn, payload, label) => busy(btn, label, async () => {
       const res = await updatePerson({ userId, ...payload }, p.name);
@@ -192,17 +189,7 @@ export function renderVolunteer(root, app, ctx, userId) {
       });
     });
     const roleBtn = el('button', { class: 'btn btn-secondary btn-sm' }, icon('shield', 'size-4'), p.role === 'admin' ? 'Remove admin access' : 'Make an admin');
-    // Google Contacts (Contacts.gs): shown when CONTACTS_SYNC is on. Saves now, or retries a failed save.
-    const contactBtn = d.contact && d.contact.on
-      ? el('button', { class: 'btn btn-secondary btn-sm' }, icon('userPlus', 'size-4'), d.contact.saved ? 'Update Google contact' : 'Save to Google Contacts')
-      : null;
-    if (contactBtn) {
-      contactBtn.addEventListener('click', () => busy(contactBtn, 'Saving…', async () => {
-        const res = await call('syncContact', { userId });
-        toast(res.message, res.contact && res.contact.saved ? 'ok' : 'warn');
-        refresh();
-      }));
-    }
+    // Google Contacts update by themselves when details are saved (Contacts.gs), so there's no button.
     roleBtn.addEventListener('click', async () => {
       if (p.role === 'admin') {
         const off = await majorActionPrompt({ action: `removing ${p.name}'s admin access`, needsPassword: true });
@@ -270,7 +257,7 @@ export function renderVolunteer(root, app, ctx, userId) {
               { label: 'From', cell: (x) => (x.from ? day(x.from) : ''), class: 'whitespace-nowrap' },
               { label: 'To', cell: (x) => (x.active ? badge('Now', 'emerald') : x.to ? day(x.to) : ''), class: 'whitespace-nowrap' },
             ], d.regularHistory)) : null,
-          panel('Profile and access', null, el('div', { class: 'flex flex-wrap gap-2 p-4' }, typeBtn, roleBtn, resetBtn, statusBtn, contactBtn),
+          panel('Profile and access', null, el('div', { class: 'flex flex-wrap gap-2 p-4' }, typeBtn, roleBtn, resetBtn, statusBtn),
             null))));
   };
   mount(root, host);
@@ -382,7 +369,7 @@ export function renderTrainees(root, app, ctx) {
     if (!data) return;
     let rows = show === 'all' ? data.trainees : data.trainees.filter((t) => (show === 'inactive' ? !t.active : t.active));
     if (show === 'noRegular') rows = data.trainees.filter((t) => t.active && !t.regulars.length);
-    rows = fuzzyFilter(rows, query, (t) => [t.name, t.fields.preferredName, t.id, t.fields.caregiverName, t.regulars.map((r) => r.name).join(' ')]);
+    rows = fuzzyFilter(rows, query, (t) => [t.name, t.fullName, t.fields.preferredName, t.id, t.fields.caregiverName, t.regulars.map((r) => r.name).join(' ')]);
     mount(listHost, table([
       { label: 'Name', cell: (t) => el('span', { class: 'flex items-center gap-3' }, traineeAvatar(t, 'sm'),
         el('span', {}, traineeName(t.name, t.id, 'block font-bold'), t.fields.preferredName && t.fields.preferredName !== t.name ? el('span', { class: 'block text-xs muted' }, `Goes by ${t.fields.preferredName}`) : null)) },
@@ -438,9 +425,11 @@ export function renderTrainee(root, app, ctx, traineeId) {
 
     const audiences = d.noteAudiences || [];
     const newShare = shareChooser({ audiences, volunteers: d.volunteers || [], name: 'new-note' });
+    const noteFiles = attachPicker(); // photos, documents, videos
     const noteForm = el('form', { class: 'space-y-2 border-t border-slate-100 p-4 dark:border-neutral-800' },
       el('textarea', { name: 'note', class: 'input min-h-[60px]', rows: 2, placeholder: 'Add a note about this trainee', 'aria-label': 'New note' }),
-      el('details', {}, el('summary', { class: 'cursor-pointer text-sm font-bold text-indigo-600 dark:text-indigo-400' }, 'Who can read it? (all future volunteers)'),
+      noteFiles.el,
+      el('details', {}, el('summary', { class: 'cursor-pointer text-sm font-bold text-indigo-600 dark:text-indigo-400' }, 'Who can read it? (all volunteers)'),
         el('div', { class: 'mt-2' }, newShare.el)),
       el('button', { type: 'submit', class: 'btn btn-primary btn-sm' }, 'Add note'));
     noteForm.addEventListener('submit', (e) => {
@@ -450,7 +439,7 @@ export function renderTrainee(root, app, ctx, traineeId) {
       const how = newShare.get();
       if (!how) return;
       busy(noteForm.querySelector('button[type=submit]'), 'Adding…', async () => {
-        await call('addTraineeNote', { traineeId: t.id, note, audience: how.audience, userIds: how.userIds });
+        await call('addTraineeNote', { traineeId: t.id, note, audience: how.audience, userIds: how.userIds, files: await noteFiles.files() });
         toast('Note added.');
         refresh();
       });
@@ -489,7 +478,7 @@ export function renderTrainee(root, app, ctx, traineeId) {
       el('div', { class: 'mb-4 flex flex-wrap items-center gap-4' },
         traineeAvatar(t, 'lg'),
         el('div', { class: 'flex flex-wrap gap-2' }, photoBtn, removePhoto)),
-      pageHead(t.name, `${t.id}${t.fields.preferredName && t.fields.preferredName !== t.name ? ` · goes by ${t.fields.preferredName}` : ''}`,
+      pageHead(t.fullName || t.name, `${t.id}${t.fields.preferredName && t.fields.preferredName !== (t.fullName || t.name) ? ` · goes by ${t.fields.preferredName}` : ''}`,
         t.active ? badge('Active', 'emerald') : badge('Inactive', 'slate'),
         el('a', { href: `#/visit-new/${encodeURIComponent(t.id)}`, class: 'btn btn-primary btn-sm' }, icon('plus', 'size-4'), 'New house visit'),
         el('a', { href: `#/visibility/${encodeURIComponent(t.id)}`, class: 'btn btn-secondary btn-sm' }, icon('eye', 'size-4'),
@@ -505,7 +494,7 @@ export function renderTrainee(root, app, ctx, traineeId) {
         panel(`Notes (${d.notes.length})`, null,
           table([
             { label: 'Date', cell: (n) => day(n.date), class: 'whitespace-nowrap' },
-            { label: 'Note', cell: (n) => el('span', {}, el('span', { class: 'block whitespace-pre-line' }, n.note), el('span', { class: 'block text-xs muted' }, `${n.author} · ${n.source}`), el('span', { class: 'mt-1 block' }, audienceBadge(n))) },
+            { label: 'Note', cell: (n) => el('span', {}, el('span', { class: 'block whitespace-pre-line' }, n.note), attachmentList(n.attachments, { noteId: n.noteId }), el('span', { class: 'block text-xs muted' }, `${n.author} · ${n.source}`), el('span', { class: 'mt-1 block' }, audienceBadge(n))) },
             { label: '', cell: (n) => noteShare(n), class: 'text-right' },
           ], d.notes, { empty: 'No notes yet.' }),
           noteForm),
@@ -531,7 +520,7 @@ export function renderTrainee(root, app, ctx, traineeId) {
           { label: 'Dates', cell: (x) => dateRangeText(x.startDate, x.endDate), class: 'whitespace-nowrap' },
           { label: 'Status', cell: (x) => x.status },
         ], d.trips, { empty: 'No trips.', href: (x) => `#/trip/${x.tripId}` }))),
-      el('p', { class: 'mt-4 text-xs muted' }, `${plural(d.notes.filter((n) => n.audience === 'all').length, 'note')} shared with all future volunteers, ${plural(d.notes.filter((n) => n.audience === 'private').length, 'private note')}.`));
+      el('p', { class: 'mt-4 text-xs muted' }, `${plural(d.notes.filter((n) => n.audience === 'all').length, 'note')} shared with all volunteers, ${plural(d.notes.filter((n) => n.audience === 'private').length, 'private note')}.`));
   };
   mount(root, host);
   return refresh();

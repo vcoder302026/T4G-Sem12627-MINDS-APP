@@ -55,7 +55,7 @@ function personCard(userId) {
   const m = modal('Volunteer', body);
   cached(`p:${userId}`, () => call('personDetail', { userId })).then((d) => {
     const p = d.person;
-    m.el.querySelector('h2').textContent = p.name;
+    m.el.querySelector('h2').textContent = p.fullName || p.name; // the full name
     // label: what a screen reader (and the hover tooltip) says, when the text alone isn't enough.
     const link = (href, iconName, text, label) => el('a', {
       href, target: href.startsWith('http') ? '_blank' : null, rel: 'noopener', title: label || null, 'aria-label': label || null,
@@ -77,7 +77,7 @@ function traineeCard(traineeId, isAdmin) {
   const m = modal('Trainee', body);
   cached(`t:${traineeId}`, () => call('traineeInfo', { traineeId })).then((d) => {
     const t = d.trainee;
-    m.el.querySelector('h2').textContent = t.name; // the full name
+    m.el.querySelector('h2').textContent = t.fullName || t.name; // the full name
     mount(body, el('div', { class: 'space-y-3' },
       el('div', { class: 'flex items-center gap-3' },
         traineeAvatar(t, 'lg'),
