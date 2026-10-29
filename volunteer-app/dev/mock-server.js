@@ -136,7 +136,7 @@ export function createDemoRuntime({ secret } = {}) {
   }, vera.token);
   rt.call('submitFeedback', { bookingId: samB, rating: 5, traineeObservation: 'Points to picture cards to choose colours. Give two choices at a time.' }, sam.token);
   const queue = call('reviewQueue', {}).items;
-  call('reviewObservation', { feedbackId: queue.find((q) => q.volunteerName === 'Sam Siva').feedbackId, audience: 'all' });
+  call('reviewObservation', { feedbackId: queue.find((q) => (q.volunteerFullName || q.volunteerName) === 'Sam Siva').feedbackId, audience: 'all' });
   call('addTraineeNote', { traineeId: 'T-0001', note: 'Uses a picture schedule. Show the next activity card before changing activity.' });
   // Notes shared in the other ways: regulars only, chosen volunteers, and private (admins only).
   call('addTraineeNote', { traineeId: 'T-0004', note: 'Caregiver prefers a call after 6 pm, not a text.', audience: 'regular' });
@@ -206,8 +206,6 @@ function contactsPage(rt) {
   const groups = Object.fromEntries([...rt.contacts.groups.values()].map((g) => [g.resourceName, g.name]));
   const rows = [...rt.contacts.people.values()].map((c) => `<tr>
     <td>${escapeHtml((c.names[0] || {}).givenName || (c.names[0] || {}).unstructuredName || '')}</td>
-    <td>${escapeHtml((c.names[0] || {}).familyName || '')}</td>
-    <td>${escapeHtml(((c.nicknames || [])[0] || {}).value || '')}</td>
     <td>${escapeHtml((() => { const d = ((c.birthdays || [])[0] || {}).date; return d ? `${d.year}-${String(d.month).padStart(2, '0')}-${String(d.day).padStart(2, '0')}` : ''; })())}</td>
     <td>${escapeHtml(c.emailAddresses.map((x) => x.value).join(', '))}</td>
     <td>${escapeHtml(c.phoneNumbers.map((x) => x.value).join(', '))}</td>
@@ -219,7 +217,7 @@ function contactsPage(rt) {
 <h1>Google Contacts (local stand-in)</h1>
 <p>What the app would save in the Google account it runs as. Register a volunteer, or add one as an admin, then refresh this page.
 In Exp and production these go to the real Google Contacts instead.</p>
-<table><tr><th>First name</th><th>Last name</th><th>Nickname</th><th>Birthday</th><th>Email</th><th>Phone</th><th>Notes</th><th>Label</th><th>ID</th></tr>${rows || '<tr><td colspan="9">No contacts yet.</td></tr>'}</table>`;
+<table><tr><th>First name</th><th>Birthday</th><th>Email</th><th>Phone</th><th>Notes</th><th>Label</th><th>ID</th></tr>${rows || '<tr><td colspan="7">No contacts yet.</td></tr>'}</table>`;
 }
 
 function sheetPage(rt) {

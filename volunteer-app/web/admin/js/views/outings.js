@@ -108,7 +108,7 @@ export function renderOuting(root, app, ctx, outingId) {
 
   const drawList = () => {
     let rows = groupFilter ? data.assignments.filter((a) => `${a.group}|${a.bus}` === groupFilter) : data.assignments;
-    rows = fuzzyFilter(rows, query, (a) => [a.traineeName, a.volunteerName, a.group, a.bus]);
+    rows = fuzzyFilter(rows, query, (a) => [a.traineeName, a.traineeFullName, a.volunteerName, a.volunteerFullName, a.group, a.bus]);
     mount(listHost, table([
       { label: 'Boarded', cell: boardBox, class: 'w-20' },
       { label: 'Trainee', cell: (a) => el('a', { href: `#/trainee/${encodeURIComponent(a.traineeId)}`, class: 'link' }, traineeName(a.traineeName, a.traineeId)) },

@@ -36,7 +36,7 @@ const extra = FIRST.map((first, i) => {
   const email = `${first.toLowerCase().replace(/\s+/g, '')}.${LAST[i].toLowerCase()}@example.com`;
   const phone = `+65 9${String(1000000 + i * 37731).slice(-7)}`;
   const v = call('register', {
-    firstName: first, lastName: LAST[i], email, password: 'VolunteerDemo123', birthday: `${1998 + (i % 8)}-0${1 + (i % 9)}-1${i % 10}`, phone,
+    name, email, password: 'VolunteerDemo123', birthday: `${1998 + (i % 8)}-0${1 + (i % 9)}-1${i % 10}`, phone,
     telegram: i % 3 ? `${first.toLowerCase().replace(/\s+/g, '_')}_${LAST[i].toLowerCase()}` : '', consent: true,
     answers: {
       shortName: first, nric4: `${100 + i * 7}${String.fromCharCode(65 + (i % 26))}`, address: `Blk ${200 + i} Woodlands Ave ${1 + (i % 9)}, #0${1 + (i % 9)}-${10 + i}`,

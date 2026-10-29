@@ -191,6 +191,7 @@ function submitFeedback_(p, user) {
   // A note about each trainee they were with. Older app versions send one traineeObservation (the first trainee).
   const trainees = bookingTrainees_(booking);
   const notes = {};
+  const files = {};
   if (p.observations !== undefined) {
     if (!Array.isArray(p.observations) || p.observations.length > 20) throw err_.validation('Observations must be a list.');
     p.observations.forEach((o) => {
@@ -198,6 +199,7 @@ function submitFeedback_(p, user) {
       const id = str_(x.traineeId, 'Trainee', { required: true, max: 40 });
       if (!trainees.some((t) => t.id === id)) throw err_.validation('You can only write about trainees you were paired with.');
       notes[id] = str_(x.note, 'Trainee observation', { max: LIMITS.NOTES });
+      files[id] = saveNoteFiles_(x.files); // photos, documents, videos about this trainee (NoteFiles.gs)
     });
   }
   const legacy = str_(p.traineeObservation, 'Trainee observation', { max: LIMITS.NOTES });
@@ -220,6 +222,7 @@ function submitFeedback_(p, user) {
     traineeObservation: t ? notes[t.id] : (trainees.length ? '' : legacy),
     noteStatus: t ? (shareNow ? 'shared' : 'pending') : 'none',
     submittedAt: fmtDateTime_(now_()),
+    attachments: t ? files[t.id] || '' : '',
   });
   // One row per trainee with a note (the first also holds the rating and session feedback), each reviewed on its own.
   const rows = withNotes.length ? withNotes.map((t, i) => row(t, i === 0)) : [row(null, true)];
@@ -227,7 +230,7 @@ function submitFeedback_(p, user) {
     rows.forEach((fb, i) => {
       const t = withNotes[i];
       const trainee = t ? traineeById_(t.id) : null;
-      if (trainee) addNote_(trainee, notes[t.id], user.name, 'Volunteer feedback', 'automatic', fb.feedbackId, att.date);
+      if (trainee) addNote_(trainee, notes[t.id], user.name, 'Volunteer feedback', 'automatic', fb.feedbackId, att.date, null, files[t.id] || '');
     });
   }
   return {

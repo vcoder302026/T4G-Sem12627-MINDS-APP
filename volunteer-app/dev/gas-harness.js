@@ -248,6 +248,7 @@ function createFakeDrive() {
     const f = {
       id, name: blob.getName(), mime: blob.getContentType(), bytes: blob.getBytes(), parent, sharing: 'PRIVATE', blockSharing: false,
       getId: () => id, getName: () => f.name, getMimeType: () => f.mime, getSize: () => f.bytes.length,
+      getBlob: () => ({ getBytes: () => f.bytes, getContentType: () => f.mime, getName: () => f.name }),
       setSharing: (access) => { if (f.blockSharing) throw new Error('Sharing blocked by policy'); f.sharing = access; return f; },
     };
     files.set(id, f);
@@ -395,6 +396,9 @@ export function createGasRuntime() {
     Utilities: {
       computeHmacSha256Signature(value, key) {
         return toSigned(crypto.createHmac('sha256', toBuffer(key)).update(toBuffer(value)).digest());
+      },
+      base64Encode(bytes) {
+        return toBuffer(bytes).toString('base64');
       },
       base64EncodeWebSafe(bytes) {
         return toBuffer(bytes).toString('base64').replace(/\+/g, '-').replace(/\//g, '_');

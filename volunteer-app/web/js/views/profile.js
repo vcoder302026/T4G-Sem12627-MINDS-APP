@@ -3,14 +3,14 @@
 
 import { call } from '../api.js';
 import {
-  backLink, badge, busy, el, errorBlock, field, fmtDay, fmtHours, formData, icon, initials, isEmail, loading, mount, PHONE_HINT, section, sgPhone, toast, todaySG,
+  backLink, badge, busy, el, errorBlock, field, fmtDay, fmtHours, formData, icon, initials, isEmail, loading, majorActionPrompt, mount, PHONE_HINT, section, sgPhone, toast, todaySG,
 } from '../ui.js';
 import { answerText, questionSections, readAnswers, wireConditions } from './questions.js';
 
-const FIELDS = ['firstName', 'lastName', 'birthday', 'email', 'phone', 'telegram']; // no emergency contact: MINDS only needs Telegram
+const FIELDS = ['name', 'birthday', 'email', 'phone', 'telegram']; // no emergency contact: MINDS only needs Telegram
 
 const REQUIRED = {
-  firstName: 'Enter a first name.',
+  name: 'Enter a full name.',
   birthday: 'Enter a birthday.',
   email: 'Enter an email.',
   phone: 'Enter a phone number.',
@@ -30,9 +30,7 @@ function detailsForm(person, { self, submit, extra, questions }) {
   const form = el('form', { novalidate: true, class: 'space-y-6' },
     error,
     section(self ? 'About you' : 'Details', 'blue',
-      // Older records only have the Full Name: it starts in First Name until someone splits it.
-      field('firstName', 'First Name', { autocomplete: self ? 'given-name' : 'off', value: person.firstName || (person.lastName ? '' : person.name) }),
-      field('lastName', 'Last Name', { autocomplete: self ? 'family-name' : 'off', value: person.lastName || '' }),
+      field('name', 'Full Name (as per NRIC)', { autocomplete: self ? 'name' : 'off', value: person.name }),
       field('birthday', 'Date of Birth', { type: 'date', max: todaySG(), value: person.birthday }),
       field('email', 'Sign-in email', {
         type: 'email', inputmode: 'email', autocomplete: self ? 'email' : 'off', value: person.email,
@@ -66,15 +64,9 @@ function detailsForm(person, { self, submit, extra, questions }) {
     if (!isEmail(d.email)) throw new Error('Check the email address: it should look like name@example.com.');
     if (!sgPhone(d.phone)) throw new Error(`Phone: ${PHONE_HINT}`);
     const out = {};
-    const before = { ...person, firstName: person.firstName || (person.lastName ? '' : person.name) };
     FIELDS.forEach((k) => {
-      if (normal(k, d[k]) !== normal(k, before[k])) out[k] = d[k] || '';
+      if (normal(k, d[k]) !== normal(k, person[k])) out[k] = d[k] || '';
     });
-    // The server rebuilds the Full Name from both, so they always go together.
-    if (out.firstName !== undefined || out.lastName !== undefined) {
-      out.firstName = d.firstName || '';
-      out.lastName = d.lastName || '';
-    }
     if (questions) {
       const read = readAnswers(form, questions.fields);
       if (read.problem) throw new Error(read.problem);
@@ -100,13 +92,14 @@ function detailsForm(person, { self, submit, extra, questions }) {
 
 export function renderEditMe(root, app, ctx) {
   let questions = null;
+  let contactsSync = false;
   const draw = (person) => {
     const save = el('button', { type: 'submit', class: 'btn btn-primary flex-1' }, 'Save changes');
     const bar = el('div', { class: 'action-bar' }, el('div', { class: 'mx-auto flex max-w-2xl gap-3' },
       el('a', { href: '#/me', class: 'btn btn-secondary' }, 'Cancel'), save));
     const { form, changes, showError } = detailsForm(person, { self: true, submit: bar, questions });
     if (questions) wireConditions(form, questions.fields); // e.g. the RSPID-only questions
-    form.addEventListener('submit', (e) => {
+    form.addEventListener('submit', async (e) => {
       e.preventDefault();
       showError('');
       let payload;
@@ -120,6 +113,9 @@ export function renderEditMe(root, app, ctx) {
         toast('Nothing has changed.', 'warn');
         return;
       }
+      // Saving also updates the Google contact (when sync is on): confirm first.
+      const ok = await majorActionPrompt({ action: contactsSync ? 'saving your details, which also updates your Google contact' : 'saving your details' });
+      if (!ok) return;
       busy(save, 'Saving…', async () => {
         try {
           const res = await call('updateProfile', payload);
@@ -142,6 +138,7 @@ export function renderEditMe(root, app, ctx) {
   return Promise.all([call('me'), call('registrationForm').catch(() => null)]).then(([res, q]) => {
     if (!ctx.alive()) return;
     questions = q;
+    contactsSync = Boolean(res.contactsSync);
     app.updateUser(res.user);
     draw(res.user);
   }).catch((err) => {

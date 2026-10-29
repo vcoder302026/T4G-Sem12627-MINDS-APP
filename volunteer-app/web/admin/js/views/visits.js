@@ -35,7 +35,7 @@ export function renderVisits(root, app, ctx) {
   const words = (v) => (v.sections || []).flatMap((s) => s.fields.map((f) => f.value)).concat(OLD_AREAS.map(([k]) => v[k] || ''));
   const drawList = () => {
     let rows = traineeFilter ? data.visits.filter((v) => v.traineeId === traineeFilter) : data.visits;
-    rows = fuzzyFilter(rows, query, (v) => [v.traineeName, v.volunteerName, v.createdBy].concat(words(v)));
+    rows = fuzzyFilter(rows, query, (v) => [v.traineeName, v.traineeFullName, v.volunteerName, v.volunteerFullName, v.createdBy].concat(words(v)));
     mount(listHost, rows.length ? rows.map(visitCard)
       : el('p', { class: 'py-8 text-center text-sm muted' }, data.visits.length ? 'No visits match.' : 'No house visits yet.'));
   };

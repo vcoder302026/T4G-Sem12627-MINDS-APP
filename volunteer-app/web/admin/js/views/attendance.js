@@ -73,7 +73,7 @@ export function renderAttendance(root, app, ctx) {
   const drawList = () => {
     if (!data) return;
     let rows = sessionFilter ? data.records.filter((r) => r.sessionId === sessionFilter) : data.records;
-    rows = fuzzyFilter(rows, query, (r) => [r.volunteerName, r.sessionTitle, r.venue]);
+    rows = fuzzyFilter(rows, query, (r) => [r.volunteerName, r.volunteerFullName, r.sessionTitle, r.venue]);
     mount(listHost, table([
       { label: 'Date', cell: (r) => day(r.date), class: 'whitespace-nowrap' },
       { label: 'Session', cell: (r) => el('span', {}, el('span', { class: 'block font-bold' }, r.sessionTitle), el('span', { class: 'block text-xs muted' }, r.venue)) },
@@ -132,7 +132,7 @@ export function renderHours(root, app, ctx) {
 
   const drawList = () => {
     if (!data) return;
-    const rows = fuzzyFilter(data.volunteers, query, (v) => [v.name, v.email, v.phone]);
+    const rows = fuzzyFilter(data.volunteers, query, (v) => [v.name, v.fullName, v.email, v.phone]);
     mount(listHost, table([
       { label: 'Volunteer', cell: (v) => el('span', {}, personName(v.name, v.userId, 'block font-bold'), el('span', { class: 'block text-xs muted' }, v.email)) },
       { label: 'Sessions', cell: (v) => String(v.sessions), class: 'text-right' },

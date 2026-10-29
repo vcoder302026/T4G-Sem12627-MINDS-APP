@@ -10,11 +10,9 @@
  * that changed and stamps "Details Updated By / At" on the person's row.
  */
 
-const PROFILE_FIELDS = ['name', 'firstName', 'lastName', 'birthday', 'email', 'phone', 'telegram', 'emergencyName', 'emergencyPhone', 'emergencyRelation'];
+const PROFILE_FIELDS = ['name', 'birthday', 'email', 'phone', 'telegram', 'emergencyName', 'emergencyPhone', 'emergencyRelation'];
 
 const PROFILE_LABELS = {
-  firstName: 'first name',
-  lastName: 'last name',
   name: 'name',
   birthday: 'birthday',
   email: 'email',
@@ -28,26 +26,10 @@ const PROFILE_LABELS = {
 };
 
 /** Validates whichever profile fields were sent (same rules as registration). */
-/**
- * First Name and Last Name (asked separately), and the Full Name the app shows, joined in
- * CONFIG.FULL_NAME_ORDER. Older versions of the app send one "name": that's still accepted.
- */
-function nameFields_(p, opts) {
-  const required = !opts || opts.required !== false;
-  if (p.firstName !== undefined || p.lastName !== undefined) {
-    const firstName = str_(p.firstName, 'First name', { required: true, max: LIMITS.SHORT });
-    const lastName = str_(p.lastName, 'Last name', { max: LIMITS.SHORT });
-    const parts = CONFIG.FULL_NAME_ORDER === 'last-first' ? [lastName, firstName] : [firstName, lastName];
-    return { firstName, lastName, name: parts.filter(Boolean).join(' ') };
-  }
-  if (p.name !== undefined || required) return { name: str_(p.name, 'Full name', { required, max: LIMITS.SHORT }) };
-  return {};
-}
-
 function profilePatch_(p) {
   const has = (k) => Object.prototype.hasOwnProperty.call(p, k);
   const patch = {};
-  if (has('firstName') || has('lastName') || has('name')) Object.assign(patch, nameFields_(p));
+  if (has('name')) patch.name = str_(p.name, 'Full name', { required: true, max: LIMITS.SHORT });
   if (has('birthday')) {
     patch.birthday = date_(p.birthday, 'Birthday');
     if (patch.birthday > todayStr_()) throw err_.validation('Birthday cannot be in the future.');

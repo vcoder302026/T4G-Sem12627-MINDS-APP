@@ -38,6 +38,7 @@ const ICONS = {
   scan: '<path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2M7 12h10"/>',
   users: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>',
   plus: '<path d="M5 12h14M12 5v14"/>',
+  download: '<path d="M12 3v12m0 0-4-4m4 4 4-4M5 21h14"/>',
   back: '<path d="m15 18-6-6 6-6"/>',
   chevron: '<path d="m9 18 6-6-6-6"/>',
   down: '<path d="m6 9 6 6 6-6"/>',
@@ -752,3 +753,140 @@ export function filePicker({ accept, hint }) {
     driveUrl: () => driveBox.querySelector('input').value.trim(),
   };
 }
+
+/* ---------------- files attached to notes (Version 4) ---------------- */
+
+const NOTE_FILE_LIMITS = { maxFiles: 3, maxMb: 10 }; // the same as CONFIG.NOTE_FILES on the server
+const NOTE_FILE_ACCEPT = 'image/*,video/*,audio/*,application/pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt';
+
+const fileSize = (bytes) => (bytes > 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`);
+const readAsDataUrl = (blob) => new Promise((resolve, reject) => {
+  const r = new FileReader();
+  r.onload = () => resolve(String(r.result));
+  r.onerror = () => reject(new Error('A file could not be read. Choose it again.'));
+  r.readAsDataURL(blob);
+});
+
+/**
+ * Makes a photo smaller before upload: the longest side becomes at most 1600 px, saved as
+ * JPEG. Keeps the original when that wouldn't help (small photos, GIFs, or a format the
+ * browser can't open, like HEIC on most non-Apple browsers).
+ */
+export async function shrinkPhoto(file) {
+  if (!file.type.startsWith('image/') || file.type === 'image/gif' || file.size < 300 * 1024) return file;
+  try {
+    const img = await new Promise((resolve, reject) => {
+      const i = new Image();
+      i.onload = () => resolve(i);
+      i.onerror = reject;
+      i.src = URL.createObjectURL(file);
+    });
+    const scale = Math.min(1, 1600 / Math.max(img.naturalWidth, img.naturalHeight));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(img.naturalWidth * scale);
+    canvas.height = Math.round(img.naturalHeight * scale);
+    canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+    URL.revokeObjectURL(img.src);
+    const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.82));
+    if (!blob || blob.size >= file.size) return file;
+    return new File([blob], file.name.replace(/\.[^.]+$/, '') + '.jpg', { type: 'image/jpeg' });
+  } catch (e) {
+    return file;
+  }
+}
+
+/**
+ * "Attach files" for notes and updates, like the guide's file picker: Import from device
+ * (choose or drag; each file previewed with Remove) or Import from Google Drive (a link).
+ * files() resolves to what the server expects: [{ fileName, mimeType, data }] and/or [{ driveUrl }].
+ */
+export function attachPicker() {
+  const chosen = [];
+  const source = el('select', { class: 'input', 'aria-label': 'Where are the files?' },
+    el('option', { value: 'device' }, 'Import from device'),
+    el('option', { value: 'drive' }, 'Import from Google Drive'));
+  const input = el('input', { type: 'file', multiple: true, accept: NOTE_FILE_ACCEPT, class: 'sr-only', 'aria-label': 'Choose files' });
+  const arrow = el('span', { class: 'fp-icon', 'aria-hidden': 'true' });
+  arrow.innerHTML = '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M24 6v24M14 21l10 10 10-10M6 30v10h36V30"/></svg>';
+  const prompt = el('span', { class: 'fp-text' }, el('strong', {}, 'Choose files'), ' or drag them here.');
+  const drop = el('label', { class: 'fp-drop fp-drop-sm' }, input, arrow, prompt);
+  const list = el('div', { class: 'space-y-2' });
+  const problem = el('p', { class: 'text-sm font-semibold text-red-600', role: 'alert', hidden: true });
+  const draw = () => {
+    problem.hidden = true;
+    mount(list, chosen.map((f, i) => {
+      const url = URL.createObjectURL(f);
+      const remove = el('button', { type: 'button', class: 'fp-remove', 'aria-label': `Remove ${f.name}` }, icon('trash', 'size-4'), 'Remove');
+      remove.addEventListener('click', () => { chosen.splice(i, 1); draw(); });
+      return el('div', { class: 'fp-preview fp-row' },
+        f.type.startsWith('image/') ? el('img', { src: url, alt: '', class: 'fp-thumb' })
+          : f.type.startsWith('video/') ? el('video', { src: url, class: 'fp-thumb', muted: true, playsinline: true })
+            : el('span', { class: 'fp-thumb fp-doc', 'aria-hidden': 'true' }, '📄'),
+        el('p', { class: 'fp-name' }, `${f.name} · ${fileSize(f.size)}`),
+        remove);
+    }));
+    drop.hidden = chosen.length >= NOTE_FILE_LIMITS.maxFiles;
+  };
+  const add = async (files) => {
+    for (const f of [...files]) {
+      if (chosen.length >= NOTE_FILE_LIMITS.maxFiles) break;
+      chosen.push(await shrinkPhoto(f)); // photos are made smaller straight away, so the sizes shown are what's uploaded
+    }
+    input.value = '';
+    draw();
+  };
+  input.addEventListener('change', () => add(input.files || []));
+  ['dragenter', 'dragover'].forEach((t) => drop.addEventListener(t, (e) => { e.preventDefault(); drop.classList.add('fp-over'); }));
+  ['dragleave', 'drop'].forEach((t) => drop.addEventListener(t, () => drop.classList.remove('fp-over')));
+  drop.addEventListener('drop', (e) => { e.preventDefault(); if (e.dataTransfer) add(e.dataTransfer.files); });
+  const hint = el('p', { class: 'hint' }, `Photos, videos or documents: up to ${NOTE_FILE_LIMITS.maxFiles} files, ${NOTE_FILE_LIMITS.maxMb} MB in total. Photos are made smaller automatically; for a long video, use Import from Google Drive.`);
+  const deviceBox = el('div', { class: 'space-y-2' }, drop, list);
+  const driveInput = el('input', { class: 'input', type: 'url', placeholder: 'https://drive.google.com/file/d/…/view', 'aria-label': 'Google Drive link' });
+  const driveBox = el('div', { hidden: true, class: 'space-y-1' }, driveInput, el('p', { class: 'hint' }, 'Right-click → Share → Copy link.'));
+  source.addEventListener('change', () => { deviceBox.hidden = source.value !== 'device'; driveBox.hidden = source.value !== 'drive'; });
+  const wrap = el('details', { class: 'attach' },
+    el('summary', { class: 'attach-summary' }, icon('plus', 'size-4'), 'Attach files (optional)'),
+    el('div', { class: 'mt-3 space-y-3' }, source, deviceBox, driveBox, hint, problem));
+  return {
+    el: wrap,
+    /** Throws (with a message to show) if the files are too big together. */
+    async files() {
+      const out = [];
+      const total = chosen.reduce((n, f) => n + f.size, 0);
+      if (total > NOTE_FILE_LIMITS.maxMb * 1024 * 1024) {
+        throw new Error(`The files are ${fileSize(total)} together: keep them under ${NOTE_FILE_LIMITS.maxMb} MB, or use Import from Google Drive for a long video.`);
+      }
+      for (const f of chosen) out.push({ fileName: f.name, mimeType: f.type || 'application/octet-stream', data: await readAsDataUrl(f) });
+      const link = driveInput.value.trim();
+      if (link) out.push({ driveUrl: link });
+      return out.length ? out : undefined;
+    },
+    clear() { chosen.length = 0; driveInput.value = ''; draw(); wrap.open = false; },
+  };
+}
+
+/** A note's attached files as chips; tapping one opens it (ref: { noteId } or { feedbackId }). */
+export function attachmentList(attachments, ref) {
+  if (!attachments || !attachments.length) return null;
+  return el('div', { class: 'mt-2 flex flex-wrap gap-2' }, attachments.map((a) => {
+    const chip = el('button', { type: 'button', class: 'attach-chip', title: `Open ${a.name}` },
+      el('span', { 'aria-hidden': 'true' }, a.type.startsWith('image/') ? '🖼️' : a.type.startsWith('video/') ? '🎬' : a.type.startsWith('audio/') ? '🎵' : '📎'),
+      el('span', { class: 'truncate' }, a.name));
+    chip.addEventListener('click', () => busy(chip, 'Opening…', async () => {
+      const { call } = await import('./api.js');
+      const f = await call('noteFile', { ...ref, fileId: a.id });
+      const bytes = Uint8Array.from(atob(f.data), (ch) => ch.charCodeAt(0));
+      const url = URL.createObjectURL(new Blob([bytes], { type: f.mimeType }));
+      const t = f.mimeType || '';
+      const view = t.startsWith('image/') ? el('img', { src: url, alt: f.name, class: 'max-h-[70vh] w-full rounded-xl object-contain' })
+        : t.startsWith('video/') ? el('video', { src: url, controls: true, playsinline: true, class: 'max-h-[70vh] w-full rounded-xl' })
+          : t.startsWith('audio/') ? el('audio', { src: url, controls: true, class: 'w-full' })
+            : t === 'application/pdf' ? el('iframe', { src: url, title: f.name, class: 'h-[70vh] w-full rounded-xl border' })
+              : el('p', { class: 'text-sm' }, 'This kind of file opens in another app.');
+      modal(f.name, el('div', { class: 'space-y-3' }, view,
+        el('a', { href: url, download: f.name, class: 'btn btn-secondary w-full' }, icon('download', 'size-4'), 'Download')));
+    }));
+    return chip;
+  }));
+}
+

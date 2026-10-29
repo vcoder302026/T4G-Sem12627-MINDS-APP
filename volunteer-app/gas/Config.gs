@@ -30,6 +30,7 @@ const CONFIG = {
   PROP_VISITS_SPREADSHEET_ID: 'VISITS_SPREADSHEET_ID', // optional: house visit records in their own sheet (else the volunteer sheet)
   PROP_SECRET: 'APP_SECRET',
   PROP_FIRST_ADMIN_EMAIL: 'FIRST_ADMIN_EMAIL',
+  PROP_NOTE_FOLDER_ID: 'NOTE_FOLDER_ID', // automatic: the private Drive folder for files attached to notes
   PROP_GUIDE_FOLDER_ID: 'GUIDE_FOLDER_ID', // automatic: the Drive folder for guide infographics (created on first upload)
   PROP_PHOTO_FOLDER_ID: 'PHOTO_FOLDER_ID', // automatic: the Drive folder for trainee photos (created on first upload)
   // Google Contacts (Contacts.gs): set CONTACTS_SYNC to "on" to save new and edited
@@ -90,9 +91,19 @@ const CONFIG = {
   },
   // Projects renamed to match the registration form (WGS = Woodlands Gardens School).
   // setup() renames them on the Projects tab and in sessions; old names keep working.
-  // How the Full Name the app shows is built from First Name and Last Name:
-  // 'first-last' ("Xin Yi Ng", "Rex Regular") or 'last-first' ("Ng Xin Yi", as on an NRIC).
-  FULL_NAME_ORDER: 'first-last',
+  // Files attached to notes and updates (photos, documents, videos). Photos are made smaller in
+  // the browser before upload; everything is kept in a private Drive folder and only shown, through
+  // the app, to people who may read the note.
+  NOTE_FILES: {
+    maxFiles: 3,
+    maxMb: 10, // all of a note's files together
+    folderName: 'MINDS Volunteer App – Note Files',
+    types: ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/heic', 'image/heif', 'application/pdf',
+      'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/vnd.ms-powerpoint', 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      'text/plain', 'video/mp4', 'video/quicktime', 'video/webm', 'video/3gpp', 'audio/mpeg', 'audio/mp4', 'audio/x-m4a'],
+  },
   PROJECT_RENAMES: {
     'West End (WE)': 'West End',
     'Regular Service Project for the Intellectually Disabled (RSPID)': 'RSPID (WGS)',
@@ -107,8 +118,6 @@ const CONFIG = {
       columns: {
         userId: 'User ID',
         name: 'Full Name',
-        firstName: 'First Name',  // asked separately at registration (and saved as such to Google Contacts)
-        lastName: 'Last Name',
         birthday: 'Birthday',
         email: 'Email',
         phone: 'Phone',
@@ -217,6 +226,7 @@ const CONFIG = {
         noteStatus: 'Note Status', // pending (waiting for a leader) | shared | private | none
         reviewedBy: 'Reviewed By',
         submittedAt: 'Submitted At',
+        attachments: 'Attachments', // files attached to the update (NoteFiles.gs)
       },
       numeric: ['rating'],
     },
@@ -237,6 +247,7 @@ const CONFIG = {
         sharedWithNames: 'Shared With (Names)', // the same people by name, for reading the sheet
         addedBy: 'Added By',
         addedAt: 'Added At',
+        attachments: 'Attachments', // files attached to the note (NoteFiles.gs), as a list of Drive file IDs and names
       },
     },
     venues: {
@@ -591,7 +602,7 @@ const CONFIG = {
    note (Trainees → Notes to review) or add or change a note on a trainee's page.
    "private" notes are kept for admins, never deleted. */
 const NOTE_AUDIENCES = {
-  all: { label: 'Share with all future volunteers', hint: 'Everyone paired with this trainee, and every regular.', done: 'shared with all future volunteers' },
+  all: { label: 'Share with all volunteers', hint: 'Everyone paired with this trainee, and every regular.', done: 'shared with all volunteers' },
   regular: { label: 'Share with regular volunteers only', hint: 'Regulars can read it; volunteers can\'t.', done: 'shared with regular volunteers only' },
   selected: { label: 'Share with selected volunteers', hint: 'Only the volunteers you pick (they see it when they open this trainee).', done: 'shared with the volunteers you picked' },
   private: { label: 'Keep private (admins only)', hint: 'Kept on the trainee\'s profile for admins. Volunteers never see it.', done: 'private: only admins can read it' },

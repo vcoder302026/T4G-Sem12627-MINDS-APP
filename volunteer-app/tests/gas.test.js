@@ -929,7 +929,7 @@ describe('Google Contacts sync', () => {
     const res = ok(rt.call('register', volunteerPayload({ name: 'Nora Tan', email: 'nora@example.com', phone: '9123 4567', telegram: '@nora_tan' })));
     assert.equal(res.contact.status, 'saved');
     const [c] = contacts();
-    assert.equal(c.names[0].givenName, 'Nora Tan', 'an older-style single name goes in First name');
+    assert.equal(c.names[0].givenName, 'Nora Tan_[Nora Tan]', 'no short name or project: the full name stands in for the short name');
     assert.equal(c.emailAddresses[0].value, 'nora@example.com');
     assert.equal(c.phoneNumbers[0].value, '91234567', 'the 8-digit number');
     assert.match(c.biographies[0].value, /^Telegram: @nora_tan\nEmergency contact: \+65 81234567 \(Mother\)\nMINDS volunteer/);
@@ -1065,28 +1065,19 @@ describe('Version 3: registration checks, deactivation, project names', () => {
     assert.ok(!/Renamed project/.test(rt.run('setup')), 'nothing to do the second time');
   });
 
-  test('Google Contacts: first and last name, nickname, birthday, 8-digit phone; project and emergency contact in the notes', () => {
+  test('Google Contacts: first name "Short Name_[Full Name]_Project", birthday, 8-digit phone; project and emergency contact in the notes', () => {
     rt.props.set('CONTACTS_SYNC', 'on');
-    const payload = volunteerPayload({ email: 'meiling@example.com', phone: '+65 9123 4567', birthday: '2003-04-05', answers: formAnswers() });
-    delete payload.name;
-    const res = ok(rt.call('register', { ...payload, firstName: 'Mei Ling', lastName: 'Tan' }));
-    assert.equal(res.user.name, 'Mei Ling Tan', 'the Full Name, first then last (CONFIG.FULL_NAME_ORDER)');
-    assert.equal(res.user.firstName, 'Mei Ling');
-    assert.equal(res.user.lastName, 'Tan');
+    const res = ok(rt.call('register', volunteerPayload({ name: 'Tan Mei Ling', email: 'meiling@example.com', phone: '+65 9123 4567', birthday: '2003-04-05', answers: formAnswers() })));
     const c = [...rt.contacts.people.values()][0];
-    assert.deepEqual(c.names[0], { givenName: 'Mei Ling', familyName: 'Tan' });
-    assert.equal(c.nicknames[0].value, 'Mei', 'the short name');
+    assert.deepEqual(c.names[0], { givenName: 'Mei_[Tan Mei Ling]_RSPID (WGS)' }, 'first name only');
     assert.deepEqual(c.birthdays[0].date, { year: 2003, month: 4, day: 5 });
     assert.equal(c.phoneNumbers[0].value, '91234567');
     assert.match(c.biographies[0].value, /Project: RSPID \(WGS\)\nEmergency contact: \+65 98765432 \(Father\)/);
     assert.match(c.biographies[0].value, /MINDS volunteer\.$/, 'ends with "MINDS volunteer."');
-    assert.ok(!/Saved by/.test(c.biographies[0].value));
     assert.ok(!c.biographies[0].value.includes('123A') && !c.biographies[0].value.includes('Woodlands Ave'), 'no NRIC or address in contacts');
-    // Editing the names updates the Full Name and the contact.
-    const token = res.token;
-    ok(rt.call('updateProfile', { firstName: 'Meiling', lastName: 'Tan' }, token));
-    assert.equal(rt.records(SHEET, 'Volunteers').find((r) => r.Email === 'meiling@example.com')['Full Name'], 'Meiling Tan');
-    assert.equal([...rt.contacts.people.values()][0].names[0].givenName, 'Meiling');
+    // Editing the full name updates the contact.
+    ok(rt.call('updateProfile', { name: 'Tan Mei-Ling' }, res.token));
+    assert.equal([...rt.contacts.people.values()][0].names[0].givenName, 'Mei_[Tan Mei-Ling]_RSPID (WGS)');
   });
 });
 
@@ -1163,5 +1154,97 @@ describe('Settings → Google Sheets (link the databases from the app)', () => {
     assert.equal(back.sources[2].linked.sharesVolunteerSheet, true);
     const log = rt.records(SHEET, 'Admin Activity Log').map((r) => r.Action).join(' | ');
     assert.match(log, /Created and linked a Google Sheet.*Unlinked a Google Sheet|Unlinked a Google Sheet/);
+  });
+});
+
+describe('Version 4: short names in the app', () => {
+  let rt, admin;
+  beforeEach(() => {
+    rt = createGasRuntime();
+    rt.createSpreadsheet(SHEET, 'Main');
+    rt.props.set('SPREADSHEET_ID', SHEET);
+    rt.fillTab(SHEET, 'Trainees', [['Trainee ID', 'Name'], ['T-0001', 'Alpha One']]);
+    rt.run('setup');
+    rt.props.set('FIRST_ADMIN_EMAIL', 'boss@example.com');
+    ok(rt.call('register', volunteerPayload({ name: 'Boss Person', email: 'boss@example.com' })));
+    rt.run('makeFirstAdmin');
+    admin = ok(rt.call('login', { email: 'boss@example.com', password: 'password123' })).token;
+  });
+  const join = (name, email, shortName) => ok(rt.call('register', volunteerPayload({
+    name, email,
+    answers: { shortName, nric4: '123A', address: 'Blk 1', project: 'West End', startYear: '2024', shirtSize: 'M', emergencyRelation: 'Mother', emergencyPhone: '+65 9876 5432' },
+  })));
+
+  test('short names, full names for a clash, alphanumeric order; full name kept alongside', () => {
+    join('Tan Wei Jie', 'wj1@example.com', 'Wei Jie');
+    join('Lim Wei Jie', 'wj2@example.com', 'Wei Jie');
+    join('Koh Ben', 'ben@example.com', 'Ben');
+    join('Ng Ali', 'ali10@example.com', 'Ali 10');
+    join('Ong Ali', 'ali2@example.com', 'Ali 2');
+    const people = ok(rt.call('listPeople', {}, admin)).people;
+    const names = people.map((p) => p.name);
+    assert.deepEqual(names.filter((n) => n !== 'Boss Person'), ['Ali 2', 'Ali 10', 'Ben', 'Lim Wei Jie', 'Tan Wei Jie'],
+      'short names in alphanumeric order ("Ali 2" before "Ali 10"); the two "Wei Jie"s show their full names');
+    const ben = people.find((p) => p.name === 'Ben');
+    assert.equal(ben.fullName, 'Koh Ben', 'the full name comes along, for searches and titles');
+    // Edit forms keep the real Full Name.
+    const detail = ok(rt.call('personDetail', { userId: ben.userId }, admin)).person;
+    assert.equal(detail.name, 'Koh Ben');
+  });
+});
+
+describe('Version 4: files attached to notes', () => {
+  let rt, admin;
+  const PNG = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+  beforeEach(() => {
+    rt = createGasRuntime();
+    rt.createSpreadsheet(SHEET, 'Main');
+    rt.props.set('SPREADSHEET_ID', SHEET);
+    rt.fillTab(SHEET, 'Trainees', [['Trainee ID', 'Name'], ['T-0001', 'Alpha One']]);
+    rt.run('setup');
+    rt.props.set('FIRST_ADMIN_EMAIL', 'boss@example.com');
+    ok(rt.call('register', volunteerPayload({ name: 'Boss Person', email: 'boss@example.com' })));
+    rt.run('makeFirstAdmin');
+    admin = ok(rt.call('login', { email: 'boss@example.com', password: 'password123' })).token;
+  });
+  const regular = (email) => {
+    const v = ok(rt.call('register', volunteerPayload({ name: email.split('@')[0], email })));
+    ok(rt.call('setVolunteerType', { userId: v.user.userId, volunteerType: 'regular' }, admin));
+    return v;
+  };
+
+  test('a photo with an update: private Drive file, opened only by people who may read the note', () => {
+    const rex = regular('rex@example.com');
+    const rina = regular('rina@example.com');
+    ok(rt.call('submitTraineeUpdate', { traineeId: 'T-0001', note: 'Loved the music today.', files: [{ fileName: 'music.png', mimeType: 'image/png', data: PNG }] }, rex.token));
+    const item = ok(rt.call('reviewQueue', {}, admin)).items[0];
+    assert.equal(item.attachments.length, 1);
+    assert.equal(item.attachments[0].name, 'music.png');
+    const fileId = item.attachments[0].id;
+    // Waiting for review: the author can open it, other volunteers can't.
+    assert.equal(ok(rt.call('noteFile', { feedbackId: item.feedbackId, fileId }, rex.token)).data, PNG);
+    fails(rt.call('noteFile', { feedbackId: item.feedbackId, fileId }, rina.token), 'FORBIDDEN');
+    // Shared with all volunteers: the note keeps the file, and Rina can open it.
+    ok(rt.call('reviewObservation', { feedbackId: item.feedbackId, audience: 'all' }, admin));
+    const notes = ok(rt.call('traineeInfo', { traineeId: 'T-0001' }, rina.token)).notes;
+    const note = notes.find((n) => n.note === 'Loved the music today.');
+    assert.equal(note.attachments[0].id, fileId);
+    const file = ok(rt.call('noteFile', { noteId: note.noteId, fileId }, rina.token));
+    assert.equal(file.mimeType, 'image/png');
+    assert.equal(file.data, PNG);
+    // Made private: only admins.
+    ok(rt.call('setNoteSharing', { noteId: note.noteId, audience: 'private' }, admin));
+    fails(rt.call('noteFile', { noteId: note.noteId, fileId }, rina.token), 'FORBIDDEN');
+    ok(rt.call('noteFile', { noteId: note.noteId, fileId }, admin));
+    // The Drive file was never shared by link.
+    const driveFile = rt.drive.files.get(fileId);
+    assert.equal(driveFile.sharing, 'PRIVATE');
+  });
+
+  test('limits: three files, 10 MB together, no programs', () => {
+    const rex = regular('rex@example.com');
+    const f = { fileName: 'a.png', mimeType: 'image/png', data: PNG };
+    fails(rt.call('submitTraineeUpdate', { traineeId: 'T-0001', note: 'x', files: [f, f, f, f] }, rex.token), 'VALIDATION_ERROR');
+    fails(rt.call('submitTraineeUpdate', { traineeId: 'T-0001', note: 'x', files: [{ fileName: 'run.exe', mimeType: 'application/x-msdownload', data: PNG }] }, rex.token), 'VALIDATION_ERROR');
   });
 });
