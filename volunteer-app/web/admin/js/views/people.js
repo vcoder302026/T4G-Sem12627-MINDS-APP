@@ -398,7 +398,7 @@ export function renderTrainees(root, app, ctx) {
       missing.length > 3 ? null : missing.length ? el('p', { class: 'alert alert-info mt-4' },
         `No ${missing.map((c) => `"${c.label}"`).join(', ')} column yet.`) : null,
       el('div', { class: 'mt-6' }, panel('Trainee list',
-        el('button', { class: 'btn btn-primary btn-sm', onclick: addTrainee }, icon('plus', 'size-4'), 'Add trainee'),
+        el('a', { class: 'btn btn-primary btn-sm', href: '#/trainee-new' }, icon('plus', 'size-4'), 'Add trainee'), // the House Visit Form
         toolbar(labelled('Show', showSelect),
           el('div', { class: 'min-w-64 flex-1' }, labelled('Search', searchBox('Name, ID or caregiver', (q) => { query = q; drawList(); })))),
         listHost)));

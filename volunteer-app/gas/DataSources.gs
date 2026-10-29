@@ -21,14 +21,9 @@ const DATA_SOURCES = {
     prop: CONFIG.PROP_SPREADSHEET_ID,
   },
   trainees: {
-    label: 'Trainee database',
-    about: 'MINDS\'s trainee list, e.g. the House Visit form responses. One tab with a trainee name column.',
+    label: 'Trainee & house visit database',
+    about: 'MINDS\'s House Visit form responses: the trainee list (Form Responses 1), and a House Visits tab with every visit recorded in the app.',
     prop: CONFIG.PROP_TRAINEE_SPREADSHEET_ID,
-  },
-  visits: {
-    label: 'House visit database',
-    about: 'House visit records (a "House Visits" tab). If none is linked, they are kept in the volunteer database.',
-    prop: CONFIG.PROP_VISITS_SPREADSHEET_ID,
   },
 };
 const SPREADSHEET_MIME_ = 'application/vnd.google-apps.spreadsheet';
@@ -180,7 +175,7 @@ function linkSheet_(key, ss, check, admin, message) {
 /** Trainee or house visit database: stop using a separate sheet (back to the volunteer database). */
 function unlinkDataSource_(p, admin) {
   onlyFields_(p, ['source', 'adminPassword']);
-  const key = oneOf_(p.source, 'Database', ['trainees', 'visits']);
+  const key = oneOf_(p.source, 'Database', ['trainees']);
   checkAdminPassword_(admin, p.adminPassword, 'Enter the admin password to change the linked sheet.');
   PropertiesService.getScriptProperties().deleteProperty(DATA_SOURCES[key].prop);
   resetBooks_();

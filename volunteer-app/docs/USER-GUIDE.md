@@ -7,10 +7,12 @@ For volunteers, regular volunteers and admins (Version 3). Setup and code are co
 
 There is **one app** and **no modes to switch**.
 
+- **Names** are short names, in alphanumeric order; if two people share a short name, both show their full name.
 - **Everyone** sees **Home · QR pass · Sessions · Me**. Regular volunteers also see
   **Trainees**; admins also see **Admin**.
 - **On a phone** these are the tabs under the header. Admin pages add a row of section buttons
-  (Dashboard, Sessions, Pairing, …) that scrolls away with the page, and sections with several
+  (**All pages**, Dashboard, Sessions, Pairing, …) that scrolls away with the page; **All pages**
+  lists every admin page, and sections with several
   pages show them as tabs (e.g. People · Attendance · Hours).
 - **On a computer** (1024 px and wider) everything is a sidebar on the left.
 - **The header:** **←** goes back to the page you came from; **↻** loads the newest version of
@@ -42,16 +44,16 @@ The same labels are used everywhere in the app:
 
 | I want to… | Tap |
 | --- | --- |
-| Join | **Register now** and fill in MINDS's volunteer form (the same questions as its Google Form, with your **First Name** and **Last Name** in separate boxes). Your **Sign-in email** is how you sign in. Choose your **Project**; RSPID projects also ask for course, matriculation number and school email. Type your password twice (**Re-enter password**), agree to the data notice, **Create account** |
+| Join | **Register now** and fill in MINDS's volunteer form (the same questions as its Google Form; your **Full Name (as per NRIC)**). Your **Sign-in email** is how you sign in. Choose your **Project**; RSPID projects also ask for course, matriculation number and school email. Type your password twice (**Re-enter password**), agree to the data notice, **Create account** |
 | Get started | Read the Volunteer Guide that opens, then **I've read the guide** (once, before your first sign-up) |
 | Say I'm coming | **Sessions** → tick every session you can come to → **I'm coming**. It's confirmed straight away: the card shows **You're coming** |
 | Can't make it | **Home** → Coming up → **Can't make it** (on the day, tell an admin instead) |
 | See my trainee | **Home**: each session card shows your **Paired trainee** once an admin has paired you. Press and hold for the quick card; tap for their full page |
 | Read about my trainee | Their page: short name, gender and language beside the photo, then the details admins share, grouped like MINDS's House Visit form, and notes from earlier volunteers |
-| Tell the next volunteer something | Your trainee's page → **Send update**, or **Give feedback** after a session |
+| Tell the next volunteer something | Your trainee's page → **Send update**, or **Give feedback** after a session. **Attach files (optional)** adds up to 3 photos, videos or documents (photos are made smaller automatically) |
 | Clock in and out | **QR pass** → show it to an admin at the start, and again at the end |
 | See my hours and past sessions | **Me** → History: each session, your hours, and the trainee you were with |
-| Update my details or password | **Me** → **Edit** (Date of Birth, Sign-in email, …); **Me** → Change password |
+| Update my details or password | **Me** → **Edit** (Date of Birth, Sign-in email, …), then **Save** and **Continue** (it also updates your Google contact); **Me** → Change password |
 | Forgot my password | Ask an admin to reset it |
 
 **Regular volunteers** also have:
@@ -94,17 +96,18 @@ Then six sections, plus **More**:
 | Give a regular their fixed trainees | **Pairing** → **Regular pairings**: the same board, with regulars on the left. The pop-up shows who they've been with before, then trainees new for them. Their upcoming sessions follow the change |
 | Check who has been with whom | **Pairing** → **History**: sessions together for every pair, and each regular's fixed trainees over time |
 | Clock people in | **Scan** for the session (on the day). If a phone is flat: **Clock in** → **Clock in** / **Clock out** by hand, or add a walk-in |
-| Look after volunteers | **Volunteers** → **People**: filter (Active / Deactivated / Everyone, and by profile), search, **Add volunteer**, **Deactivate**. A volunteer's page has **Promote to regular** / **Move back to volunteer**, **Make an admin** / **Remove admin access**, **Reset password**, **Deactivate** / **Reactivate** and **Update Google contact**. Each change warns first; admin changes need the **admin password**. Deactivating cancels their upcoming sessions (their hours, notes and history stay) |
+| Look after volunteers | **Volunteers** → **People**: filter (Active / Deactivated / Everyone, and by profile), search, **Add volunteer**, **Deactivate**. A volunteer's page has **Promote to regular** / **Move back to volunteer**, **Make an admin** / **Remove admin access**, **Reset password** and **Deactivate** / **Reactivate**; **Edit** saves details (and updates their Google contact, after a warning). Each change warns first; admin changes need the **admin password**. Deactivating cancels their upcoming sessions (their hours, notes and history stay) |
 | Fix attendance, export hours | **Volunteers** → **Attendance** (fix a missed scan) and **Hours** (export CSV) |
+| Add a trainee | **Trainees** → **Add trainee**: MINDS's House Visit Form. The ✱ questions are required (Project, Full Name, NRIC, Date of Birth, Spoken Language, Gender, Short Name, Caregiver 1's name and contact); the rest can be filled in later |
 | Look after trainees | **Trainees** → a trainee: all their details, **Change photo** / **Remove**, **New house visit**, **What volunteers see** (just for them), **Edit**, their regular volunteers and notes. Tapping a trainee anywhere in the volunteer screens also brings admins here |
-| Decide who reads a note | On the trainee's page → **Who can read**: all future volunteers, regulars only, selected volunteers, or private (admins only). A note shared with selected volunteers shows **Shared with selected volunteers**: press and hold it (right-click on a computer) to see who |
+| Decide who reads a note | On the trainee's page → **Who can read**: all volunteers, regulars only, selected volunteers, or private (admins only). A note shared with selected volunteers shows **Shared with selected volunteers**: press and hold it (right-click on a computer) to see who |
 | Review new notes | **Trainees** → **Notes to review**: edit if needed, choose who can read it, **Save** |
 | Choose what volunteers see | **Trainees** → **What volunteers see**: ticks for volunteers and for regulars (the default), or a trainee's own settings from their page. **Set as default** copies one trainee's settings to all |
 | Record a house visit | **More** → **House visits** → **New visit** (or **New house visit** on a trainee's page). **Find Trainee** prefills MINDS's House Visit Form with what's known; **+ Start New Blank Visit** is for a trainee who isn't in the sheet yet (they're added with the next Trainee ID). **Submit** saves the visit and updates the trainee's details |
 | Change the guide | **Settings** → **Guide & projects**: **Edit** a section, **Add text**, or **Add Files**: choose **Import from device** (choose a file or drag it into the box; a preview shows, and **Remove** clears a wrong one) or **Import from Google Drive** (paste the link). Drag the ⠿ handle to reorder. **Preview as a volunteer** shows the result |
 | Edit projects and venues | **Settings** → **Guide & projects** (projects: RSPID (CTDC), RSPID (WGS) and West End; registration offers these plus the RSPID Alumni options) and **Venues** |
 | Change the admin password | **Settings** → **Admin password**: the current one, then the new one twice. Tell the other admins |
-| Use a different Google Sheet | **Settings** → **Google Sheets**: for the volunteer, trainee or house visit database, **Create New Sheet**, search Google Drive and **Link**, or paste a URL and **Connect**. Setup runs by itself afterwards |
+| Use a different Google Sheet | **Settings** → **Google Sheets**: for the volunteer database, or the trainee & house visit database (MINDS's House Visit responses), **Create New Sheet**, search Google Drive and **Link**, or paste a URL and **Connect**. Setup runs by itself afterwards |
 | Check or repair the setup | **Settings** → **Advanced settings**: **Check the setup** (read only), **Run setup** and **Save all volunteers to Google Contacts** (both need the admin password). Each shows a report and goes in the Activity log |
 
 Fundraising, outings and overseas trips under **More** are kept from Version 1 until MINDS
@@ -123,6 +126,6 @@ decides how they fit.
   the short name, gender and language beside the photo. Admins always see everything.
 - **Pairings typed into the sheet:** rows in the Regular Pairings tab may use plain names; the
   app matches them to the right people.
-- **Google Contacts:** if sync is on, volunteers are saved with their first and last name, short
-  name (as the nickname), birthday and 8-digit phone when they
+- **Google Contacts:** if sync is on, volunteers are saved as "Short Name_[Full Name]_Project"
+  (first name only), with their birthday and 8-digit phone, when they
   register or are added. **Update Google contact** on their page refreshes it.

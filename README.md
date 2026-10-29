@@ -5,13 +5,13 @@ replace manual logging of volunteer hours and attendance.
 
 | App | What it is | Stack |
 | --- | --- | --- |
-| **[Volunteer app](volunteer-app/README.md)** (current, **Version 3**) | One app for phones, tablets and computers. Volunteers register with MINDS's form, say which sessions they're coming to, see their paired trainee and show a QR pass; regulars can read about any trainee; admins get an Admin menu for sessions, pairing (laid out like the WERONE outing app), scanning, volunteers, trainees, house visits (MINDS's House Visit Form), attendance, hours, Google Sheets and an activity log | Google Apps Script + Google Sheets, HTML/JS/Tailwind PWA on GitHub Pages |
+| **[Volunteer app](volunteer-app/README.md)** (current, **Version 4**) | One app for phones, tablets and computers. Volunteers register with MINDS's form, say which sessions they're coming to, see their paired trainee and show a QR pass; regulars can read about any trainee; admins get an Admin menu for sessions, pairing (laid out like the WERONE outing app), scanning, volunteers, trainees, house visits (MINDS's House Visit Form), attendance, hours, Google Sheets and an activity log | Google Apps Script + Google Sheets, HTML/JS/Tailwind PWA on GitHub Pages |
 | [Prototype 1](docs/prototype-1/README.md) (earlier) | Local, offline staff app: attendance, fundraising, outings, overseas trips and house visits | Node.js 24, Express, SQLite |
 
 **New here?** Start with the [volunteer app README](volunteer-app/README.md) (features, demo,
 setup on Google) and the [user guide](volunteer-app/docs/USER-GUIDE.md) (how volunteers,
-regulars and admins use it). **[VERSION-3.md](VERSION-3.md)** explains what Version 3 changed
-and how to upgrade; [TODO.md](TODO.md) lists what's still open.
+regulars and admins use it). **[VERSION-4.md](VERSION-4.md)** explains what Version 4 changed
+and how to upgrade ([VERSION-3.md](VERSION-3.md) for Version 3); [TODO.md](TODO.md) lists what's still open.
 
 Earlier versions, kept for the record: [VERSION-1.md](VERSION-1.md),
 [VERSION-2.md](VERSION-2.md) (after the October meeting with MINDS) and

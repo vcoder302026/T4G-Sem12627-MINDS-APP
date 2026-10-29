@@ -118,6 +118,7 @@ function houseVisitForm_(p) {
       if (f.type === 'date') value = /^date of visit/i.test(f.header.trim()) ? todayStr_() : formDate_(value); // a new visit is today
       if (f.type === 'likert' && !/^[1-5]$/.test(value)) value = '';
       const out = { key: f.key, label: f.header, type: f.type, value };
+      if (requiredForNew_(f.header)) out.requiredNew = true; // required when adding a trainee
       if (f.likert) out.likert = f.likert;
       if (f.type === 'project') out.options = projects.concat(value && projects.indexOf(value) === -1 ? [value] : []);
       return out;
@@ -133,9 +134,16 @@ const VISIT_BASE_KEYS_ = ['visitId', 'traineeId', 'traineeName', 'userId', 'volu
  * history is add-only), and, unless updateTrainee is false, the changed answers
  * into the trainee's row in the trainee sheet, as a form response would.
  */
+/** Is this House Visit Form question required when adding a trainee? (Config.gs → HOUSE_VISIT) */
+function requiredForNew_(header) {
+  const h = String(header || '').trim();
+  return (HOUSE_VISIT.requiredForNewTrainee || []).some((re) => re.test(h));
+}
+
 function createFormVisit_(p, admin) {
-  onlyFields_(p, ['traineeId', 'answers', 'updateTrainee', 'newTrainee']);
-  const isNew = p.newTrainee === true; // "Start New Blank Visit": a trainee not in the sheet yet
+  onlyFields_(p, ['traineeId', 'answers', 'updateTrainee', 'newTrainee', 'traineeOnly']);
+  const isNew = p.newTrainee === true; // "Start New Blank Visit" or "Add trainee": a trainee not in the sheet yet
+  const traineeOnly = isNew && p.traineeOnly === true; // "Add trainee": no visit is recorded
   const a = obj_(p.answers, 'Answers');
   const fields = [];
   visitFormSections_().forEach((s) => s.fields.forEach((f) => fields.push(f)));
@@ -154,6 +162,9 @@ function createFormVisit_(p, admin) {
   let trainee;
   if (isNew) {
     // The new trainee goes into the trainee sheet with the next Trainee ID and every answer given.
+    const missing = fields.filter((f) => requiredForNew_(f.header) && !String(answers[f.key] || '').trim())
+      .map((f) => f.header.split(/\s[(（]/)[0].trim());
+    if (missing.length) throw err_.validation(`Fill in: ${missing.join(', ')}.`);
     const nameKey = normHeader_(traineeTable_().header('name'));
     const name = String(answers[nameKey] || '').trim();
     if (!name) throw err_.validation('Fill in the trainee\'s full name.');
@@ -166,6 +177,7 @@ function createFormVisit_(p, admin) {
     tt.insert(row);
     resetDbCache_();
     trainee = { id, name };
+    if (traineeOnly) return { message: `${name} added as ${id}.`, traineeId: id };
   } else {
     trainee = traineeRef_(p.traineeId, 'Trainee');
   }
@@ -189,7 +201,7 @@ function createFormVisit_(p, admin) {
     const tcols = { id: traineeTable_().header('id') };
     fields.forEach((f, i) => { tcols[`q${i}`] = f.header; });
     const tt = new Table(traineeSpreadsheet_(), traineeTabName_(), tcols, [], 'trainees:visit');
-    const row = tt.find((r) => String(r.id) === String(trainee.id));
+    const row = tt.filter((r) => String(r.id) === String(trainee.id)).pop(); // the newest row is their current information
     const patch = {};
     fields.forEach((f, i) => {
       if (answers[f.key] === undefined) return;

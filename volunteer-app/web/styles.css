@@ -318,3 +318,20 @@ body { padding-left: env(safe-area-inset-left, 0px); padding-right: env(safe-are
 .attach-chip { display: inline-flex; max-width: 100%; align-items: center; gap: .35rem; border: 1px solid #c7d2fe; border-radius: 999px; background: #eef2ff; padding: .3rem .7rem; font-size: .8rem; font-weight: 700; color: #3730a3; }
 .attach-chip:hover { background: #e0e7ff; }
 .dark .attach-chip { border-color: #3730a3; background: rgba(79, 70, 229, .2); color: #c7d2fe; }
+
+/* Admin menu (Version 4): "All pages" on phones; the current section's pages in the sidebar. */
+.sub-link.sub-all { background: #eef2ff; color: #4338ca; font-weight: 800; }
+.dark .sub-link.sub-all { background: rgba(79, 70, 229, .25); color: #c7d2fe; }
+.admin-menu { display: grid; gap: 1rem; }
+.admin-menu-head { display: flex; align-items: center; gap: .4rem; margin-bottom: .4rem; font-size: .75rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: #64748b; }
+.admin-menu-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr)); gap: .4rem; }
+.admin-menu-link { display: flex; min-height: 3rem; align-items: center; justify-content: space-between; gap: .4rem; border: 1px solid #e2e8f0; border-radius: .75rem; background: #fff; padding: .6rem .8rem; font-size: .95rem; font-weight: 700; color: #0f172a; }
+.admin-menu-link:hover, .admin-menu-link:focus-visible { border-color: #a5b4fc; background: #eef2ff; outline: none; }
+.dark .admin-menu-link { border-color: #262626; background: #171717; color: #f5f5f5; }
+.side-sub { display: grid; gap: .1rem; margin: .1rem 0 .4rem 2.4rem; }
+.side-sub-link { display: flex; align-items: center; justify-content: space-between; border-radius: .5rem; padding: .35rem .6rem; font-size: .85rem; font-weight: 600; color: #475569; }
+.side-sub-link:hover { background: #f1f5f9; }
+.side-sub-link[aria-current="page"] { background: #eef2ff; color: #4338ca; font-weight: 800; }
+.dark .side-sub-link { color: #a3a3a3; }
+.dark .side-sub-link:hover { background: #171717; }
+.dark .side-sub-link[aria-current="page"] { background: rgba(79, 70, 229, .25); color: #c7d2fe; }

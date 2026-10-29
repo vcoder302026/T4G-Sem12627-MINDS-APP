@@ -148,7 +148,7 @@ it. Never change or delete it afterwards (that signs everyone out and breaks QR 
 
 **Google Contacts sync** (`CONTACTS_SYNC` = `on`) saves every volunteer who registers, or whom an
 admin adds, as a contact in the **Google account that runs the Apps Script project** (yours),
-with their first and last name, short name (as the nickname), birthday, email and 8-digit phone,
+named "Short Name_[Full Name]_Project" (first name only), with their birthday, email and 8-digit phone,
 and their Telegram, project and emergency contact in the notes. Edits to their details update the same contact. `CONTACTS_LABEL` puts them all
 under one label in Google Contacts, so the Exp test contacts are easy to find and delete later.
 The People API it needs was turned on by `npm run gas:push` (step 4): in the Apps Script editor,
