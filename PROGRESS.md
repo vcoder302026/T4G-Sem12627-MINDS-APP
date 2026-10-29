@@ -15,11 +15,11 @@ session; the [session log](#session-log) at the bottom covers both.
 | Status | Working prototype, tested locally (phone app in a phone-sized browser; dashboard by a scripted Chromium walkthrough at 1440/1024/800 px). Not yet run end to end on real Google Apps Script with real phones |
 | Next steps | 1) Connect to a real Google Sheet (README Part 3) using `docs/demo-data/MINDS-Volunteer-Demo-Data.xlsx`, run `setup()`, try the phone app on real phones and the dashboard on a laptop. 2) A human click-through of the dashboard. 3) Agree with MINDS which trainee fields volunteers see (PDPA) |
 
-## Prototype 1 (repository root) — complete
+## Prototype 1 (`prototype-1/`) — complete
 
 Sources of truth for Prototype 1: [PLAN.md](PLAN.md) (contract) and [AGENTS.md](AGENTS.md)
 (working rules). If anything below conflicts with PLAN.md, PLAN.md wins.
-README: [docs/prototype-1/README.md](docs/prototype-1/README.md).
+README: [prototype-1/README.md](prototype-1/README.md).
 
 ### Project snapshot
 
@@ -196,4 +196,6 @@ account, no user management; not production-ready.
 | 2026-10-30 | 64 | Fewer duplicates: each session action once (Session Management; Upcoming Sessions cards show the numbers and Copy Info only); no Records card, no Regular pairings button on the Dashboard, no sidebar sub-pages (the page tabs show them), no Admin button on Me; the admin Sessions section is "All sessions" (volunteers' Sessions is signing up). 126 tests. |
 | 2026-10-30 | 65 | Version 4.2 after the Exp load test: remembered sign-ins for reads (cleared on any write to Volunteers / sign-in tabs), pairing saves build their reply after the lock (cached for other admins), `changes` returns the watched page's new data, boards check every 5 s, reads retried once after HTTP 500; load test matches. Two admins in the browser: 3–4 s; dry run median 2.8 s. 128 tests. |
 | 2026-10-30 | 66 | Version 4.3 after the second load test (saves 40 s): copies of the tabs in CacheService with per-tab versions (reads skip Sheets; saves and editor functions read the sheet; TABLE_CACHE=off), trainee check from the copy, activity log appended after the lock, Dashboard cached, build-once for shared pages, boards check every 3 s. dev/count-reads.mjs: volunteerHome 8→0, guide 3→0, updateBooking 12→3 tab reads. Two admins: 2.1–3.1 s. 129 tests. |
+| 2026-10-30 | 67 | Repo clean-up for v4.3: root README rewritten (what the app is, status, quick start, layout, version history, working together); volunteer-app README updated to v4.3 (intro, Part 1 features, Contacts, settings, sheet tabs, layout, new Speed and load testing section, troubleshooting, limits; 129 tests); Prototype 1 moved into `prototype-1/` with its README and usage guide; every relative link checked. |
+| 2026-10-30 | 68 | Fix: dates in the sheet copies were stored as text when the date check didn't recognise them, so trainee pages could show timestamps; now a check that works for every date. New test (130). Screenshots retaken for v4.3. |
 

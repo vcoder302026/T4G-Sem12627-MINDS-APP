@@ -1,30 +1,39 @@
 # T4G × MINDS: volunteer management
 
-NTU Tech for Good (Semester 1, AY2026/27) prototypes for **MINDS**, built to
-replace manual logging of volunteer hours and attendance.
+NTU Tech for Good (Semester 1, AY2026/27) app for **MINDS**, built to replace manual logging of
+volunteer hours, attendance and pairing.
 
-| App | What it is | Stack |
-| --- | --- | --- |
-| **[Volunteer app](volunteer-app/README.md)** (current, **Version 4**) | One app for phones, tablets and computers. Volunteers register with MINDS's form, say which sessions they're coming to, see their paired trainee and show a QR pass; regulars can read about any trainee; admins get an Admin menu for sessions, pairing (laid out like the WERONE outing app), scanning, volunteers, trainees, house visits (MINDS's House Visit Form), attendance, hours, Google Sheets and an activity log | Google Apps Script + Google Sheets, HTML/JS/Tailwind PWA on GitHub Pages |
-| [Prototype 1](docs/prototype-1/README.md) (earlier) | Local, offline staff app: attendance, fundraising, outings, overseas trips and house visits | Node.js 24, Express, SQLite |
+**The MINDS Volunteer App** is one web app for phones, tablets and computers:
 
-**New here?** Start with the [volunteer app README](volunteer-app/README.md) (features, demo,
-setup on Google) and the [user guide](volunteer-app/docs/USER-GUIDE.md) (how volunteers,
-regulars and admins use it). **[VERSION-4.md](VERSION-4.md)** explains what Version 4 changed
-and how to upgrade ([VERSION-3.md](VERSION-3.md) for Version 3); [TODO.md](TODO.md) lists what's still open.
+- **Volunteers** register with MINDS's form, say which sessions they're coming to, see their
+  paired trainee, show a QR pass to clock in and out, and send updates (with photos, videos or
+  documents) about their trainee.
+- **Regulars** (after 10 sessions) can read about any trainee and have fixed trainees.
+- **Admins** create sessions, pair volunteers and trainees on a live board (laid out like the
+  WERONE outing app), scan passes, add trainees with MINDS's House Visit Form, review notes,
+  and manage volunteers, hours, Google Sheets and Google Contacts.
 
-Earlier versions, kept for the record: [VERSION-1.md](VERSION-1.md),
-[VERSION-2.md](VERSION-2.md) (after the October meeting with MINDS) and
-[STEVEN-UPDATE.md](STEVEN-UPDATE.md) (after Mr Sadil's feedback on Version 2).
+It runs on **Google Apps Script + Google Sheets** (MINDS's own sheets, including the House
+Visit form responses), with the web app on GitHub Pages.
+
+**Status: Version 4.3**, tested on the Exp environment with 100 volunteers and 10 admins at once.
+
+| Read this | For |
+| --- | --- |
+| **[volunteer-app/README.md](volunteer-app/README.md)** | Features, running the demo, setting it up on Google, configuration, speed and load testing, troubleshooting |
+| **[User guide](volunteer-app/docs/USER-GUIDE.md)** | How volunteers, regulars and admins use the app, step by step |
+| **[VERSION-4.md](VERSION-4.md)** | What Version 4 changed (MINDS's 29 October call, then the speed work) and how to upgrade |
+| [Exp setup guide](volunteer-app/docs/EXP-SETUP.md) | Setting up a test environment from scratch, with mock data |
+| [TODO.md](TODO.md) | What's still open, and questions for MINDS |
 
 ## Quick start
 
-Try the app on your computer, with demo data and no Google account needed
-(Node.js 20 or later):
+Try the app on your computer with demo data (no Google account needed; Node.js 20 or later):
 
 ```bash
 git clone https://github.com/vcoder302026/T4G-Sem12627-MINDS-APP.git
 cd T4G-Sem12627-MINDS-APP/volunteer-app
+npm test         # 130 tests
 npm run dev      # → http://localhost:5173
 ```
 
@@ -34,34 +43,44 @@ npm run dev      # → http://localhost:5173
 | Regular | `regular@example.com` | `RegularDemo123` |
 | Volunteer | `volunteer@example.com` | `VolunteerDemo123` |
 
-Prototype 1 runs from the repository root: `npm install && npm start` →
-<http://localhost:3000> (needs Node.js 24).
+Everyone in the demo is fictional.
 
 ## Repository layout
 
 ```
-volunteer-app/        the volunteer app (backend in gas/, web app in web/)
-  README.md           features, setup on Google, configuration, development
+volunteer-app/        the MINDS Volunteer App
+  gas/                backend (Google Apps Script)
+  web/                web app (published to GitHub Pages)
+  tests/              automated tests (npm test)
+  dev/                local demo, layout checks, load test, Exp database generator
+  docs/               user guide, Exp setup guide, screenshots
+  README.md           features, setup, configuration, development
   DESIGN-NOTES.md     why it's built this way
-  docs/USER-GUIDE.md  how volunteers, regulars and admins use it
-  dev/                local demo server, and phone / tablet layout checks (check-*.py)
-.github/workflows/    publish the volunteer app (GitHub Pages) and deploy its backend (clasp)
-server/ public/ tests/  Prototype 1 (local staff app)
-docs/prototype-1/     Prototype 1 README and usage guide
-AGENTS.md             rules for anyone (or any coding agent) changing the app: MINDS's
-                      template, consistency with MINDS's other apps, layout checks
-PLAN.md               Prototype 1's build plan
-PROGRESS.md           progress log for both apps
-VERSION-3.md          what Version 3 changed; VERSION-1/2.md and STEVEN-UPDATE.md: earlier
+.github/workflows/    publish the web app and deploy the backend when main changes
+prototype-1/          Prototype 1: the team's earlier offline staff app (Node.js, SQLite)
+AGENTS.md             rules for changing the app (MINDS's template, consistency, checks)
+VERSION-4.md          what Version 4 changed (VERSION-1–3.md, STEVEN-UPDATE.md: earlier)
 TODO.md               what's still open
+PROGRESS.md           progress log
+PLAN.md               Prototype 1's build plan
 ```
+
+## Version history
+
+| Version | When | Highlights |
+| --- | --- | --- |
+| [Prototype 1](prototype-1/README.md) | First | Local, offline staff app: attendance, fundraising, outings, trips, house visits |
+| [Version 1](VERSION-1.md) | Oct 2026 | The volunteer app on Google Apps Script and Sheets |
+| [Version 2](VERSION-2.md), [STEVEN-UPDATE](STEVEN-UPDATE.md) | Oct 2026 (update: 27 Oct) | MINDS's registration form, trainee sheet, pairing, House Visit Form |
+| [Version 3](VERSION-3.md) | 28 Oct 2026 | Pairing board like the WERONE outing app, every phone size, warnings, standard projects |
+| **[Version 4](VERSION-4.md)** | 29–30 Oct 2026 | Short names, Google Contacts on save, files on notes, one trainee & house visit database, Add trainee with the House Visit Form, the Dashboard, speed and live updates (4.1–4.3) |
 
 ## Working together
 
-- Make changes on a branch and open a pull request into `main`; merging to
-  `main` publishes the volunteer app.
-- Run the tests first: `cd volunteer-app && npm test` (and `npm test` at the
-  root for Prototype 1). For layout changes, also run the `dev/check-*.py` scripts
-  (see the volunteer app README, Part 2, Step 6).
-- Use fictional data only. Never commit real volunteer or trainee details, payment
-  screenshots, `.clasprc.json`, or Apps Script URLs and Sheet IDs.
+- Make changes on a branch and open a pull request into `main`. **Merging to `main` deploys**
+  the web app (GitHub Pages) and, with the repository secrets set, the backend (Apps Script).
+- Run the tests first: `cd volunteer-app && npm test`. For layout changes, also run the
+  `dev/check-*.py` scripts (volunteer app README, Part 2, Step 6). The rules for changes are in
+  [AGENTS.md](AGENTS.md).
+- Use fictional data only. Never commit real volunteer or trainee details, `.clasp.json`,
+  `.clasprc.json`, the `APP_SECRET`, or Apps Script URLs and Sheet IDs.

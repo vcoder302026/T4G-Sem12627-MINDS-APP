@@ -1,6 +1,6 @@
 # MINDS Admin: first prototype implementation plan
 
-> **Prototype 1 only.** This is the build plan for the Node.js staff app in the repository root.
+> **Prototype 1 only.** This is the build plan for the Node.js staff app in `prototype-1/`.
 > The current app is the volunteer app: see [volunteer-app/README.md](volunteer-app/README.md).
 
 ## 1. Goal and fixed decisions

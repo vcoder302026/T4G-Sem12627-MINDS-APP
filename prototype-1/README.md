@@ -1,13 +1,13 @@
 # Prototype 1: MINDS Admin (local staff app)
 
 > **Prototype 1 (earlier, offline staff app).** The current app is the volunteer app:
-> see [volunteer-app/README.md](../../volunteer-app/README.md).
+> see [volunteer-app/README.md](../volunteer-app/README.md).
 
 > This is the team's first prototype: a local, offline staff app. The current
-> volunteer management app is in [`volunteer-app/`](../../volunteer-app/README.md).
-> Prototype 1's code stays at the repository root (`server/`, `public/`,
-> `tests/`), so run the commands below from there.
-> How to use it: [USAGE-GUIDE.md](USAGE-GUIDE.md). Its build plan: [PLAN.md](../../PLAN.md).
+> volunteer management app is in [`volunteer-app/`](../volunteer-app/README.md).
+> Its code is in this folder (`server/`, `public/`, `tests/`); run the commands below from
+> `prototype-1/`.
+> How to use it: [USAGE-GUIDE.md](USAGE-GUIDE.md). Its build plan: [PLAN.md](../PLAN.md).
 
 A desktop browser application that MINDS staff can clone, install and run locally. One login
 and one dashboard provide access to Attendance, Fundraising, Outings, Overseas Trips and
@@ -27,7 +27,7 @@ are used at runtime.
 
 ```bash
 git clone https://github.com/vcoder302026/T4G-Sem12627-MINDS-APP.git
-cd T4G-Sem12627-MINDS-APP
+cd T4G-Sem12627-MINDS-APP/prototype-1
 npm install
 npm start
 ```

@@ -125,3 +125,7 @@ saving a pairing 12 → 3. Locally another admin's change showed in 2.1–3.1 s.
 **Expected on Exp:** reads about 1–1.5 s (Google's own start-up is about 1 s), a pairing save about
 2–3 s, another admin's change in about 2–4 s. Apps Script itself sets the floor: about 1 s a
 request, 30 at once, saves one at a time.
+
+**4.3.1:** dates read from the copies of the sheets are kept as dates (they could show as
+timestamps such as `2025-12-29T12:26:09.000Z`); a test reads a trainee's dates through the copy.
+
