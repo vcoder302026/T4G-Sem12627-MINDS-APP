@@ -15,8 +15,18 @@
 const DISPLAY_NAME_EXEMPT_ = ['me', 'login', 'register', 'personDetail', 'updatePerson', 'updateProfile', 'createVolunteer'];
 const DATED_KEYS_ = ['date', 'timestamp', 'at', 'sessionId', 'noteId', 'visitId', 'clockIn'];
 
-/** userId / traineeId → the name to show. */
-function displayNameMaps_() {
+/** userId → the name to show (cached until something changes; Speed.gs). */
+function userDisplayNames_() {
+  return cachedForVersion_('names:user', () => displayNameMaps_('user').user);
+}
+
+/** traineeId → the name to show (cached until something changes; Speed.gs). */
+function traineeDisplayNames_() {
+  return cachedForVersion_('names:trainee', () => displayNameMaps_('trainee').trainee);
+}
+
+/** userId / traineeId → the name to show; `only` builds just one of the two lists. */
+function displayNameMaps_(only) {
   const pick = (rows, idOf, fullOf, shortOf) => {
     const count = {};
     rows.forEach((r) => { const s = shortOf(r).toLowerCase(); if (s) count[s] = (count[s] || 0) + 1; });
@@ -27,12 +37,15 @@ function displayNameMaps_() {
     });
     return map;
   };
-  const users = table_('users').rows();
-  const active = users.filter((u) => u.status !== 'inactive');
-  const userMap = pick(active, (u) => String(u.userId), (u) => String(u.name || '').trim(), (u) => String(u.shortName || '').trim());
-  users.forEach((u) => { if (!(String(u.userId) in userMap)) userMap[String(u.userId)] = String(u.name || '').trim(); });
+  let userMap = {};
+  if (only !== 'trainee') {
+    const users = table_('users').rows();
+    const active = users.filter((u) => u.status !== 'inactive');
+    userMap = pick(active, (u) => String(u.userId), (u) => String(u.name || '').trim(), (u) => String(u.shortName || '').trim());
+    users.forEach((u) => { if (!(String(u.userId) in userMap)) userMap[String(u.userId)] = String(u.name || '').trim(); });
+  }
   let traineeMap = {};
-  try {
+  if (only !== 'user') try {
     const trainees = traineeTable_().rows().filter((t) => t.id);
     traineeMap = pick(trainees, (t) => String(t.id), (t) => String(t.name || '').trim(), (t) => String(t.preferredName || '').trim());
   } catch (e) {
@@ -43,14 +56,14 @@ function displayNameMaps_() {
 
 function applyDisplayNames_(action, data) {
   if (!data || typeof data !== 'object' || DISPLAY_NAME_EXEMPT_.indexOf(action) >= 0) return data;
-  let maps = null;
-  const get = () => maps || (maps = displayNameMaps_());
+  const maps = {};
+  const get = (kind) => maps[kind] || (maps[kind] = kind === 'user' ? userDisplayNames_() : traineeDisplayNames_());
   const kindOf = (id) => (/^U-/.test(id) ? 'user' : /^T-\d+/.test(id) ? 'trainee' : '');
   const rename = (o, idKey, nameKey) => {
     const id = String(o[idKey] || '');
     const kind = kindOf(id);
     if (!kind || typeof o[nameKey] !== 'string') return false;
-    const shown = get()[kind][id];
+    const shown = get(kind)[id];
     if (!shown || shown === o[nameKey]) return true;
     const fullKey = nameKey === 'name' ? 'fullName' : nameKey.replace(/Name$/, 'FullName');
     if (o[fullKey] === undefined) o[fullKey] = o[nameKey];

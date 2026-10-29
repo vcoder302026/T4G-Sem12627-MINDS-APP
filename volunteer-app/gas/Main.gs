@@ -32,6 +32,7 @@ function routes_() {
     traineeDirectory: { auth: 'user', fn: traineeDirectory_ },
     submitTraineeUpdate: { auth: 'user', write: true, fn: submitTraineeUpdate_ },
     noteFile: { auth: 'user', fn: noteFile_ }, // a file attached to a note (NoteFiles.gs)
+    changes: { auth: 'user', fn: changes_ }, // "has anything changed?" for live updates (Speed.gs)
 
     adminHome: { auth: 'admin', fn: adminHome_ },
     createSession: { auth: 'admin', write: true, fn: createSession_ },
@@ -181,7 +182,11 @@ function handle_(e) {
       if (route.auth === 'admin' && route.write) logAdminAction_(user, body.action, payload, out);
       return out;
     };
+    // Admin pages that look the same for every admin come from the cache until something changes (Speed.gs).
+    const shared = route.write ? '' : sharedReadKey_(body.action, payload, user);
+    if (shared) return { ok: true, data: cachedForVersion_(shared, () => applyDisplayNames_(body.action, run())) };
     const data = route.write ? withLock_(run) : run();
+    if (route.write) bumpDataVersion_(); // every save makes cached copies out of date
     return { ok: true, data: applyDisplayNames_(body.action, data) }; // short names (DisplayNames.gs)
   } catch (error) {
     if (error instanceof AppError) return { ok: false, error: { code: error.code, message: error.message } };

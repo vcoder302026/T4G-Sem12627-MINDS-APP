@@ -14,7 +14,7 @@
 // Rules (Pairing.gs): many to many. A volunteer can have several trainees, and
 // a trainee several volunteers (ideally at least one regular).
 
-import { call } from '../api.js';
+import { call, watchChanges } from '../api.js';
 import {
   backLink, badge, el, errorBlock, fmtDay, fmtTimes, fuzzyFilter, loading, modal, mount, searchBox, toast, traineeAvatar, typeBadges,
 } from '../ui.js';
@@ -367,6 +367,7 @@ export function renderSessionPairing(root, app, ctx, sessionId) {
   const cached = app.cachedDetail(sessionId);
   if (cached) draw(cached);
   else mount(root, loading());
+  watchChanges(ctx, () => load().catch(() => {})); // another admin's pairing shows within about 10 seconds
   return load().catch((err) => { if (ctx.alive() && !cached) mount(root, errorBlock(err, () => app.rerender())); });
 }
 
@@ -469,6 +470,7 @@ export function renderStandingPairings(root, app, ctx, tab) {
     mount(host, board.el); // like the outing app: just the board (its unpaired count and "Saved" are on top)
   };
   const load = () => call('listStandingPairings').then((d) => { if (ctx.alive()) draw(d); });
+  watchChanges(ctx, () => load().catch(() => {})); // another admin's change shows within about 10 seconds
   mount(host, loading());
   return load().catch((err) => { if (ctx.alive()) mount(host, errorBlock(err, () => app.rerender())); });
 }

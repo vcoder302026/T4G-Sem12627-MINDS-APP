@@ -41,3 +41,38 @@ Changes from the call with MINDS on 29 October 2026. Version 3 is described in
 - Browser walkthroughs: short names in lists; the save warning; attaching a photo and opening it
   from Notes to review; All pages and the sidebar; Add trainee (✱ marks, missing answers, adding).
 - Layout checks: nothing squashed (360, 412 px); every page scrolls; nothing left covering a page.
+
+## 4. Version 4.1: speed, live updates, and a load test
+
+**Why Version 4 felt slower:** showing short names meant reading the volunteer list and the trainee
+spreadsheet (MINDS's large House Visit responses) on almost every request.
+
+**What's faster now** (`gas/Speed.gs`):
+- **Short-name lists and admin pages are cached** in Apps Script's cache (CacheService). Pages
+  that look the same for every admin (trainees, volunteers, pairings, a session, notes to review,
+  house visits, pairing history) are cached for up to 2 minutes.
+- **A data version** changes with every save, and every cached copy belongs to one version, so
+  nobody is shown data from before a change. Edits typed straight into the sheet, or a new Google
+  Form response, show within 2 minutes (or straight away after the next save in the app).
+- **Live updates:** pairing boards ask "has anything changed?" every 10 seconds (a tiny request
+  that doesn't read the sheets) and reload when something has. A pairing changed by one admin
+  shows on the other admins' boards within about 10–15 seconds.
+- **Busy retries:** Google runs at most **30 requests at once** for the app's account (all requests
+  run as the account that deployed it). When it's busy it refuses the extra ones before the app's
+  code runs; the app now waits a moment and tries again (up to 3 times), instead of showing an error.
+
+**Load test** (`volunteer-app/dev/load-test.mjs`, needs Node.js 18+):
+
+```bash
+cd volunteer-app
+node dev/load-test.mjs --url <the Exp /exec URL> --volunteers 100 --admins 10 --minutes 3
+```
+
+It signs in volunteers (with the mock database's accounts) and admins, has volunteers use Home,
+Me and the guide every 5–20 seconds, and has each admin keep a session's pairing board open and
+change a pairing every 20–40 seconds (then put it back). It prints how long requests take (median
+and 95%), how many failed or were refused as busy, and **how long each admin's change took to
+show on the other admins' boards**. Run it at a quiet time: it uses the Exp app for real.
+
+Locally (the demo, about 0.8 s a request): changes showed on other admins' boards after a median
+of 9.7 s (slowest 11.7 s).
