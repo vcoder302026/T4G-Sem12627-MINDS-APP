@@ -59,7 +59,23 @@ export function onUnauthorized(handler) {
 export const isNetworkError = (err) => err instanceof ApiError && err.code === 'NETWORK_ERROR';
 
 /** options.timeoutMs: wait longer than usual (e.g. uploading a file). */
+/**
+ * Google allows 30 requests to run at once for the app's account. When it's busy it refuses the
+ * extra ones before the app's code runs (or the app replies BUSY while another save finishes),
+ * so trying again is always safe: nothing was saved. Up to 3 tries, waiting a little longer each time.
+ */
 export async function call(action, payload = {}, options = {}) {
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      return await callOnce(action, payload, options);
+    } catch (err) {
+      if (!err || !err.busy || attempt >= 3) throw err;
+      await new Promise((r) => setTimeout(r, 700 * 2 ** attempt + Math.random() * 400));
+    }
+  }
+}
+
+async function callOnce(action, payload = {}, options = {}) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), options.timeoutMs || CONFIG.REQUEST_TIMEOUT_MS);
   let response;
@@ -94,12 +110,47 @@ export async function call(action, payload = {}, options = {}) {
       err.permissionUrl = CONFIG.API_URL;
       throw err;
     }
+    if (response.status === 429 || /too many|simultaneous|invoked too many|try again later/i.test(text.slice(0, 4000))) {
+      const busy = new ApiError('BUSY', 'The app is busy right now. Please try again in a moment.');
+      busy.busy = true; // refused before the app ran: safe to try again
+      throw busy;
+    }
     throw new ApiError('BAD_RESPONSE', 'The server sent an unexpected reply. If this keeps happening, tell an admin.');
   }
   if (!body || body.ok !== true) {
     const error = new ApiError(body?.error?.code || 'UNKNOWN', body?.error?.message || 'Something went wrong.');
+    if (error.code === 'BUSY') error.busy = true; // another save was running: nothing was saved, try again
     if (error.code === 'UNAUTHORIZED' && action !== 'login') unauthorizedHandler(error);
     throw error;
   }
   return body.data;
 }
+
+/**
+ * Live updates: every few seconds (10 by default), asks the server "has anything changed?" and,
+ * if so, calls onChange() so the page reloads its data. Pauses while the tab is hidden, while
+ * something is being dragged or a pop-up is open (the next check catches up), and stops when
+ * the person leaves the page.
+ */
+export function watchChanges(ctx, onChange, ms = 10000) {
+  let last = null;
+  let running = false;
+  const tick = async () => {
+    if (running || document.hidden || !ctx.alive()) return;
+    if (document.querySelector('.dnd-ghost, dialog[open], .list-pop')) return;
+    running = true;
+    try {
+      const { version } = await call('changes', {}, { timeoutMs: 8000 });
+      if (last !== null && version !== last && ctx.alive()) await onChange();
+      last = version;
+    } catch (e) {
+      // offline or busy: try again next time
+    } finally {
+      running = false;
+    }
+  };
+  tick();
+  const timer = setInterval(tick, ms);
+  ctx.onLeave(() => clearInterval(timer));
+}
+

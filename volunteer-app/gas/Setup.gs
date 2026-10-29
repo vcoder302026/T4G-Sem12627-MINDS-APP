@@ -15,7 +15,9 @@ function checkConfig() {
 }
 
 function setup() {
-  return setupInternal_(false);
+  const report = setupInternal_(false);
+  bumpDataVersion_(); // cached pages (Speed.gs) are out of date after setup
+  return report;
 }
 
 function setupInternal_(dryRun) {

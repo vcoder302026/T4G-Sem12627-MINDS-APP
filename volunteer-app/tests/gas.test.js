@@ -1244,3 +1244,44 @@ describe('Version 4: files attached to notes', () => {
     fails(rt.call('submitTraineeUpdate', { traineeId: 'T-0001', note: 'x', files: [{ fileName: 'run.exe', mimeType: 'application/x-msdownload', data: PNG }] }, rex.token), 'VALIDATION_ERROR');
   });
 });
+
+describe('Version 4.1: speed (cached pages, data version, live updates)', () => {
+  let rt, adminA, adminB, sessionId, booking;
+  beforeEach(() => {
+    rt = createGasRuntime();
+    rt.createSpreadsheet(SHEET, 'Main');
+    rt.props.set('SPREADSHEET_ID', SHEET);
+    rt.fillTab(SHEET, 'Trainees', [['Trainee ID', 'Name'], ['T-0001', 'Alpha One'], ['T-0002', 'Beta Two']]);
+    rt.run('setup');
+    rt.props.set('FIRST_ADMIN_EMAIL', 'boss@example.com');
+    ok(rt.call('register', volunteerPayload({ name: 'Boss Person', email: 'boss@example.com' })));
+    rt.run('makeFirstAdmin');
+    adminA = ok(rt.call('login', { email: 'boss@example.com', password: 'password123' })).token;
+    adminB = ok(rt.call('login', { email: 'boss@example.com', password: 'password123' })).token; // a second admin session
+    const s = ok(rt.call('createSession', { title: 'Regular session', date: '2099-01-10', startTime: '14:30', endTime: '17:30', venue: 'MINDS Woodlands Gardens School', capacity: 0 }, adminA));
+    sessionId = (s.session || s.sessions[0] || s).sessionId;
+    const v = ok(rt.call('register', volunteerPayload({ name: 'Vol One', email: 'v1@example.com' })));
+    ok(rt.call('acknowledgeGuide', {}, v.token));
+    ok(rt.call('bookSession', { sessionId }, v.token));
+    booking = ok(rt.call('sessionDetail', { sessionId }, adminA)).bookings[0];
+  });
+
+  test("one admin's pairing shows on another admin's board straight away; the version tells pages to refresh", () => {
+    const before = ok(rt.call('changes', {}, adminB)).version;
+    const board1 = ok(rt.call('sessionDetail', { sessionId }, adminB)); // now cached for this version
+    assert.equal((board1.bookings[0].trainees || []).length, 0);
+    ok(rt.call('updateBooking', { bookingId: booking.bookingId, addTraineeId: 'T-0001' }, adminA));
+    const after = ok(rt.call('changes', {}, adminB)).version;
+    assert.notEqual(after, before, 'the save changed the data version, so open boards refresh');
+    const board2 = ok(rt.call('sessionDetail', { sessionId }, adminB));
+    assert.deepEqual(board2.bookings[0].trainees.map((t) => t.id), ['T-0001'], 'no stale copy after a change');
+  });
+
+  test('repeated reads of a shared admin page come from the cache until something changes', () => {
+    ok(rt.call('listTrainees', {}, adminA));
+    rt.fillTab(SHEET, 'Trainees', [['Trainee ID', 'Name'], ['T-0001', 'Alpha One'], ['T-0002', 'Beta Two'], ['T-0003', 'Gamma Three']]); // typed into the sheet
+    assert.equal(ok(rt.call('listTrainees', {}, adminB)).trainees.length, 2, 'a sheet edit shows after the cache expires (2 minutes) or the next save');
+    ok(rt.call('updateBooking', { bookingId: booking.bookingId, addTraineeId: 'T-0002' }, adminA)); // any save
+    assert.equal(ok(rt.call('listTrainees', {}, adminB)).trainees.length, 3);
+  });
+});
