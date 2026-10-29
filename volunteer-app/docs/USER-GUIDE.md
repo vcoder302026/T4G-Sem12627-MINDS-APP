@@ -73,7 +73,7 @@ Good to know:
 
 ## For admins
 
-Open **Admin** (phone) or use the sidebar (computer). The **Admin** home has:
+Open **Admin** (phone) or **Dashboard** in the sidebar (computer). The Dashboard's **Home** tab has:
 
 - **Create New Session** (pick a date and go).
 - **Session Management:** choose a session, then **Pair**, **Who's coming**, **Scan**,
@@ -87,7 +87,7 @@ Then six sections, plus **More**:
 
 | I want to… | Go to |
 | --- | --- |
-| See what needs attention | **Dashboard** → Overview: volunteers, regulars, trainees without a regular, hours this month, who still needs pairing |
+| See what needs attention | **Dashboard** → **Overview**: volunteers, regulars, trainees without a regular, hours this month, who still needs pairing |
 | Check who changed what | **Dashboard** → **Activity log**: every admin change, with who did it; filter by admin, date or words like "pairing" |
 | Add sessions | **Sessions** → **New session** → pick the date. It's a Regular session, 2:30–5:30 pm at Woodlands, for West End and RSPID (WGS), unless you change it. **Add another date** adds the same session on several days |
 | See who's coming | **Sessions** → a session: everyone coming, their trainees, and no-shows after the day. **Edit or close this session** changes times, closes sign-ups or cancels it (with a warning) |

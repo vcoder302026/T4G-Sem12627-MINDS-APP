@@ -208,7 +208,9 @@ const VOLUNTEER_ITEMS = [
 // The Admin menu: a few sections; a section with several pages shows them as
 // tabs at the top (`pages`: [route, label]). `also` lists detail pages.
 const ADMIN_SECTIONS = [
-  { key: 'overview', label: 'Dashboard', icon: 'dashboard', pages: [['overview', 'Overview'], ['log', 'Activity log']] },
+  // The Admin home (Create New Session, Session Management, Records, Upcoming Sessions) is the
+  // Dashboard's first page, so it's in the sidebar and the admin row, one click from anywhere.
+  { key: 'admin', label: 'Dashboard', icon: 'dashboard', pages: [['admin', 'Home'], ['overview', 'Overview'], ['log', 'Activity log']] },
   { key: 'today', label: 'Sessions', icon: 'calendar', also: ['session', 'new-session', 'scan', 'clock'] },
   { key: 'pairings', label: 'Pairing', icon: 'sparkle', pages: [['pairings', 'Sessions to pair'], ['pairings/regular', 'Regular pairings'], ['pairings/history', 'History']], also: ['pair'] },
   { key: 'volunteers', label: 'Volunteers', icon: 'users', pages: [['volunteers', 'People'], ['attendance', 'Attendance'], ['hours', 'Hours']], also: ['volunteer'] },
@@ -232,7 +234,7 @@ const ROUTES = {
   info: { fn: T.renderTraineeInfo }, // a trainee's page for volunteers and regulars
   directory: { fn: T.renderDirectory }, // regulars: every trainee
   // admins
-  admin: { fn: Ad.renderAdminHub, admin: true },
+  admin: { fn: Ad.renderAdminHub, admin: true, title: 'Dashboard' },
   overview: { fn: DOv.renderOverview, admin: true },
   today: { fn: L.renderToday, admin: true },
   session: { fn: L.renderSession, admin: true },

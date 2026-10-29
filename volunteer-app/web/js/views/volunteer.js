@@ -365,7 +365,7 @@ export function renderMe(root, app, ctx) {
               : el('span', { class: 'muted' }, 'No trainee paired'))),
           badge(fmtHours(a.hours), 'indigo'))))
         : emptyState('clock', 'No completed sessions yet', 'Sessions you finish will be listed here with your hours.'),
-      app.isAdmin ? el('a', { href: '#/admin', class: 'btn btn-secondary mt-6 w-full' }, icon('shield'), 'Admin menu') : null,
+      app.isAdmin ? el('a', { href: '#/admin', class: 'btn btn-secondary mt-6 w-full' }, icon('shield'), 'Admin dashboard') : null,
       el('h2', { class: 'group-label' }, 'Account'),
       el('section', { class: 'card overflow-hidden' },
         el('div', { class: 'section-head section-blue' }, 'My details',
