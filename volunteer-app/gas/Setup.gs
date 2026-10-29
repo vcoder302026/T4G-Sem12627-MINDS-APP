@@ -76,6 +76,7 @@ function setupInternal_(dryRun) {
       .concat(t.writeBack ? Object.keys(t.writeBack).map((k) => t.writeBack[k]) : []);
     report.push(describeTab_(tss, tabName, required, dryRun, {}));
     if (!dryRun) report.push(fillTraineeIds_());
+    if (!dryRun) { const moved = moveHouseVisits_(); if (moved) report.push(moved); }
   }
   if (!dryRun) {
     seedContent_().forEach((line) => report.push(line));
@@ -103,6 +104,24 @@ function describeTab_(ss, tab, headers, dryRun, opts) {
 }
 
 /** Gives every named trainee without an ID a stable one (T-0001, …). Existing IDs are kept. */
+/**
+ * Version 4 keeps house visit records in the trainee spreadsheet. Copies the records from the
+ * volunteer sheet's House Visits tab (Versions 2–3) when the new tab has none yet; the old tab
+ * is left as it is (it can be deleted afterwards).
+ */
+function moveHouseVisits_() {
+  const tab = CONFIG.TABLES.houseVisits.tab;
+  const from = spreadsheet_().getSheetByName(tab);
+  const toBook = visitsSpreadsheet_();
+  if (!from || toBook.getId() === spreadsheet_().getId() || from.getLastRow() < 2) return '';
+  const to = toBook.getSheetByName(tab) || toBook.insertSheet(tab);
+  if (to.getLastRow() > 1) return '';
+  const values = from.getRange(1, 1, from.getLastRow(), from.getLastColumn()).getValues();
+  to.getRange(1, 1, values.length, values[0].length).setValues(values);
+  resetDbCache_();
+  return `Moved ${values.length - 1} house visit record(s) to the trainee spreadsheet ("${toBook.getName()}"). The old "${tab}" tab in the volunteer sheet can be deleted.`;
+}
+
 function fillTraineeIds_() {
   resetDbCache_();
   const table = traineeTable_();
@@ -120,6 +139,8 @@ function fillTraineeIds_() {
       filled += 1;
     }
   });
+  filled += AUTO_TRAINEE_IDS_; // filled in earlier in this run, when the trainee list was first read
+  AUTO_TRAINEE_IDS_ = 0;
   return filled ? `Added IDs to ${filled} trainee(s).` : 'All trainees already have IDs.';
 }
 

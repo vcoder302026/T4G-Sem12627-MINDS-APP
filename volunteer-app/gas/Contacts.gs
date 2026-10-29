@@ -187,16 +187,18 @@ function syncAllContacts() {
 function syncAllContactsInternal_() {
   if (!contactsOn_()) throw err_.conflict('Google Contacts sync is off. Set the script property CONTACTS_SYNC to "on" first.');
   return (() => {
-    let saved = 0;
+    // Every active volunteer: existing contacts are updated in place (e.g. to a new name format),
+    // missing ones are created.
+    let added = 0;
+    let updated = 0;
     let failed = 0;
     table_('users').rows().forEach((u) => {
       if (!u.userId || !u.email || u.status === 'inactive') return;
-      if (u.contactId && !/^Failed/.test(String(u.contactStatus || ''))) return;
+      const had = Boolean(u.contactId) && !/^Failed/.test(String(u.contactStatus || ''));
       const r = syncContactSafe_(u.userId);
-      if (r && r.status === 'saved') saved += 1;
-      else failed += 1;
+      if (r && r.status === 'saved') { if (had) updated += 1; else added += 1; } else failed += 1;
     });
-    const text = `Google Contacts: saved ${saved} volunteer(s)${failed ? `, ${failed} failed (see the "Google Contact" column)` : ''}.`;
+    const text = `Google Contacts: updated ${updated} and added ${added} volunteer(s)${failed ? `, ${failed} failed (see the "Google Contact" column)` : ''}.`;
     console.log(text);
     return text;
   })();

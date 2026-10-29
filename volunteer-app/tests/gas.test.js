@@ -991,8 +991,13 @@ describe('Google Contacts sync', () => {
   test('syncAllContacts() saves existing volunteers once; testContactsAccess() reports OK', () => {
     turnOn('MINDS Volunteers');
     assert.match(rt.run('testContactsAccess'), /OK: contacts will be saved/);
-    assert.match(rt.run('syncAllContacts'), /saved 2 volunteer\(s\)/); // the admin and Vol One
-    assert.match(rt.run('syncAllContacts'), /saved 0 volunteer\(s\)/);
+    assert.match(rt.run('syncAllContacts'), /updated 0 and added 2 volunteer\(s\)/); // the admin and Vol One
+    // Running it again updates everyone's contact in place (e.g. to a new name format): no duplicates.
+    const first = [...rt.contacts.people.values()][0];
+    first.names = [{ givenName: 'Old Format (Name)' }];
+    assert.match(rt.run('syncAllContacts'), /updated 2 and added 0 volunteer\(s\)/);
+    assert.equal(rt.contacts.people.size, 2, 'no duplicates');
+    assert.ok(![...rt.contacts.people.values()].some((c) => c.names[0].givenName === 'Old Format (Name)'), 'the old name is replaced');
     assert.equal(contacts().length, 2);
   });
 });
@@ -1091,7 +1096,7 @@ describe('Advanced Settings (one-time functions from the app)', () => {
     assert.match(res.message, /Run setup: done/);
     fails(rt.call('runMaintenance', { task: 'syncAllContacts', adminPassword: ADMIN_PW }, leader), 'CONFLICT'); // sync is off
     rt.props.set('CONTACTS_SYNC', 'on');
-    assert.match(ok(rt.call('runMaintenance', { task: 'syncAllContacts', adminPassword: ADMIN_PW }, leader)).report, /saved 2 volunteer/);
+    assert.match(ok(rt.call('runMaintenance', { task: 'syncAllContacts', adminPassword: ADMIN_PW }, leader)).report, /added 2 volunteer/);
     fails(rt.call('runMaintenance', { task: 'deleteEverything', adminPassword: ADMIN_PW }, leader), 'VALIDATION_ERROR');
     fails(rt.call('runMaintenance', { task: 'checkConfig' }, vol.token), 'FORBIDDEN');
     const log = JSON.stringify(rt.records(SHEET, 'Admin Activity Log'));
@@ -1102,12 +1107,11 @@ describe('Advanced Settings (one-time functions from the app)', () => {
 
 describe('Settings → Google Sheets (link the databases from the app)', () => {
   const pw = { adminPassword: ADMIN_PW };
-  test('lists the three databases; trainees and house visits start in the volunteer sheet', () => {
+  test('lists the two databases: volunteers, and trainees & house visits (one spreadsheet)', () => {
     const d = ok(rt.call('dataSources', {}, leader)).sources;
-    assert.deepEqual(d.map((s) => s.key), ['volunteers', 'trainees', 'visits']);
+    assert.deepEqual(d.map((s) => s.key), ['volunteers', 'trainees']);
     assert.equal(d[0].linked.id, SHEET);
     assert.equal(d[0].check.ok, true);
-    assert.equal(d[2].linked.sharesVolunteerSheet, true);
     fails(rt.call('dataSources', {}, vol.token), 'FORBIDDEN');
   });
 
@@ -1119,7 +1123,7 @@ describe('Settings → Google Sheets (link the databases from the app)', () => {
     assert.deepEqual(found.map((f) => f.name), ['MINDS Trainee List 2027']);
     fails(rt.call('connectDataSource', { source: 'trainees', ref: other.getUrl() }, leader), 'PASSWORD_REQUIRED');
     const res = ok(rt.call('connectDataSource', { source: 'trainees', ref: other.getUrl(), ...pw }, leader));
-    assert.match(res.message, /Linked "MINDS Trainee List 2027" as the trainee database/);
+    assert.match(res.message, /Linked "MINDS Trainee List 2027" as the trainee & house visit database/);
     assert.equal(res.sources[1].linked.tab, 'Form Responses 1', 'finds the tab with the name column');
     assert.match(rt.props.get('TRAINEE_SPREADSHEET_ID'), /trainee-book\/edit#gid=\d+/);
     assert.deepEqual(ok(rt.call('listTrainees', {}, leader)).trainees.map((t) => t.name), ['Kim Lee']);
@@ -1143,17 +1147,8 @@ describe('Settings → Google Sheets (link the databases from the app)', () => {
     assert.match(rt.props.get('SPREADSHEET_ID'), new RegExp(SHEET));
   });
 
-  test('a house visit database of its own, then back to the volunteer database', () => {
-    const res = ok(rt.call('createDataSource', { source: 'visits', ...pw }, leader));
-    const id = res.sources[2].linked.id;
-    assert.equal(res.sources[2].linked.sharesVolunteerSheet, false);
-    assert.ok(rt.spreadsheet(id).getSheetByName('House Visits'), 'setup added the tab');
-    ok(rt.call('createVisit', { traineeId: 'T-0001', userId: vol.user.userId, date: '2026-10-10', family: 'Well' }, leader));
-    assert.equal(rt.records(id, 'House Visits').length, 1, 'saved in the house visit sheet');
-    const back = ok(rt.call('unlinkDataSource', { source: 'visits', ...pw }, leader));
-    assert.equal(back.sources[2].linked.sharesVolunteerSheet, true);
-    const log = rt.records(SHEET, 'Admin Activity Log').map((r) => r.Action).join(' | ');
-    assert.match(log, /Created and linked a Google Sheet.*Unlinked a Google Sheet|Unlinked a Google Sheet/);
+  test('house visits are kept in the trainee spreadsheet: there is no separate house visit database', () => {
+    fails(rt.call('createDataSource', { source: 'visits', ...pw }, leader), 'VALIDATION_ERROR');
   });
 });
 
@@ -1174,6 +1169,7 @@ describe('Version 4: short names in the app', () => {
     name, email,
     answers: { shortName, nric4: '123A', address: 'Blk 1', project: 'West End', startYear: '2024', shirtSize: 'M', emergencyRelation: 'Mother', emergencyPhone: '+65 9876 5432' },
   })));
+
 
   test('short names, full names for a clash, alphanumeric order; full name kept alongside', () => {
     join('Tan Wei Jie', 'wj1@example.com', 'Wei Jie');

@@ -94,12 +94,65 @@ function question(f, i) {
     control = el('input', { id, type: 'text', class: 'input', value: f.value, maxlength: 500, 'data-key': f.key });
   }
   return el('div', {},
-    el(f.type === 'likert' ? 'p' : 'label', { class: 'block text-sm font-semibold text-slate-800 dark:text-neutral-200', for: f.type === 'likert' ? null : id }, q.label),
+    el(f.type === 'likert' ? 'p' : 'label', { class: 'block text-sm font-semibold text-slate-800 dark:text-neutral-200', for: f.type === 'likert' ? null : id }, q.label,
+      f.mark ? el('span', { class: 'text-red-600', 'aria-label': ' (required)' }, ' ✱') : null),
     q.guide ? el('p', { class: 'hv-q-guide' }, q.guide) : null,
     control);
 }
 
 /** Admin → House visits → New visit (#/visit-new, or #/visit-new/<trainee ID>). */
+/** Marks the questions required for a new trainee (✱ after the question). */
+function markRequired(d) {
+  d.sections.forEach((s) => s.fields.forEach((f) => { if (f.requiredNew) f.mark = true; }));
+}
+
+/** True when every required question has an answer; otherwise says which are missing. */
+function requiredFilled(d, answers) {
+  const missing = [];
+  d.sections.forEach((s) => s.fields.forEach((f) => {
+    if (f.requiredNew && !String(answers[f.key] || '').trim()) missing.push(f.label.split(/\s[(（]/)[0]);
+  }));
+  if (missing.length) toast(`Fill in: ${missing.join(', ')}.`, 'warn');
+  return !missing.length;
+}
+
+/**
+ * Admin → Trainees → Add trainee: MINDS's House Visit Form, blank. The ✱ questions are
+ * required; everything else can be left blank and filled in later. Adds the trainee's row to
+ * the trainee sheet (no visit is recorded).
+ */
+export function renderNewTrainee(root, app, ctx) {
+  mount(root, el('h1', { class: 'page-title mb-4' }, 'Add a trainee'), loading());
+  return call('houseVisitForm', {}).then((d) => {
+    if (!ctx.alive()) return;
+    markRequired(d);
+    let n = 0;
+    const submit = el('button', { type: 'submit', class: 'btn btn-primary w-full' }, 'Add trainee');
+    const form = el('form', { novalidate: true, class: 'space-y-6' },
+      d.sections.map((s, i) => el('details', { class: 'card group overflow-hidden', open: true },
+        el('summary', { class: `section-head section-${TONES[i % TONES.length]} cursor-pointer list-none select-none` }, s.title,
+          icon('down', 'size-5 transition-transform duration-200 group-open:rotate-180')),
+        el('div', { class: 'space-y-5 p-4' }, s.fields.map((f) => question(f, n++))))),
+      el('div', { class: 'action-bar' }, el('div', { class: 'mx-auto max-w-2xl' }, submit)));
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const answers = {};
+      form.querySelectorAll('[data-key]').forEach((c) => {
+        if (c.type === 'radio') { if (c.checked) answers[c.dataset.key] = c.value; else if (!(c.dataset.key in answers)) answers[c.dataset.key] = ''; return; }
+        answers[c.dataset.key] = c.value.trim();
+      });
+      if (!requiredFilled(d, answers)) return;
+      busy(submit, 'Adding…', async () => {
+        const res = await call('createVisit', { newTrainee: true, traineeOnly: true, answers });
+        toast(res.message);
+        if (app.dropTrainees) app.dropTrainees();
+        app.go(`#/trainee/${encodeURIComponent(res.traineeId)}`);
+      });
+    });
+    mount(root, el('h1', { class: 'page-title mb-4' }, 'Add a trainee'), form, el('div', { class: 'h-24' }));
+  });
+}
+
 export function renderVisitForm(root, app, ctx, param) {
   const preset = param ? decodeURIComponent(param) : '';
   const formHost = el('div', {});
@@ -108,6 +161,7 @@ export function renderVisitForm(root, app, ctx, param) {
 
   const drawForm = (d) => {
     current = d;
+    if (!d.trainee) markRequired(d); // a new trainee: the required questions
     let n = 0;
     const update = el('input', { type: 'checkbox', checked: true, class: 'size-5 accent-indigo-600' });
     const submit = el('button', { type: 'submit', class: 'btn btn-primary w-full' }, 'Submit');
@@ -126,6 +180,7 @@ export function renderVisitForm(root, app, ctx, param) {
         if (c.type === 'radio') { if (c.checked) answers[c.dataset.key] = c.value; else if (!(c.dataset.key in answers)) answers[c.dataset.key] = ''; return; }
         answers[c.dataset.key] = c.value.trim();
       });
+      if (!d.trainee && !requiredFilled(d, answers)) return;
       busy(submit, 'Submitting…', async () => {
         const res = await call('createVisit', d.trainee
           ? { traineeId: d.trainee.id, answers, updateTrainee: update.checked }

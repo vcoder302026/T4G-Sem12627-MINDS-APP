@@ -38,13 +38,13 @@ function spreadsheet_() {
   return DB_.books.main;
 }
 
-/** The house visit database: VISITS_SPREADSHEET_ID, or the volunteer sheet when not set. */
+/**
+ * House visit records live in the trainee spreadsheet (Version 4: one database for trainees
+ * and house visits, MINDS's House Visit form responses). Their "House Visits" tab sits next to
+ * Form Responses 1.
+ */
 function visitsSpreadsheet_() {
-  if (!DB_.books.visits) {
-    const ref = parseSheetRef_(PropertiesService.getScriptProperties().getProperty(CONFIG.PROP_VISITS_SPREADSHEET_ID));
-    DB_.books.visits = ref ? SpreadsheetApp.openById(ref.id) : spreadsheet_();
-  }
-  return DB_.books.visits;
+  return traineeSpreadsheet_();
 }
 
 /** The spreadsheet an app table lives in (Config.gs → TABLES.<key>.book). */
@@ -108,7 +108,7 @@ function table_(key) {
 function traineeTable_() {
   const t = CONFIG.TRAINEES;
   const columns = Object.assign({}, t.columns, t.writeBack || {});
-  return new Table(traineeSpreadsheet_(), traineeTabName_(), columns, [], 'trainees');
+  return new TraineeTable(traineeSpreadsheet_(), traineeTabName_(), columns, [], 'trainees');
 }
 
 class Table {
@@ -279,3 +279,62 @@ function ensureTab_(ss, tab, headers, opts) {
   if (o.hidden && !sheet.isSheetHidden()) sheet.hideSheet();
   return { sheet, created, added: missing };
 }
+
+/**
+ * The trainee sheet (MINDS's House Visit form responses) as the app reads it (Version 4):
+ *   - a row with a name but no Trainee ID (a new Google Form response, or a row typed in) gets
+ *     one straight away: the next ID, or, when the same trainee is already in the sheet (same
+ *     full name and NRIC last 4), that trainee's ID;
+ *   - when a trainee has several rows (the form submitted again after a house visit), the
+ *     newest row is their current information. Older rows stay in the sheet, untouched.
+ */
+class TraineeTable extends Table {
+  rows() {
+    const st = this.load_();
+    if (!st.idsChecked) {
+      st.idsChecked = true;
+      if (st.rows.some((r) => r.name && !r.id)) fillMissingTraineeIds_(this, st.rows);
+    }
+    const newest = {};
+    st.rows.forEach((r) => { if (r.id) newest[String(r.id)] = r; });
+    return st.rows.filter((r) => !r.id || newest[String(r.id)] === r);
+  }
+}
+
+let AUTO_TRAINEE_IDS_ = 0; // how many IDs were filled in this run (setup reports them)
+
+function fillMissingTraineeIds_(table, rows) {
+  let lock = null;
+  try {
+    lock = LockService.getScriptLock();
+    if (!lock.tryLock(5000)) return; // someone else is writing: the IDs come on the next request
+  } catch (e) {
+    lock = null;
+  }
+  try {
+    const nric = table.allHeaders().find((h) => /^nric/i.test(h.header));
+    const key = (r) => `${String(r.name || '').trim().toLowerCase()}|${nric ? String(table.rawValue(r, nric.index)).trim().toLowerCase() : ''}`;
+    const known = {};
+    let max = 0;
+    rows.forEach((r) => {
+      if (!r.id) return;
+      known[key(r)] = String(r.id);
+      const m = /^T-(\d+)$/.exec(String(r.id));
+      if (m) max = Math.max(max, Number(m[1]));
+    });
+    rows.forEach((r) => {
+      if (!r.name || r.id) return;
+      let id = known[key(r)];
+      if (!id) {
+        max += 1;
+        id = `T-${String(max).padStart(4, '0')}`;
+        known[key(r)] = id;
+      }
+      table.update(r, { id });
+      AUTO_TRAINEE_IDS_ += 1;
+    });
+  } finally {
+    if (lock) lock.releaseLock();
+  }
+}
+

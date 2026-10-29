@@ -506,7 +506,7 @@ const CONFIG = {
     },
     houseVisits: {
       tab: 'House Visits',
-      book: 'visits', // lives in the house visit database (VISITS_SPREADSHEET_ID), or the volunteer sheet if not set
+      book: 'visits', // lives in the trainee spreadsheet (MINDS's House Visit responses), next to Form Responses 1
       columns: {
         visitId: 'Visit ID',
         traineeId: 'Trainee ID',
@@ -661,6 +661,10 @@ const HOUSE_VISIT = {
   ],
   shortAnswers: /name|nric|contact|blood|race|size|gender|religion|height|weight|relation|language|under minds|working hours|address|location/i,
   skipHeaders: ['Timestamp'], // form bookkeeping, not a question
+  // Required when adding a trainee (Add trainee, or a blank visit for a new trainee); everything
+  // else can be left blank and filled in later.
+  requiredForNewTrainee: [/^project$/i, /^trainee.s full name/i, /^nric/i, /^date of birth/i, /^spoken language/i,
+    /^gender$/i, /^trainee.s short name/i, /^name of caregiver \/ guardian \(1\)/i, /^contact details .*\(1\)$/i],
   // Section order, as on MINDS's House Visit Form (used by the form and the trainee pages).
   sectionOrder: ['General Details', "Volunteers' Details", "Trainee's Details", 'Emergency Contacts', 'Family Background',
     'Medical & Health', 'Behaviour', 'Abilities / Skills', 'For Working Trainees Only', 'For Schooling Trainees Only',

@@ -5,7 +5,9 @@
 
 import { call, isNetworkError, onUnauthorized, session, storage } from './api.js';
 import { CONFIG } from './config.js';
-import { el, mount, sgPhone, toast } from './ui.js';
+import {
+  el, modal, mount, sgPhone, toast,
+} from './ui.js';
 import { icon } from '../admin/js/kit.js';
 import { installQuickView } from './quickview.js';
 import { installControls } from './controls.js';
@@ -210,7 +212,7 @@ const ADMIN_SECTIONS = [
   { key: 'today', label: 'Sessions', icon: 'calendar', also: ['session', 'new-session', 'scan', 'clock'] },
   { key: 'pairings', label: 'Pairing', icon: 'sparkle', pages: [['pairings', 'Sessions to pair'], ['pairings/regular', 'Regular pairings'], ['pairings/history', 'History']], also: ['pair'] },
   { key: 'volunteers', label: 'Volunteers', icon: 'users', pages: [['volunteers', 'People'], ['attendance', 'Attendance'], ['hours', 'Hours']], also: ['volunteer'] },
-  { key: 'trainees', label: 'Trainees', icon: 'heart', pages: [['trainees', 'Trainees'], ['review', 'Notes to review'], ['visibility', 'What volunteers see']], also: ['trainee'] },
+  { key: 'trainees', label: 'Trainees', icon: 'heart', pages: [['trainees', 'Trainees'], ['review', 'Notes to review'], ['visibility', 'What volunteers see']], also: ['trainee', 'trainee-new'] },
   { key: 'guide-edit', label: 'Settings', icon: 'pencil', pages: [['guide-edit', 'Guide & projects'], ['venues', 'Venues'], ['admin-password', 'Admin password'], ['sheets', 'Google Sheets'], ['advanced', 'Advanced settings']] },
   { key: 'fundraising', label: 'More', icon: 'list', note: 'Placeholders', pages: [['fundraising', 'Fundraising'], ['outings', 'Outings'], ['trips', 'Overseas trips'], ['visits', 'House visits']], also: ['fundraiser', 'outing', 'trip', 'visit-new'] },
 ];
@@ -261,6 +263,7 @@ const ROUTES = {
   trip: { fn: DT.renderTrip, admin: true },
   visits: { fn: DV.renderVisits, admin: true },
   'visit-new': { fn: DV.renderVisitForm, admin: true, title: 'New visit' },
+  'trainee-new': { fn: DV.renderNewTrainee, admin: true, title: 'Add a trainee' },
 };
 
 function toggleTheme() {
@@ -408,7 +411,10 @@ function renderChrome(name, full = name) {
   }));
   // Phones, on admin pages: the admin sections as a scrollable row.
   if (!subnav.hidden) {
-    mount(subnav, ADMIN_SECTIONS.map((sec) => el('a', { href: `#/${sec.key}`, class: 'sub-link', 'aria-current': sec === section ? 'page' : null },
+    // "All pages" first: every admin page, grouped by section, one tap away (Version 4).
+    const allPages = el('button', { type: 'button', class: 'sub-link sub-all', 'aria-haspopup': 'dialog' }, icon('list', 'size-4'), 'All pages');
+    allPages.addEventListener('click', () => openAdminMenu(count));
+    mount(subnav, allPages, ADMIN_SECTIONS.map((sec) => el('a', { href: `#/${sec.key}`, class: 'sub-link', 'aria-current': sec === section ? 'page' : null },
       icon(sec.icon, 'size-4'), sec.label, count(sec.key) ? ` (${count(sec.key)})` : '')));
     const activeLink = subnav.querySelector('[aria-current="page"]');
     if (activeLink) activeLink.scrollIntoView({ block: 'nearest', inline: 'center' });
@@ -433,10 +439,25 @@ function renderChrome(name, full = name) {
       el('p', { class: 'side-group' }, 'My volunteering'),
       volunteerItems.map(sideLink),
       admin ? [el('p', { class: 'side-group' }, 'Admin'),
-        ADMIN_SECTIONS.map((sec) => sideLink({ ...sec, active: sec === section }))] : null),
+        // The section you're in shows its pages underneath, so each is one click away.
+        ADMIN_SECTIONS.map((sec) => [sideLink({ ...sec, active: sec === section }),
+          sec === section && sec.pages && sec.pages.length > 1 ? el('div', { class: 'side-sub' }, sec.pages.map(([r, label]) => el('a', {
+            href: `#/${r}`, class: 'side-sub-link', 'aria-current': r === full ? 'page' : null,
+          }, label, count(r) ? el('span', { class: 'side-count' }, String(count(r))) : null))) : null])] : null),
     el('div', { class: 'border-t border-slate-200 p-4 text-xs dark:border-neutral-900' },
       el('p', { class: 'truncate font-bold text-slate-900 dark:text-white' }, u.name),
       el('p', { class: 'truncate muted' }, u.email)));
+}
+
+/** Every admin page, grouped by section, as one big list (phones: "All pages"). */
+function openAdminMenu(count) {
+  const m = modal('Admin pages', el('nav', { class: 'admin-menu', 'aria-label': 'All admin pages' },
+    ADMIN_SECTIONS.map((sec) => el('section', {},
+      el('h3', { class: 'admin-menu-head' }, icon(sec.icon, 'size-4'), sec.label),
+      el('div', { class: 'admin-menu-grid' }, (sec.pages && sec.pages.length ? sec.pages : [[sec.key, sec.label]]).map(([r, label]) => el('a', {
+        href: `#/${r}`, class: 'admin-menu-link',
+      }, label, count(r) ? el('span', { class: 'tab-count' }, String(count(r))) : null)))))));
+  m.el.querySelectorAll('a').forEach((a) => a.addEventListener('click', () => m.close()));
 }
 
 /* ---------------- routing ---------------- */

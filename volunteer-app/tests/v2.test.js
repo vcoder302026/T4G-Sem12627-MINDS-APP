@@ -376,7 +376,7 @@ describe('the House Visit Form (Admin → House visits)', () => {
     const row = rt.records(TRAINEE_FILE, 'Form Responses 1').find((r) => r['Trainee ID'] === 'T-0002');
     assert.equal(row[health.label], 'Recovering well from a cold.');
     // the visit record has one column per question
-    const rec = rt.records(MAIN, 'House Visits').find((r) => r['Visit ID'] === v.visitId);
+    const rec = rt.records(TRAINEE_FILE, 'House Visits').find((r) => r['Visit ID'] === v.visitId); // same spreadsheet as the trainees (Version 4)
     assert.equal(rec[health.label], 'Recovering well from a cold.');
     // "don't update the trainee" leaves the trainee sheet alone
     answers[health.key] = 'Only in the visit record.';
@@ -407,7 +407,10 @@ describe('Start New Blank Visit (a trainee not in the sheet yet)', () => {
     assert.equal(nameF.value, '');
     fails(call('createVisit', { newTrainee: true, answers: { [genderF.key]: 'Female' } }), 'VALIDATION_ERROR'); // no name
     const before = rt.records(TRAINEE_FILE, 'Form Responses 1').length;
-    const res = ok(call('createVisit', { newTrainee: true, answers: { [nameF.key]: 'Nadia New', [genderF.key]: 'Female' } }));
+    // The questions required for a new trainee (Version 4), then the name and gender being tested.
+    const required = Object.fromEntries(fields.filter((f) => f.requiredNew).map((f) => [f.key,
+      /^date of birth/i.test(f.label) ? '2001-02-03' : /^nric/i.test(f.label) ? '123A' : /^project$/i.test(f.label) ? 'West End' : 'x']));
+    const res = ok(call('createVisit', { newTrainee: true, answers: { ...required, [nameF.key]: 'Nadia New', [genderF.key]: 'Female' } }));
     assert.match(res.message, /Nadia New added as T-0101, and the visit recorded\./);
     const rows = rt.records(TRAINEE_FILE, 'Form Responses 1');
     assert.equal(rows.length, before + 1);
@@ -415,6 +418,64 @@ describe('Start New Blank Visit (a trainee not in the sheet yet)', () => {
     assert.equal(row['Trainee’s Full Name'], 'Nadia New');
     assert.equal(row.Gender, 'Female');
     assert.equal(res.visits[0].traineeId, 'T-0101');
-    assert.ok(ok(call('listTrainees', {})).trainees.some((t) => t.name === 'Nadia New'));
+    assert.ok(ok(call('listTrainees', {})).trainees.some((t) => (t.fullName || t.name) === 'Nadia New'));
+  });
+});
+
+describe('Version 4: trainees and house visits in one spreadsheet', () => {
+  test('a new Google Form response gets an ID; the same trainee again updates them (newest row)', () => {
+    const sheet = rt.tab(TRAINEE_FILE, 'Form Responses 1');
+    const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+    const col = (re) => headers.findIndex((h) => re.test(String(h)));
+    const blank = () => headers.map(() => '');
+    // A brand-new trainee, submitted through the Google Form
+    const fresh = blank();
+    fresh[col(/^Trainee.s Full Name/)] = 'New Person';
+    fresh[col(/^NRIC/)] = '999Z';
+    fresh[col(/^Gender$/)] = 'Female';
+    // Mock Trainee 2 visited again: the form submitted a second time with new details
+    const again = blank();
+    again[col(/^Trainee.s Full Name/)] = 'Mock Trainee 2';
+    again[col(/^NRIC/)] = rt.records(TRAINEE_FILE, 'Form Responses 1').find((r) => r['Trainee ID'] === 'T-0002')[headers[col(/^NRIC/)]];
+    again[col(/^Gender$/)] = 'Female';
+    sheet.getRange(sheet.getLastRow() + 1, 1, 2, headers.length).setValues([fresh, again]);
+    const list = ok(call('listTrainees')).trainees;
+    const added = list.find((t) => t.name === 'New Person');
+    assert.ok(added && /^T-\d{4}$/.test(added.id), 'the new response appears with a Trainee ID');
+    assert.equal(list.filter((t) => t.id === 'T-0002').length, 1, 'still one Mock Trainee 2');
+    assert.equal(list.find((t) => t.id === 'T-0002').gender, 'Female', 'their newest row is their current information');
+    const ids = rt.records(TRAINEE_FILE, 'Form Responses 1').filter((r) => String(r[headers[col(/^Trainee.s Full Name/)]]) === 'Mock Trainee 2').map((r) => r['Trainee ID']);
+    assert.deepEqual(ids, ['T-0002', 'T-0002'], 'both rows kept, with the same ID');
+  });
+});
+
+describe('Version 4: house visit records move to the trainee spreadsheet', () => {
+  test('setup copies them over once and leaves the old tab', () => {
+    rt.fillTab(MAIN, 'House Visits', [['Visit ID', 'Trainee ID', 'Trainee Name', 'Date'], ['HV-OLD1', 'T-0001', 'Mock Trainee 1', '2026-09-01']]);
+    rt.fillTab(TRAINEE_FILE, 'House Visits', [['Visit ID', 'Trainee ID', 'Trainee Name', 'Date']]);
+    const report = rt.run('setup');
+    assert.match(report, /Moved 1 house visit record\(s\) to the trainee spreadsheet/);
+    assert.equal(rt.records(TRAINEE_FILE, 'House Visits')[0]['Visit ID'], 'HV-OLD1');
+    assert.ok(rt.tab(MAIN, 'House Visits'), 'the old tab is left as it is');
+    assert.doesNotMatch(rt.run('setup'), /Moved/, 'only once');
+  });
+});
+
+describe('Version 4: adding a trainee with the House Visit Form', () => {
+  test('eight questions are required; the rest can be blank; no visit is recorded', () => {
+    const form = ok(call('houseVisitForm', {}));
+    const required = form.sections.flatMap((s) => s.fields).filter((f) => f.requiredNew);
+    assert.equal(required.length, 9, 'Project, Full Name, NRIC, Date of Birth, Spoken Language, Gender, Short Name, Caregiver 1 name and contact');
+    const value = (f) => (/^date of birth/i.test(f.label) ? '2001-02-03' : /^nric/i.test(f.label) ? '123A' : /^project$/i.test(f.label) ? 'West End' : `Test ${f.label.slice(0, 10)}`);
+    const answers = Object.fromEntries(required.map((f) => [f.key, value(f)]));
+    const gender = required.find((f) => /^gender$/i.test(f.label));
+    const err = fails(call('createVisit', { newTrainee: true, traineeOnly: true, answers: { ...answers, [gender.key]: '' } }), 'VALIDATION_ERROR');
+    assert.match(err.message, /Fill in: Gender/);
+    const name = required.find((f) => /full name/i.test(f.label));
+    const visitsBefore = (ok(call('listVisits', {})).visits || []).length;
+    const res = ok(call('createVisit', { newTrainee: true, traineeOnly: true, answers: { ...answers, [name.key]: 'Brand New Trainee' } }));
+    assert.match(res.message, /Brand New Trainee added as T-\d{4}/);
+    assert.ok(ok(call('listTrainees')).trainees.some((t) => t.id === res.traineeId && (t.fullName || t.name) === 'Brand New Trainee'));
+    assert.equal((ok(call('listVisits', {})).visits || []).length, visitsBefore, 'no visit recorded');
   });
 });
