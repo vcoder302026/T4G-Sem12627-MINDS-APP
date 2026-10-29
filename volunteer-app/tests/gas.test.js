@@ -1299,6 +1299,24 @@ describe('Version 4.1: speed (cached pages, data version, live updates)', () => 
     assert.equal(ok(rt.call('changes', { since: 'old', watch }, v.token)).data, undefined);
   });
 
+  test('copies of the tabs: reads use them until the app writes to that tab; saves always read the sheet', () => {
+    const v = ok(rt.call('login', { email: 'v1@example.com', password: 'password123' }));
+    ok(rt.call('volunteerHome', {}, v.token)); // the Bookings tab is now copied
+    // Someone cancels the booking by typing in the sheet: reads keep the copy for up to a minute…
+    const tab = rt.tab(SHEET, 'Bookings');
+    const head = tab.getRange(1, 1, 1, tab.getLastColumn()).getValues()[0];
+    tab.getRange(2, head.indexOf('Status') + 1).setValue('cancelled');
+    assert.equal(ok(rt.call('volunteerHome', {}, v.token)).upcoming.length, 1, 'the copy');
+    // …but a save reads the sheet itself, so it sees the cancellation.
+    fails(rt.call('updateBooking', { bookingId: booking.bookingId, addTraineeId: 'T-0001' }, adminA), 'CONFLICT');
+    // A save to that tab through the app makes the copy out of date: the next read is fresh.
+    tab.getRange(2, head.indexOf('Status') + 1).setValue('confirmed');
+    ok(rt.call('updateBooking', { bookingId: booking.bookingId, addTraineeId: 'T-0001' }, adminA));
+    const home = ok(rt.call('volunteerHome', {}, v.token));
+    assert.equal(home.upcoming.length, 1);
+    assert.deepEqual((home.upcoming[0].trainees || [home.upcoming[0].trainee]).filter(Boolean).map((t) => t.id || t), ['T-0001'], 'the new pairing, not the old copy');
+  });
+
   test('repeated reads of a shared admin page come from the cache until something changes', () => {
     ok(rt.call('listTrainees', {}, adminA));
     rt.fillTab(SHEET, 'Trainees', [['Trainee ID', 'Name'], ['T-0001', 'Alpha One'], ['T-0002', 'Beta Two'], ['T-0003', 'Gamma Three']]); // typed into the sheet

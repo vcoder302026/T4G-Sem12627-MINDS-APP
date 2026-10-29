@@ -137,7 +137,7 @@ function logAdminAction_(admin, action, payload, out) {
   } catch (e) {
     summary = '';
   }
-  table_('adminLog').insert({
+  table_('adminLog').append({
     logId: newId_('L'),
     at: fmtDateTime_(now_()),
     adminId: admin.userId || '',

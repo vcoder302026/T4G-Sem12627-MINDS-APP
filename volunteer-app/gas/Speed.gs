@@ -10,7 +10,7 @@
  * Edits typed straight into the sheet, or a new Google Form response, show within 2 minutes.
  */
 
-const SHARED_READS_ = ['listTrainees', 'listPeople', 'listStandingPairings', 'sessionDetail', 'traineeProfile', 'reviewQueue', 'listVisits', 'pairingHistory'];
+const SHARED_READS_ = ['adminHome', 'listTrainees', 'listPeople', 'listStandingPairings', 'sessionDetail', 'traineeProfile', 'reviewQueue', 'listVisits', 'pairingHistory'];
 const CACHE_SECONDS_ = 120;
 const MAX_CACHED_CHARS_ = 90000; // CacheService keeps up to 100 KB a value
 
@@ -61,13 +61,28 @@ function cachedForVersion_(name, compute) {
   if (hit) {
     try { return JSON.parse(hit); } catch (e) { /* recompute */ }
   }
-  const value = compute();
+  // Ten admins asking at once: the first builds it, the others wait briefly for that copy.
+  const building = `building:${key}`;
+  if (c.get(building)) {
+    for (let i = 0; i < 16; i++) {
+      Utilities.sleep(250);
+      const ready = c.get(key);
+      if (ready) {
+        try { return JSON.parse(ready); } catch (e) { break; }
+      }
+    }
+  }
+  c.put(building, '1', 20);
+  let value;
   try {
+    value = compute();
     const text = JSON.stringify(value);
     if (text.length <= MAX_CACHED_CHARS_) c.put(key, text, CACHE_SECONDS_);
   } catch (e) {
+    if (value === undefined) { c.remove(building); throw e; }
     // too big or not storable: just don't cache
   }
+  c.remove(building);
   return value;
 }
 
@@ -129,5 +144,118 @@ function changesWithData_(p, user) {
   if (!key) return out; // only admin pages that are the same for every admin
   out.data = cachedForVersion_(key, () => applyDisplayNames_(action, routes_()[action].fn(payload, user)));
   return out;
+}
+
+/* ---------- copies of the tabs (Version 4.3) ---------- */
+// Reading a tab from Google Sheets takes 0.5–1 s; from the cache, a few hundredths of a second.
+// Each tab has a version that changes when the app writes to it, so a copy is never used after
+// a change made in the app. Edits typed into the sheet, or a new Google Form response, show
+// within TABLE_SECONDS_. Turn it off with the script property TABLE_CACHE = off.
+
+const TABLE_SECONDS_ = 60;
+let IN_LOCK_ = false;          // inside a save: always read the sheet itself
+let TOUCHED_TABLES_ = {};      // tabs written in this request
+let TABLE_CACHE_ON_ = null;
+
+function tableCacheOn_() {
+  if (TABLE_CACHE_ON_ === null) {
+    TABLE_CACHE_ON_ = String(PropertiesService.getScriptProperties().getProperty('TABLE_CACHE') || 'on').toLowerCase() !== 'off';
+  }
+  return TABLE_CACHE_ON_;
+}
+
+/** 'trainees:new' and 'trainees:visit' are the trainee tab too. */
+function tableName_(cacheKey) {
+  return /^trainees/.test(cacheKey) ? 'trainees' : cacheKey;
+}
+
+function tableVersion_(name) {
+  const c = cache_();
+  if (!c) return 'none';
+  let v = c.get(`tv:${name}`);
+  if (!v) { v = `${Date.now()}`; c.put(`tv:${name}`, v, 21600); }
+  return v;
+}
+
+/** After a request wrote to tabs: their copies are out of date. */
+function bumpTouchedTables_() {
+  const c = cache_();
+  const names = Object.keys(TOUCHED_TABLES_);
+  TOUCHED_TABLES_ = {};
+  if (!c || !names.length) return;
+  const stamp = `${Date.now()}${Math.random().toString(36).slice(2, 6)}`;
+  names.forEach((n) => c.put(`tv:${n}`, stamp, 21600));
+}
+
+/** Every copy out of date at once (setup, editor functions). */
+function bumpAllTables_() {
+  const c = cache_();
+  if (c) c.put('tv-epoch', `${Date.now()}`, 21600);
+}
+
+function snapshotKey_(cacheKey) {
+  const c = cache_();
+  return `tbl:${tableName_(cacheKey)}:${tableVersion_(tableName_(cacheKey))}:${(c && c.get('tv-epoch')) || '0'}:${cacheKey}`;
+}
+
+function readTableSnapshot_(cacheKey) {
+  if (!tableCacheOn_()) return null;
+  const c = cache_();
+  if (!c) return null;
+  try {
+    const key = snapshotKey_(cacheKey);
+    const n = Number(c.get(key) || 0);
+    if (!n) return null;
+    const parts = [];
+    for (let i = 0; i < n; i++) {
+      const part = c.get(`${key}#${i}`);
+      if (part === null) return null;
+      parts.push(part);
+    }
+    const snap = JSON.parse(parts.join(''));
+    snap.values = snap.values.map((row) => row.map((v) => (v && typeof v === 'object' && '$d' in v ? new Date(v.$d) : v)));
+    return snap;
+  } catch (e) {
+    return null;
+  }
+}
+
+function writeTableSnapshot_(cacheKey, values, tz) {
+  if (!tableCacheOn_()) return;
+  const c = cache_();
+  if (!c) return;
+  try {
+    const text = JSON.stringify({ tz, values: values.map((row) => row.map((v) => (v instanceof Date ? { $d: v.getTime() } : v))) });
+    if (text.length > 4000000) return; // very large tabs are read from the sheet
+    const key = snapshotKey_(cacheKey);
+    const size = 90000;
+    const n = Math.ceil(text.length / size) || 1;
+    for (let i = 0; i < n; i++) c.put(`${key}#${i}`, text.slice(i * size, (i + 1) * size), TABLE_SECONDS_);
+    c.put(key, String(n), TABLE_SECONDS_);
+  } catch (e) {
+    // the cache is full or unavailable: read from the sheet next time
+  }
+}
+
+/** A trainee looked up from the recent copy, even during a save (only their ID and name are used). */
+function traineeFromCopy_(id) {
+  const was = IN_LOCK_;
+  IN_LOCK_ = false;
+  try {
+    return traineeById_(id);
+  } finally {
+    IN_LOCK_ = was;
+  }
+}
+
+/** Functions run from the Apps Script editor (setup, …) read the sheets themselves, not copies. */
+function freshReads_(fn) {
+  const was = IN_LOCK_;
+  IN_LOCK_ = true;
+  try {
+    return fn();
+  } finally {
+    IN_LOCK_ = was;
+  }
 }
 

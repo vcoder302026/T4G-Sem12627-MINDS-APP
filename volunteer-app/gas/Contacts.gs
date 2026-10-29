@@ -180,6 +180,10 @@ function testContactsAccess() {
 
 /** Run from the editor: saves every active volunteer not yet saved (or whose last try failed). */
 function syncAllContacts() {
+  return freshReads_(syncAllContactsEditor_);
+}
+
+function syncAllContactsEditor_() {
   return withLock_(syncAllContactsInternal_);
 }
 

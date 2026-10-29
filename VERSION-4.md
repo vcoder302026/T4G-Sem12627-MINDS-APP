@@ -102,3 +102,26 @@ queued, and changes reached other admins in 10.5 s (27 s for 1 in 20).
 30 run at once, and saves are one at a time. For instant syncing with hundreds of people at once,
 the long-term option is a real-time database (e.g. Firebase Firestore) with the Google Sheet as a
 copy; that's a bigger change.
+
+## 6. Version 4.3: aiming for under 3 seconds
+
+From the second Exp load test: reads were 1.5–1.6 s, but saving a pairing took 40 s (median)
+because 10 admins saved faster than one save finished (each held the lock for 3–5 s), and the
+waiting saves made other requests slow at the tail.
+
+- **Copies of the tabs** in Apps Script's cache (`gas/Speed.gs`). Reads use a recent copy instead
+  of reading Google Sheets (0.5–1 s a tab). Each tab's copy is out of date as soon as the app writes
+  to that tab; edits typed into the sheet, or a new Google Form response, show within 60 seconds.
+  Saves (inside the lock) and the editor functions (setup, checkConfig, …) always read the sheet
+  itself. Turn the copies off with the script property **`TABLE_CACHE` = `off`**.
+- **Shorter saves:** the trainee is checked from the recent copy; the Admin Activity Log row is
+  appended (`appendRow`, without reading the log) after the lock is released.
+- **The Dashboard is cached** for all admins, and a board is built once when many admins ask at once.
+- **Boards check every 3 seconds.**
+
+Tab reads per request (`node dev/count-reads.mjs`): volunteerHome 8 → 0, guide 3 → 0,
+saving a pairing 12 → 3. Locally another admin's change showed in 2.1–3.1 s.
+
+**Expected on Exp:** reads about 1–1.5 s (Google's own start-up is about 1 s), a pairing save about
+2–3 s, another admin's change in about 2–4 s. Apps Script itself sets the floor: about 1 s a
+request, 30 at once, saves one at a time.

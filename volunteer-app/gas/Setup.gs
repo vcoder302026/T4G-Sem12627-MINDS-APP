@@ -11,13 +11,18 @@
  */
 
 function checkConfig() {
+  return freshReads_(checkConfigInternal_);
+}
+
+function checkConfigInternal_() {
   return setupInternal_(true);
 }
 
 function setup() {
-  const report = setupInternal_(false);
+  const report = freshReads_(() => setupInternal_(false));
   bumpDataVersion_(); // cached pages (Speed.gs) are out of date after setup
   bumpPeopleVersion_();
+  bumpAllTables_();
   return report;
 }
 
@@ -148,6 +153,10 @@ function fillTraineeIds_() {
 }
 
 function makeFirstAdmin() {
+  return freshReads_(makeFirstAdminInternal_);
+}
+
+function makeFirstAdminInternal_() {
   const email = String(PropertiesService.getScriptProperties().getProperty(CONFIG.PROP_FIRST_ADMIN_EMAIL) || '').trim().toLowerCase();
   if (!email) throw new Error('Set the FIRST_ADMIN_EMAIL script property to the email you registered with in the app.');
   resetDbCache_();
@@ -157,6 +166,7 @@ function makeFirstAdmin() {
   users.update(user, { role: 'admin' });
   makeRegularAsAdmin_(user); // admins are regular volunteers by default
   bumpPeopleVersion_(); // their next request sees the admin role (Speed.gs)
+  bumpAllTables_();
   const msg = `${user.name} (${email}) is now an admin and a regular volunteer.`;
   logAdminAction_({ userId: '', name: 'Apps Script editor' }, 'makeFirstAdmin', { userId: user.userId }, null);
   console.log(msg);

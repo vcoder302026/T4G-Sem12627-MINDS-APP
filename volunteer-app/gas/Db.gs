@@ -101,32 +101,59 @@ function primaryHeader_(value) {
 /** Table for an app-owned tab: table_('users'), table_('bookings'), … */
 function table_(key) {
   const def = CONFIG.TABLES[key];
-  return new Table(bookFor_(def), def.tab, def.columns, def.numeric || [], `app:${key}`);
+  return new Table(() => bookFor_(def), def.tab, def.columns, def.numeric || [], `app:${key}`);
 }
 
 /** Table over the existing trainee tab (see Config.gs → TRAINEES). */
 function traineeTable_() {
   const t = CONFIG.TRAINEES;
   const columns = Object.assign({}, t.columns, t.writeBack || {});
-  return new TraineeTable(traineeSpreadsheet_(), traineeTabName_(), columns, [], 'trainees');
+  return new TraineeTable(() => traineeSpreadsheet_(), () => traineeTabName_(), columns, [], 'trainees');
 }
 
 class Table {
   constructor(ss, tab, columns, numeric, cacheKey) {
-    this.ss = ss;
-    this.tab = tab;
+    // ss and tab may be functions: the spreadsheet is then only opened when the sheet is read
+    // (not when a cached copy is used).
+    this.ssArg = ss;
+    this.tabArg = tab;
     this.columns = columns;
     this.numeric = numeric;
     this.cacheKey = cacheKey;
   }
 
+  get ss() {
+    if (typeof this.ssArg === 'function') this.ssArg = this.ssArg();
+    return this.ssArg;
+  }
+
+  get tab() {
+    if (typeof this.tabArg === 'function') this.tabArg = this.tabArg();
+    return this.tabArg;
+  }
+
   load_() {
     if (DB_.cache[this.cacheKey]) return DB_.cache[this.cacheKey];
-    const sheet = this.ss.getSheetByName(this.tab);
-    if (!sheet) throw err_.config(`The "${this.tab}" tab was not found. Run setup() or check Config.gs.`);
-    const lastRow = sheet.getLastRow();
-    const lastCol = sheet.getLastColumn();
-    const values = lastRow && lastCol ? sheet.getRange(1, 1, lastRow, lastCol).getValues() : [[]];
+    // Reads use a recent copy of the tab from Apps Script's cache when there is one (Speed.gs);
+    // saves (inside the lock) always read the sheet itself.
+    const snap = !IN_LOCK_ ? readTableSnapshot_(this.cacheKey) : null;
+    let sheet = null;
+    let values;
+    let tz;
+    let lastCol;
+    if (snap) {
+      values = snap.values;
+      tz = snap.tz;
+      lastCol = (values[0] || []).length;
+    } else {
+      sheet = this.ss.getSheetByName(this.tab);
+      if (!sheet) throw err_.config(`The "${this.tab}" tab was not found. Run setup() or check Config.gs.`);
+      const lastRow = sheet.getLastRow();
+      lastCol = sheet.getLastColumn();
+      values = lastRow && lastCol ? sheet.getRange(1, 1, lastRow, lastCol).getValues() : [[]];
+      tz = this.ss.getSpreadsheetTimeZone() || CONFIG.TIMEZONE;
+      writeTableSnapshot_(this.cacheKey, values, tz);
+    }
     const headerRow = values[0] || [];
     const headers = headerRow.map(normHeader_);
     const colIndex = {};
@@ -142,7 +169,6 @@ class Table {
         }
       }
     });
-    const tz = this.ss.getSpreadsheetTimeZone() || CONFIG.TIMEZONE;
     const rows = [];
     for (let r = 1; r < values.length; r++) {
       const raw = values[r];
@@ -153,7 +179,11 @@ class Table {
       });
       rows.push(row);
     }
-    const state = { sheet, rows, colIndex, headerText, width: lastCol, values, headerRow, tz };
+    const state = { rows, colIndex, headerText, width: lastCol, values, headerRow, tz, fromCache: Boolean(snap) };
+    // From the cache, the sheet itself is only opened if something is written.
+    let sheetObj = sheet;
+    const self = this;
+    Object.defineProperty(state, 'sheet', { enumerable: false, get() { return sheetObj || (sheetObj = self.ss.getSheetByName(self.tab)); } });
     DB_.cache[this.cacheKey] = state;
     return state;
   }
@@ -189,6 +219,28 @@ class Table {
   /** Writing to the Volunteers or sign-in tab makes remembered sign-ins out of date (Speed.gs). */
   touched_() {
     if (this.cacheKey === 'app:users' || this.cacheKey === 'app:auth') PEOPLE_CHANGED_ = true;
+    TOUCHED_TABLES_[tableName_(this.cacheKey)] = true; // its cached copy is out of date (Speed.gs)
+  }
+
+  /**
+   * Adds one row at the end without reading the tab (for logs that only grow): reads just the
+   * header row, then appendRow, which Google Sheets does in one step.
+   */
+  append(record) {
+    const sheet = this.ss.getSheetByName(this.tab);
+    if (!sheet) throw err_.config(`The "${this.tab}" tab was not found. Run setup() or check Config.gs.`);
+    const header = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0].map(normHeader_);
+    const out = header.map(() => '');
+    Object.keys(this.columns).forEach((key) => {
+      const options = headerOptions_(this.columns[key]);
+      for (let j = 0; j < options.length; j++) {
+        const i = header.indexOf(normHeader_(options[j]));
+        if (i >= 0) { out[i] = valueToCell_(record[key] === undefined ? '' : record[key]); break; }
+      }
+    });
+    sheet.appendRow(out);
+    TOUCHED_TABLES_[tableName_(this.cacheKey)] = true;
+    if (DB_.cache[this.cacheKey]) delete DB_.cache[this.cacheKey];
   }
 
   insert(record) {
@@ -299,7 +351,7 @@ function ensureTab_(ss, tab, headers, opts) {
 class TraineeTable extends Table {
   rows() {
     const st = this.load_();
-    if (!st.idsChecked) {
+    if (!st.idsChecked && !st.fromCache) { // IDs are filled in from a fresh read of the sheet
       st.idsChecked = true;
       if (st.rows.some((r) => r.name && !r.id)) fillMissingTraineeIds_(this, st.rows);
     }
