@@ -480,3 +480,15 @@ describe('Version 4: adding a trainee with the House Visit Form', () => {
     assert.equal((ok(call('listVisits', {})).visits || []).length, visitsBefore, 'no visit recorded');
   });
 });
+
+describe('Version 4.3: dates read from the copies of the sheets', () => {
+  test("a trainee's dates look the same from the sheet and from the copy", () => {
+    rt.props.set('TABLE_CACHE', 'on');
+    const pick = (d) => d.sections.flatMap((s) => s.fields).filter((f) => /date of (visit|birth)/i.test(f.label)).map((f) => f.value);
+    const first = pick(ok(call('traineeProfile', { traineeId: 'T-0001' })));
+    const again = pick(ok(call('houseVisitForm', { traineeId: 'T-0001' })));
+    const fromCopy = pick(ok(call('traineeProfile', { traineeId: 'T-0002' })));
+    for (const v of first.concat(fromCopy)) assert.doesNotMatch(String(v), /T\d\d:\d\d:\d\d/, `a date, not a timestamp: ${v}`);
+    assert.ok(first.length && fromCopy.length && again.length);
+  });
+});

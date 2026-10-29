@@ -1,8 +1,8 @@
 # Design notes: linking to Google Sheets and adding QR clock-in
 
 This explains the two changes asked for, why they're built as a new
-`volunteer-app/` folder rather than as edits to the Node prototype in the
-repository root, and what to do if you must keep the Node app instead.
+`volunteer-app/` folder rather than as edits to the Node prototype (now in
+`prototype-1/`), and what to do if you must keep the Node app instead.
 
 ## Consistent with MINDS's other apps (standing rule)
 

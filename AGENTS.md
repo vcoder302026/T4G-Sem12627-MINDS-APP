@@ -3,8 +3,8 @@
 This repository has two apps. **For the volunteer app (`volunteer-app/`, the current app), the
 rules are in the [Volunteer app](#volunteer-app-volunteer-app-stay-consistent-with-mindss-other-apps)
 section below**, and its documentation is `volunteer-app/README.md`, `volunteer-app/docs/USER-GUIDE.md`
-and `VERSION-3.md`. The first sections apply only to **Prototype 1** (the Node.js staff app in the
-repository root).
+and `VERSION-4.md`. The first sections apply only to **Prototype 1** (the Node.js staff app in
+`prototype-1/`).
 
 ## Prototype 1: objective and source of truth
 Implement the first local MINDS staff prototype described in PLAN.md. Read the entire plan before editing. PLAN.md defines architecture, workflows, database rules, routes and acceptance criteria. If this file conflicts with it, follow PLAN.md. Later explicit user instructions take precedence.

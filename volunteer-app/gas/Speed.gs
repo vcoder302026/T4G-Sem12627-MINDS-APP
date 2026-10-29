@@ -225,7 +225,7 @@ function writeTableSnapshot_(cacheKey, values, tz) {
   const c = cache_();
   if (!c) return;
   try {
-    const text = JSON.stringify({ tz, values: values.map((row) => row.map((v) => (v instanceof Date ? { $d: v.getTime() } : v))) });
+    const text = JSON.stringify({ tz, values: values.map((row) => row.map((v) => (Object.prototype.toString.call(v) === '[object Date]' ? { $d: v.getTime() } : v))) });
     if (text.length > 4000000) return; // very large tabs are read from the sheet
     const key = snapshotKey_(cacheKey);
     const size = 90000;
