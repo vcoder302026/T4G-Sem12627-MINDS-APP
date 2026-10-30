@@ -14,7 +14,7 @@ export function renderLogin(root, app) {
   const submit = el('button', { type: 'submit', class: 'btn btn-primary w-full py-3.5' }, 'Sign in');
   const form = el('form', { novalidate: true, class: 'space-y-4' },
     error,
-    field('email', 'Email', { type: 'email', autocomplete: 'username', inputmode: 'email', placeholder: 'you@example.com', hint: 'Use the email registered with MINDS.' }),
+    field('email', 'Email', { type: 'email', autocomplete: 'username', inputmode: 'email', placeholder: 'you@example.com' }),
     field('password', 'Password', { type: 'password', autocomplete: 'current-password', placeholder: '••••••••' }),
     submit);
   form.addEventListener('submit', (e) => {

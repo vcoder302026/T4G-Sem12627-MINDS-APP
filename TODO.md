@@ -186,7 +186,6 @@ people what to do. Keep, shorten or remove?
 
 ## Wording to confirm
 
-- Sign-in page hint "Use the email registered with MINDS." (added in 4.6 by the design update): keep or remove?
 
 ## Check on a real iPhone after deploying 4.6.1
 

@@ -251,3 +251,40 @@ Checked: `check-deploy.mjs` ready to deploy; `check-fit.py` all fit except the 3
 run here: the iPhone date behaviour was checked by simulating it in Chrome, so check the Activity
 log's From / To on a real iPhone after deploying.
 
+## 11. Version 4.7: back to the Version 4.3 design, keeping four things
+
+MINDS asked to return to the design from before the Lovable updates (4.4–4.6), keeping:
+
+1. **All pages**: on phones the admin row shows All pages and the current section; All pages
+   lists every admin page (full-width choices on phones). Also in the computer sidebar.
+2. **Tabs at the bottom** of the screen on phones and tablets.
+3. **The shrinkable sidebar** on computers.
+4. **Organised information**: details grouped under small headings (Contact, Personal,
+   Emergency contact, Admin) with short labels ("NRIC (last 4)") and readable dates ("15 Jan
+   2000"), on **Me** and an admin's volunteer page; a trainee's House Visit details with the
+   **Sections** menu, question and answer side by side (guide text under the question) and two
+   columns on computers.
+
+How: the website files are Version 4.3's (`index.html`, `kit.js`, `attendance.js`, `auth.js`,
+`admin.js`, `volunteer.js`, `trainees.js`), with the four kept features and every fix since then
+added back (iPhone date boxes, compact pairing cards with the name on its own row, labelled
+pairing searches, labelled Activity log filters, files on notes). The stylesheet is Version 4.3's
+plus one commented block at the end ("Kept from the design updates"), so the Lovable layers are
+gone. The sign-in hint added in 4.6 went with it.
+
+Consistency fixes found while checking:
+
+- Pairing board: the **Trainees** heading was centred and **Volunteers** left-aligned; both are
+  left-aligned, with ALL / PAIRED on the right.
+- **All pages** had the same list icon as **More** (identical in the shrunk sidebar): it now has
+  its own grid-of-dots icon.
+- The Sections button's list icon was blank (missing from `ui.js`).
+- An admin's volunteer page right-aligned its answers while Me left-aligned them: both left-aligned,
+  label above answer on phones and side by side from 480 px (as House Visit details).
+- Small buttons stay on one line (Hours: All time / This month / This year wrapped at 320 px; "Who
+  can read" at 768 px); that row now wraps instead.
+
+Checked: `check-deploy.mjs` ready to deploy (131 tests); `check-fit.py` all fit except the known
+320 px pairing chips; `check-squash.py` (280–768) nothing squashed; `check-phones.py` all clean;
+`check-scroll.py` clean; phone and computer screenshots reviewed.
+

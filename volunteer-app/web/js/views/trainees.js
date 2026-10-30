@@ -5,7 +5,7 @@
 
 import { call } from '../api.js';
 import {
-  attachmentList, attachPicker, backLink, hvJump, badge, busy, el, errorBlock, field, fmtDay, fmtTimes, fuzzyFilter, hvSections, icon, loading, modal, mount, multiPick, searchBox, toast, traineeAvatar,
+  attachmentList, attachPicker, backLink, badge, hvJump, busy, el, errorBlock, field, fmtDay, fmtTimes, fuzzyFilter, hvSections, icon, loading, modal, mount, multiPick, searchBox, toast, traineeAvatar,
 } from '../ui.js';
 import { asTrainee, personName, traineeName } from '../quickview.js';
 
@@ -137,11 +137,11 @@ function notesList(notes, isAdmin) {
  */
 export function traineeLine(trainee, pairing, label) {
   if (!trainee) return null;
-  return asTrainee(el('a', { href: `#/info/${encodeURIComponent(trainee.id)}`, class: 'well mt-2 flex items-center gap-3 px-3 py-2 hover:shadow-sm' },
+  return asTrainee(el('a', { href: `#/info/${encodeURIComponent(trainee.id)}`, class: 'well mt-3 flex items-center gap-3 p-3 hover:shadow-sm' },
     traineeAvatar(trainee, 'sm'),
     el('span', { class: 'min-w-0 flex-1' },
-      el('span', { class: 'block text-xs font-semibold muted' }, label || 'Paired trainee'),
-      traineeName(trainee.name, trainee.id, 'block font-bold text-slate-900 dark:text-white'),
+      el('span', { class: 'block text-xs font-bold uppercase tracking-wider muted' }, label || 'Paired trainee'),
+      traineeName(trainee.name, trainee.id, 'block truncate font-bold text-slate-900 dark:text-white'),
       null),
     icon('chevron', 'size-5 text-slate-400')), trainee.id);
 }
@@ -177,7 +177,7 @@ export function renderTraineeInfo(root, app, ctx, traineeId) {
   const draw = (d) => {
     const t = d.trainee;
     mount(root, back,
-      el('div', { class: 'trainee-identity flex items-center gap-4' },
+      el('div', { class: 'flex items-center gap-4' },
         traineeAvatar(t, 'lg'),
         // Beside the photo: short name, gender and language (the full name is the page title);
         // the sections below don't repeat them. Only what this person may see comes from the server.
@@ -187,7 +187,7 @@ export function renderTraineeInfo(root, app, ctx, traineeId) {
             [['Short name', t.preferredName], ['Gender', t.gender], ['Language', t.language]]
               .filter(([, v]) => v).map(([k, v]) => [el('dt', {}, k), el('dd', {}, v)])),
           d.isMyRegular ? el('div', { class: 'mt-2' }, badge('Your regular trainee', 'emerald', 'heart')) : null)),
-      d.regulars.length ? el('p', { class: 'alert alert-success mt-3' }, 'Regular volunteers: ', el('strong', {}, d.regulars.join(', '))) : null,
+      d.regulars.length ? el('p', { class: 'mt-2 text-sm muted' }, `Regular volunteers: ${d.regulars.join(', ')}`) : null,
       d.together.length ? el('div', { class: 'alert alert-info mt-4' },
         el('p', { class: 'font-bold' }, "You're paired for:"),
         el('ul', { class: 'mt-1 list-disc pl-5' }, d.together.map((s) => el('li', {}, `${s.title}, ${fmtDay(s.date)}${s.startTime ? `, ${fmtTimes(s)}` : ''}`)))) : null,
@@ -215,9 +215,8 @@ export function renderDirectory(root, app, ctx) {
   const row = (t, mine) => asTrainee(el('a', { href: `#/info/${encodeURIComponent(t.id)}`, class: `flex items-center gap-3 p-4 hover:bg-slate-50 dark:hover:bg-neutral-900 ${mine ? 'select-ring' : ''}` },
     traineeAvatar(t, 'sm'),
     el('span', { class: 'min-w-0 flex-1' },
-      el('span', { class: 'block font-bold text-slate-900 dark:text-white' }, t.name),
-      el('span', { class: 'block text-xs muted' }, t.id),
-      el('span', { class: 'block text-sm muted' }, [t.preferredName && t.preferredName !== t.name ? `Goes by ${t.preferredName}` : '', t.gender,
+      el('span', { class: 'block truncate font-bold text-slate-900 dark:text-white' }, t.name),
+      el('span', { class: 'block truncate text-sm muted' }, [t.preferredName && t.preferredName !== t.name ? `Goes by ${t.preferredName}` : '', t.gender,
         t.regulars.length ? `Regular: ${t.regulars.join(', ')}` : 'No regular volunteer yet'].filter(Boolean).join(' · '))),
     mine ? badge('Yours', 'emerald') : icon('chevron', 'size-5 text-slate-300 dark:text-neutral-700')), t.id);
   const draw = () => {
@@ -270,7 +269,7 @@ export function renderReview(root, app, ctx) {
         })));
       });
       return el('article', { class: 'card p-4' },
-        el('div', { class: 'review-identity flex items-start justify-between gap-3' },
+        el('div', { class: 'flex items-start justify-between gap-3' },
           el('div', { class: 'min-w-0' },
             el('a', { href: `#/trainee/${encodeURIComponent(it.traineeId)}`, class: 'font-bold text-slate-900 hover:underline dark:text-white' }, traineeName(it.traineeName, it.traineeId)),
             el('p', { class: 'text-sm muted' }, 'From ', personName(it.volunteerName, it.userId), `, ${fmtDay(it.date)}`)),

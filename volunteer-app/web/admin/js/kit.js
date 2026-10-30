@@ -41,11 +41,11 @@ export const plural = (n, word, many) => `${n} ${n === 1 ? word : many || `${wor
 /* ---------- layout ---------- */
 
 export function pageHead(title, subtitle, ...actions) {
-  return el('div', { class: 'record-page-head mb-6 flex flex-wrap items-end justify-between gap-4' },
+  return el('div', { class: 'mb-6 flex flex-wrap items-end justify-between gap-4' },
     el('div', { class: 'min-w-0' },
       el('h1', { class: 'page-title' }, title),
       subtitle ? el('p', { class: 'mt-1 muted' }, subtitle) : null),
-    actions.length ? el('div', { class: 'record-page-actions flex flex-wrap gap-2' }, actions) : null);
+    actions.length ? el('div', { class: 'flex flex-wrap gap-2' }, actions) : null);
 }
 
 export function backTo(href, text) {
@@ -63,7 +63,7 @@ const TONES = {
 
 /** Big number tile. href makes it a link. */
 export function stat(label, value, { tone = 'slate', sub, href } = {}) {
-  return el(href ? 'a' : 'div', { href, class: `stat-tile card block p-4 ${href ? 'transition hover:border-indigo-300 hover:shadow-md dark:hover:border-indigo-700' : ''}` },
+  return el(href ? 'a' : 'div', { href, class: `card block p-4 ${href ? 'transition hover:border-indigo-300 hover:shadow-md dark:hover:border-indigo-700' : ''}` },
     el('p', { class: 'text-xs font-bold uppercase tracking-wider muted' }, label),
     el('p', { class: `mt-1 ${String(value).length > 8 ? 'text-2xl' : 'text-3xl'} font-extrabold tracking-tight ${TONES[tone] || TONES.slate}` }, String(value)),
     sub ? el('p', { class: 'mt-1 text-xs muted' }, sub) : null);
@@ -75,8 +75,8 @@ export function statGrid(...tiles) {
 
 /** Card with a title row (and optional buttons on the right). */
 export function panel(title, actions, ...body) {
-  return el('section', { class: 'record-panel card overflow-hidden' },
-    el('div', { class: 'record-panel-head flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-4 py-3 dark:border-neutral-800' },
+  return el('section', { class: 'card overflow-hidden' },
+    el('div', { class: 'flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-4 py-3 dark:border-neutral-800' },
       el('h2', { class: 'font-extrabold text-slate-900 dark:text-white' }, title),
       actions ? el('div', { class: 'flex flex-wrap gap-2' }, actions) : null),
     el('div', {}, body));
@@ -89,7 +89,7 @@ export function panel(title, actions, ...body) {
  * (first column as the title, the others as "label: value" lines), so the same
  * information is there on both.
  */
-export function table(columns, rows, { empty = 'Nothing here yet.', href, rowClass, titleColumn = 0 } = {}) {
+export function table(columns, rows, { empty = 'Nothing here yet.', href, rowClass } = {}) {
   if (!rows.length) return el('p', { class: 'px-4 py-8 text-center text-sm muted' }, empty);
   const content = (c, r, i) => {
     const value = c.cell(r);
@@ -107,21 +107,20 @@ export function table(columns, rows, { empty = 'Nothing here yet.', href, rowCla
             return el('td', { class: `px-4 py-3 ${c.class || ''}` }, blank(v) ? '—' : v);
           }))))));
   const narrow = el('div', { class: 'only-narrow' }, rows.map((r) => {
-    const title = content(columns[titleColumn], r, titleColumn);
-    const lines = columns.map((c, j) => {
-      if (j === titleColumn) return null;
-      const v = content(c, r, j);
+    const title = content(columns[0], r, 0);
+    const lines = columns.slice(1).map((c, j) => {
+      const v = content(c, r, j + 1);
       if (blank(v)) return null;
-      return c.label ? el('div', { class: 'rt-line' }, el('span', {}, c.label), el('span', {}, v)) : el('div', { class: 'rt-actions mt-2' }, v);
+      return c.label ? el('div', { class: 'rt-line' }, el('span', {}, c.label), el('span', {}, v)) : el('div', { class: 'mt-2' }, v);
     });
-    return el('div', { class: `rt-card ${rowClass ? rowClass(r) : ''}` }, el('div', { class: 'rt-title mb-1 font-bold' }, title), lines);
+    return el('div', { class: `rt-card ${rowClass ? rowClass(r) : ''}` }, el('div', { class: 'mb-1 font-bold' }, title), lines);
   }));
   return el('div', {}, wide, narrow);
 }
 
 /** Toolbar row above a table: search, filters, buttons. */
 export function toolbar(...items) {
-  return el('div', { class: 'record-toolbar flex flex-wrap items-end gap-3 border-b border-slate-100 p-4 dark:border-neutral-800' }, items);
+  return el('div', { class: 'flex flex-wrap items-end gap-3 border-b border-slate-100 p-4 dark:border-neutral-800' }, items);
 }
 
 export function pill(text, tone) {

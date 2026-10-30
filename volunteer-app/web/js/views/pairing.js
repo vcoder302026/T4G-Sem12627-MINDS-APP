@@ -250,7 +250,7 @@ function pairBoard(o) {
             toggle(state.vf, o.volunteerLabel, () => { state.vf = state.vf === 'paired' ? 'all' : 'paired'; draw(); })),
           el('div', { class: 'pb-list' }, vols.length ? vols.map(volCard) : empty(state.vf, state.vq, o.emptyVolunteers))),
         el('section', { class: 'pb-col pb-tr', 'aria-label': 'Trainees' },
-          el('div', { class: 'pb-head pb-head-center' }, el('span', {}, 'Trainees'),
+          el('div', { class: 'pb-head' }, el('span', {}, 'Trainees'),
             toggle(state.tf, 'Trainees', () => { state.tf = state.tf === 'paired' ? 'all' : 'paired'; draw(); })),
           el('div', { class: 'pb-list' }, trainees.length ? trainees.map(traineeCard) : empty(state.tf, state.tq, 'No trainees.')))));
     redrawers.forEach((fn) => fn());
