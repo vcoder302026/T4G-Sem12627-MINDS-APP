@@ -5,7 +5,7 @@
 import { call, isNetworkError } from '../api.js';
 import { drawQr } from '../qr.js';
 import {
-  attachPicker, backLink, badge, busy, clockTime, el, errorBlock, field, fmtDay, fmtHours, fmtTimes, formData, fuzzyFilter, icon, initials, likert, loading, majorActionPrompt, mapsLink, mount, projectBadges, searchBox, section, statusBadge, toast, todaySG, typeBadges,
+  attachPicker, backLink, badge, busy, clockTime, el, errorBlock, field, fmtDay, fmtHours, fmtTimes, formData, fuzzyFilter, icon, initials, likert, loading, majorActionPrompt, mapsLink, mount, niceDates, projectBadges, searchBox, section, shortLabel, statusBadge, toast, todaySG, typeBadges,
 } from '../ui.js';
 import { traineeLine } from './trainees.js';
 import { traineeName } from '../quickview.js';
@@ -45,16 +45,14 @@ const venueLink = (s) => (s.venue
 
 function sessionMeta(s) {
   return [
-    // Design update: time · place on one line (wraps on narrow phones).
-    el('p', { class: 'session-meta mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-sm text-slate-700 dark:text-neutral-300' },
-      el('span', { class: 'inline-flex items-center gap-1.5' }, icon('clock', 'size-4 text-slate-400'), fmtTimes(s)),
-      el('span', { class: 'inline-flex min-w-0 items-center gap-1.5 muted' }, icon('pin', 'size-4 shrink-0 text-slate-400'), venueLink(s))),
+    el('p', { class: 'mt-1 flex items-center gap-1.5 text-sm text-slate-700 dark:text-neutral-300' }, icon('clock', 'size-4 text-slate-400'), fmtTimes(s)),
+    el('p', { class: 'mt-0.5 flex items-center gap-1.5 text-sm muted' }, icon('pin', 'size-4 text-slate-400'), venueLink(s)),
   ];
 }
 
 function guideBanner() {
-  return el('a', { href: '#/guide', class: 'card mt-3 flex items-center gap-3 border-l-4 border-l-emerald-500 px-4 py-3 hover:shadow-md' },
-    el('span', { class: 'flex size-9 shrink-0 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' }, icon('book', 'size-6')),
+  return el('a', { href: '#/guide', class: 'card mt-4 flex items-center gap-4 border-l-4 border-l-emerald-500 p-4 hover:shadow-md' },
+    el('span', { class: 'flex size-11 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' }, icon('book', 'size-6')),
     el('span', { class: 'min-w-0 flex-1' },
       el('span', { class: 'block font-bold text-slate-900 dark:text-white' }, 'New here? Start with the Volunteer Guide'),
       null),
@@ -106,21 +104,30 @@ export function renderHome(root, app, ctx) {
       el('div', { class: 'flex flex-wrap items-center gap-2' },
         el('h1', { class: 'page-title' }, `Welcome, ${h.user.shortName || firstName(h.user.name)}!`),
         el('span', { class: 'flex gap-1' }, typeBadges(h.user))),
-      // Design update: hours as a short line under the name.
-      h.totals.sessions ? el('p', { class: 'mt-0.5 text-sm muted' },
-        `You've volunteered ${fmtHours(h.totals.hours)} over ${h.totals.sessions} session${h.totals.sessions === 1 ? '' : 's'}.`) : null,
+      el('p', { class: 'mt-1 text-sm muted' }, h.totals.sessions
+        ? `You've volunteered ${fmtHours(h.totals.hours)} over ${h.totals.sessions} session${h.totals.sessions === 1 ? '' : 's'}.`
+        : null),
       h.guideRead === false ? guideBanner() : null,
-      app.isAdmin && admin && (admin.unpairedTotal || admin.reviewCount) ? el('a', { href: '#/admin', class: 'card mt-3 flex items-center gap-3 border-l-4 border-l-purple-500 px-4 py-3 hover:shadow-md' },
-        el('span', { class: 'flex size-9 shrink-0 items-center justify-center rounded-lg bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300' }, icon('shield', 'size-5')),
+      app.isAdmin && admin && (admin.unpairedTotal || admin.reviewCount) ? el('a', { href: '#/admin', class: 'card mt-4 flex items-center gap-3 border-l-4 border-l-purple-500 p-4 hover:shadow-md' },
+        el('span', { class: 'flex size-10 shrink-0 items-center justify-center rounded-xl bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300' }, icon('shield', 'size-5')),
         el('span', { class: 'min-w-0 flex-1 text-sm' },
           el('span', { class: 'block font-bold text-slate-900 dark:text-white' }, 'Admin'),
           el('span', { class: 'block muted' }, [admin.unpairedTotal ? `${admin.unpairedTotal} to pair` : '', admin.reviewCount ? `${admin.reviewCount} note${admin.reviewCount === 1 ? '' : 's'} to review` : ''].filter(Boolean).join(' · '))),
         icon('chevron', 'size-5 text-slate-400')) : null,
+      // Regulars: their fixed trainee, once. Details: press and hold, or tap.
+      (h.regularTrainees || (h.regularTrainee ? [h.regularTrainee] : [])).map((t, i, all) => traineeLine(t, 'standing', all.length > 1 ? `Your regular trainee (${i + 1} of ${all.length})` : 'Your regular trainee')),
+
+      h.pendingFeedback.map((f) => el('div', { class: 'card mt-4 border-l-4 border-l-amber-400 p-4' },
+        badge('Feedback needed', 'amber', 'message'),
+        el('p', { class: 'mt-2 font-bold text-slate-900 dark:text-white' }, `How did ${f.sessionTitle} go?`),
+        f.traineeName ? el('p', { class: 'text-sm muted' }, `With ${f.traineeName}`) : null,
+        el('a', { href: `#/feedback/${f.bookingId}`, class: 'btn btn-primary btn-sm mt-3' }, 'Give feedback'))),
+
       todays.length ? el('h2', { class: 'group-label' }, 'Today') : null,
-      todays.map((u) => el('article', { class: 'card mb-3 border-t-4 border-t-indigo-500 p-4' },
+      todays.map((u) => el('article', { class: 'card mb-3 border-t-4 border-t-indigo-500 p-5' },
         el('div', { class: 'flex items-start justify-between gap-3' },
           el('div', { class: 'min-w-0' },
-            el('h3', { class: 'text-lg font-extrabold leading-snug text-slate-900 dark:text-white' }, u.session.title),
+            el('h3', { class: 'text-xl font-extrabold leading-snug text-slate-900 dark:text-white' }, u.session.title),
             sessionMeta(u.session)),
           u.attendance ? null : statusBadge(u.status)),
         attendanceBox(u.attendance),
@@ -128,18 +135,6 @@ export function renderHome(root, app, ctx) {
         !traineesOf(u).length && !u.attendance ? el('p', { class: 'alert alert-info mt-4' }, UNPAIRED_HINT) : null,
         u.attendance && u.attendance.clockOut ? null
           : el('a', { href: '#/pass', class: 'btn btn-primary mt-4 w-full' }, icon('qr'), 'Show my QR pass'))),
-
-      // Design update: feedback as one slim line with its button.
-      h.pendingFeedback.map((f) => el('div', { class: 'card mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 border-l-4 border-l-amber-400 px-4 py-2.5' },
-        el('span', { class: 'flex size-8 shrink-0 items-center justify-center rounded-lg bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300' }, icon('message', 'size-4')),
-        el('span', { class: 'fb-text text-sm' }, // keeps ~9rem; the button moves below it on narrow phones
-          el('span', { class: 'block font-bold text-slate-900 dark:text-white' }, `How did ${f.sessionTitle} go?`),
-          f.traineeName ? el('span', { class: 'block muted' }, `With ${f.traineeName}`) : null),
-        el('a', { href: `#/feedback/${f.bookingId}`, class: 'btn btn-primary btn-sm' }, 'Give feedback'))),
-
-      // Regulars: their fixed trainee, once. Details: press and hold, or tap.
-      (h.regularTrainees || (h.regularTrainee ? [h.regularTrainee] : [])).map((t, i, all) => traineeLine(t, 'standing', all.length > 1 ? `Your regular trainee (${i + 1} of ${all.length})` : 'Your regular trainee')),
-
 
       el('h2', { class: 'group-label' }, 'Coming up'),
       later.length
@@ -174,7 +169,7 @@ export function renderPass(root, app, ctx) {
     const done = todays.length > 0 && todays.every((u) => u.attendance && u.attendance.clockOut);
     const canvas = el('canvas', { class: 'size-full', role: 'img', 'aria-label': 'Your volunteer QR code', dataset: { qr: entry ? entry.code : '' } });
 
-    mount(root, el('div', { class: 'qr-pass mx-auto max-w-sm text-center' },
+    mount(root, el('div', { class: 'mx-auto max-w-sm text-center' },
       el('h1', { class: 'text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white' }, 'Your QR pass'),
       el('p', { class: 'mt-1 text-sm font-bold text-slate-700 dark:text-neutral-200' }, h.user.name),
       el('p', { class: 'font-mono text-xs muted' }, h.user.email),
@@ -274,14 +269,14 @@ export function renderSessions(root, app, ctx) {
     // "You're coming" sits above the title, so it never squeezes the text on a phone.
     const coming = s.myStatus ? action : null;
     if (coming) action = null;
-    const rowEl = el(s.myStatus || full ? 'div' : 'label', { class: `session-choice flex items-start justify-between gap-3 p-4 ${chosen.has(s.sessionId) ? 'select-ring' : ''} ${s.myStatus || full ? '' : 'cursor-pointer'}` },
+    const rowEl = el(s.myStatus || full ? 'div' : 'label', { class: `flex items-start justify-between gap-3 p-4 ${chosen.has(s.sessionId) ? 'select-ring' : ''} ${s.myStatus || full ? '' : 'cursor-pointer'}` },
       el('div', { class: 'min-w-0 flex-1' },
         coming ? el('div', { class: 'mb-1.5' }, coming) : null,
         el('h3', { class: 'font-bold text-slate-900 dark:text-white' }, s.title),
         el('p', { class: 'text-sm text-slate-700 dark:text-neutral-300' }, `${fmtTimes(s)}, `, venueLink(s)),
         s.notes ? el('p', { class: 'mt-1 text-sm muted' }, s.notes) : null,
         spots || (s.projects && s.projects.length) ? el('div', { class: 'mt-2 flex flex-wrap gap-1.5' }, projectBadges(s.projects), spots) : null),
-      action ? el('span', { class: 'session-choice-action shrink-0' }, action) : null);
+      action ? el('span', { class: 'shrink-0' }, action) : null);
     return rowEl;
   };
   const drawList = () => {
@@ -338,8 +333,12 @@ export function renderMe(root, app, ctx) {
         toast('Password changed. Other devices have been signed out.');
       });
     });
-    const detail = (label, value) => el('div', { class: 'me-detail' },
-      el('dt', { class: 'muted' }, label), el('dd', { class: 'text-right font-bold' }, value || '—'));
+    // Label and answer side by side (as on an admin's volunteer page): short labels, readable dates.
+    const detail = (label, value) => el('div', { class: 'py-2' },
+      el('dt', { class: 'muted' }, shortLabel(label)), el('dd', { class: 'font-bold' }, (typeof value === 'string' ? niceDates(value) : value) || '—'));
+    const group = (title) => el('p', { class: 'dl-group' }, title);
+    const answers = (u.answers || []).filter((a) => a.value);
+    const isEmergency = (a) => /emergency/i.test(`${a.key} ${a.label}`);
     const linkRow = (href, iconName, title, text, count) => el('a', { href, class: 'flex items-center gap-3 p-4 hover:bg-slate-50 dark:hover:bg-neutral-900' },
       el('span', { class: 'flex size-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-600 dark:bg-neutral-900 dark:text-neutral-300' }, icon(iconName)),
       el('span', { class: 'min-w-0 flex-1' },
@@ -348,40 +347,43 @@ export function renderMe(root, app, ctx) {
       count ? badge(String(count), 'amber') : null,
       icon('chevron', 'size-5 text-slate-300 dark:text-neutral-700'));
 
-    mount(root, el('div', { class: 'me-page' },
-      el('div', { class: 'me-profile card flex items-center gap-4 p-5' },
+    mount(root,
+      el('div', { class: 'card flex items-center gap-4 p-5' },
         el('div', { class: 'flex size-14 shrink-0 items-center justify-center rounded-2xl bg-indigo-100 text-xl font-extrabold text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300' }, initials(u.name)),
         el('div', { class: 'min-w-0' },
           el('h1', { class: 'truncate text-xl font-extrabold text-slate-900 dark:text-white' }, u.name),
           el('p', { class: 'truncate font-mono text-xs muted' }, u.email),
           el('div', { class: 'mt-1.5 flex flex-wrap gap-1' }, typeBadges(h.user)))),
-      el('div', { class: 'me-stats mt-3 grid grid-cols-2 gap-3' },
+      el('div', { class: 'mt-3 grid grid-cols-2 gap-3' },
         el('div', { class: 'card p-4' }, el('p', { class: 'text-3xl font-extrabold text-indigo-600 dark:text-indigo-400' }, fmtHours(h.totals.hours)), el('p', { class: 'mt-1 text-xs font-bold uppercase tracking-wider muted' }, 'Hours volunteered')),
         el('div', { class: 'card p-4' }, el('p', { class: 'text-3xl font-extrabold text-emerald-600 dark:text-emerald-400' }, String(h.totals.sessions)), el('p', { class: 'mt-1 text-xs font-bold uppercase tracking-wider muted' }, h.totals.sessions === 1 ? 'Session' : 'Sessions'))),
       el('h2', { class: 'group-label' }, 'History'),
       h.history.length
-        ? el('div', { class: 'me-history' }, list(h.history.map((a) => el('div', { class: 'me-history-row' },
-          el('div', { class: 'me-history-text min-w-0' },
+        ? list(h.history.map((a) => el('div', { class: 'flex items-center justify-between gap-3 p-4' },
+          el('div', { class: 'min-w-0' },
             el('p', { class: 'font-bold text-slate-900 dark:text-white' }, a.sessionTitle),
-            el('p', { class: 'me-history-date text-sm muted' },
-              el('span', {}, fmtDay(a.date, h.today)),
-              el('span', {}, `${clockTime(a.clockIn)}–${clockTime(a.clockOut)}`)),
+            el('p', { class: 'text-sm muted' }, `${fmtDay(a.date, h.today)}, ${clockTime(a.clockIn)}–${clockTime(a.clockOut)}`),
             // Who they were with. The name opens the trainee's details while they may still see them.
             el('p', { class: 'mt-0.5 text-sm' }, traineesOf(a).length
               ? ['With ', traineesOf(a).map((t, i) => [i ? ', ' : '', t.canView ? traineeName(t.name, t.id, 'font-bold') : el('span', { class: 'font-bold' }, t.name)])]
               : el('span', { class: 'muted' }, 'No trainee paired'))),
-          badge(fmtHours(a.hours), 'indigo')))))
+          badge(fmtHours(a.hours), 'indigo'))))
         : emptyState('clock', 'No completed sessions yet', 'Sessions you finish will be listed here with your hours.'),
       el('h2', { class: 'group-label' }, 'Account'),
       el('section', { class: 'card overflow-hidden' },
         el('div', { class: 'section-head section-blue' }, 'My details',
           el('a', { href: '#/edit-me', class: 'btn btn-secondary btn-sm normal-case tracking-normal' }, icon('pencil', 'size-4'), 'Edit')),
-        el('dl', { class: 'divide-y divide-slate-100 px-4 py-2 text-sm dark:divide-neutral-800' },
-          detail('Email', u.email), detail('Phone', u.phone), detail('Telegram', u.telegram ? `@${u.telegram}` : ''), detail('Birthday', u.birthday),
-          (u.answers || []).filter((a) => a.value).map((a) => detail(a.label, a.value)))),
+        el('dl', { class: 'person-facts divide-y divide-slate-100 px-4 py-2 text-sm dark:divide-neutral-800' },
+          group('Contact'),
+          detail('Email', u.email), detail('Phone', u.phone), detail('Telegram', u.telegram ? `@${u.telegram}` : ''),
+          group('Personal'),
+          detail('Birthday', u.birthday),
+          answers.filter((a) => !isEmergency(a)).map((a) => detail(a.label, a.value)),
+          answers.some(isEmergency) ? group('Emergency contact') : null,
+          answers.filter(isEmergency).map((a) => detail(a.label, a.value)))),
       accordion('Change password', 'indigo', pwForm),
       el('div', { class: 'mt-3' }, list(linkRow('#/guide', 'book', 'Volunteer Guide', ''))),
-      el('button', { class: 'btn btn-danger mt-3 w-full', onclick: () => app.signOut() }, icon('logout'), 'Sign out')));
+      el('button', { class: 'btn btn-danger mt-3 w-full', onclick: () => app.signOut() }, icon('logout'), 'Sign out'));
   };
   return withHome(root, app, ctx, draw);
 }

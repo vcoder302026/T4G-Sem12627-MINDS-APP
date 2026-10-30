@@ -16,7 +16,7 @@ volunteer hours, attendance and pairing.
 It runs on **Google Apps Script + Google Sheets** (MINDS's own sheets, including the House
 Visit form responses), with the web app on GitHub Pages.
 
-**Status: Version 4.6.1**, tested on the Exp environment with 100 volunteers and 10 admins at once.
+**Status: Version 4.7**, tested on the Exp environment with 100 volunteers and 10 admins at once.
 
 | Read this | For |
 | --- | --- |
@@ -73,7 +73,7 @@ PLAN.md               Prototype 1's build plan
 | [Version 1](VERSION-1.md) | Oct 2026 | The volunteer app on Google Apps Script and Sheets |
 | [Version 2](VERSION-2.md), [STEVEN-UPDATE](STEVEN-UPDATE.md) | Oct 2026 (update: 27 Oct) | MINDS's registration form, trainee sheet, pairing, House Visit Form |
 | [Version 3](VERSION-3.md) | 28 Oct 2026 | Pairing board like the WERONE outing app, every phone size, warnings, standard projects |
-| **[Version 4](VERSION-4.md)** | 29–30 Oct 2026 | Short names, Google Contacts on save, files on notes, one trainee & house visit database, Add trainee with the House Visit Form, the Dashboard, speed and live updates (4.1–4.3), design updates with Lovable (4.4–4.6) |
+| **[Version 4](VERSION-4.md)** | 29–30 Oct 2026 | Short names, Google Contacts on save, files on notes, one trainee & house visit database, Add trainee with the House Visit Form, the Dashboard, speed and live updates (4.1–4.3), design updates with Lovable (4.4–4.6; 4.7 back to the 4.3 design, keeping All pages, bottom tabs, the shrinkable sidebar and organised information) |
 
 ## Working together
 

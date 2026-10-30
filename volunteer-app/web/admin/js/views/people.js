@@ -218,7 +218,7 @@ export function renderVolunteer(root, app, ctx, userId) {
         refresh();
       });
     });
-    const dl = (label, value) => el('div', { class: 'flex justify-between gap-4 py-2' }, el('dt', { class: 'muted' }, shortLabel(label)), el('dd', { class: 'text-right font-bold' }, (typeof value === 'string' ? niceDates(value) : value) || '—'));
+    const dl = (label, value) => el('div', { class: 'flex justify-between gap-4 py-2' }, el('dt', { class: 'muted' }, shortLabel(label)), el('dd', { class: 'font-bold' }, (typeof value === 'string' ? niceDates(value) : value) || '—'));
     const group = (title) => el('p', { class: 'dl-group' }, title);
     const answers = (p.answers || []).filter((a) => a.value);
     const isEmergency = (a) => /emergency/i.test(`${a.key} ${a.label}`);

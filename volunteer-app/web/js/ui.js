@@ -31,6 +31,9 @@ export function mount(node, ...children) {
 
 // Lucide-style outline icons (the icon set CSL Attendance uses).
 const ICONS = {
+  list: '<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>', // as in admin/js/kit.js (Sections menu)
+  // All pages: a grid of dots (More uses the list icon).
+  apps: '<circle cx="5" cy="5" r="1.5"/><circle cx="12" cy="5" r="1.5"/><circle cx="19" cy="5" r="1.5"/><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/><circle cx="5" cy="19" r="1.5"/><circle cx="12" cy="19" r="1.5"/><circle cx="19" cy="19" r="1.5"/>',
   home: '<path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/>',
   qr: '<rect width="5" height="5" x="3" y="3" rx="1"/><rect width="5" height="5" x="16" y="3" rx="1"/><rect width="5" height="5" x="3" y="16" rx="1"/><path d="M21 16h-3a2 2 0 0 0-2 2v3M21 21v.01M12 7v3a2 2 0 0 1-2 2H7M3 12h.01M12 3h.01M12 16v.01M16 12h1M21 12v.01M12 21v-1"/>',
   calendar: '<rect width="18" height="18" x="3" y="4" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',
@@ -479,12 +482,12 @@ export function richText(body) {
  * body: nodes; returns { close }. onClose runs however it was closed.
  */
 export function modal(title, body, onClose) {
-  const dlg = el('dialog', { class: 'app-dialog card m-auto w-[min(32rem,calc(100vw-2rem))] p-0 text-slate-900 shadow-2xl backdrop:bg-black/50 dark:text-neutral-100' });
+  const dlg = el('dialog', { class: 'card m-auto w-[min(32rem,calc(100vw-2rem))] p-0 text-slate-900 shadow-2xl backdrop:bg-black/50 dark:text-neutral-100' });
   const closeBtn = el('button', { type: 'button', class: 'icon-btn', 'aria-label': 'Close' }, icon('x'));
   mount(dlg,
-    el('div', { class: 'dialog-head flex items-center justify-between gap-3 border-b border-slate-100 px-5 py-3 dark:border-neutral-800' },
+    el('div', { class: 'flex items-center justify-between gap-3 border-b border-slate-100 px-5 py-3 dark:border-neutral-800' },
       el('h2', { class: 'text-lg font-extrabold' }, title), closeBtn),
-    el('div', { class: 'dialog-body max-h-[75vh] overflow-y-auto p-5' }, body));
+    el('div', { class: 'max-h-[75vh] overflow-y-auto p-5' }, body));
   const close = () => { if (dlg.open) dlg.close(); };
   closeBtn.addEventListener('click', close);
   dlg.addEventListener('click', (e) => { if (e.target === dlg) close(); });

@@ -16,6 +16,7 @@ There is **one app** and **no modes to switch**.
 - **On a computer** (1024 px and wider) they're in the sidebar on the left (admins also have
   **All pages** there). The small arrow at its edge **shrinks it to icons** (or back); the app
   remembers your choice on that computer.
+- **Me** and an admin's volunteer page group details under Contact, Personal and Emergency contact.
 - **Trainee pages:** the details are grouped like MINDS's House Visit form. **Sections** jumps to
   one (the first two start open; tap a heading to open or close it).
 - **The header:** **←** goes back to the page you came from; **↻** loads the newest version of

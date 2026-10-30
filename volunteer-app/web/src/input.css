@@ -31,16 +31,16 @@
 
 @layer components {
   /* surfaces */
-  .card { @apply rounded-xl border border-slate-200 bg-white shadow-sm dark:border-neutral-900 dark:bg-neutral-950; }
-  .well { @apply rounded-xl border border-slate-200 bg-slate-50 dark:border-neutral-800 dark:bg-neutral-900; }
+  .card { @apply rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-neutral-900 dark:bg-neutral-950; }
+  .well { @apply rounded-2xl border border-slate-200 bg-slate-50 dark:border-neutral-800 dark:bg-neutral-900; }
   .muted { @apply text-slate-500 dark:text-neutral-400; }
-  .group-label { @apply mb-1.5 mt-5 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-neutral-400; }
-  .page-title { @apply text-xl sm:text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white; }
+  .group-label { @apply mb-2 mt-6 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-neutral-400; }
+  .page-title { @apply text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white; }
 
   /* buttons (class="btn btn-primary") */
-  .btn { @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 font-bold transition-all active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50; }
-  .btn-primary { @apply bg-indigo-600 text-white shadow-sm hover:bg-indigo-700 hover:shadow-md; }
-  .btn-success { @apply bg-emerald-500 text-white shadow-sm hover:bg-emerald-600 hover:shadow-md; }
+  .btn { @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-3 font-bold transition-all active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50; }
+  .btn-primary { @apply bg-indigo-600 text-white shadow-lg hover:bg-indigo-700 hover:shadow-xl hover:shadow-indigo-500/20; }
+  .btn-success { @apply bg-emerald-500 text-white shadow-lg hover:bg-emerald-600 hover:shadow-xl hover:shadow-emerald-500/20; }
   .btn-secondary { @apply border border-slate-200 bg-white text-slate-700 shadow-sm hover:text-indigo-600 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-200 dark:hover:text-indigo-400; }
   .btn-danger { @apply border border-red-200 bg-white text-red-600 hover:bg-red-50 dark:border-red-900/60 dark:bg-neutral-900 dark:text-red-400 dark:hover:bg-red-900/20; }
   .btn-dark { @apply bg-slate-900 text-white shadow-md hover:shadow-lg dark:bg-white dark:text-neutral-900; }
@@ -49,12 +49,12 @@
   .link { @apply font-bold text-indigo-600 hover:underline dark:text-indigo-400; }
 
   /* forms */
-  .input { @apply w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20 dark:border-neutral-800 dark:bg-neutral-900 dark:text-white dark:placeholder:text-neutral-500; }
+  .input { @apply w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20 dark:border-neutral-800 dark:bg-neutral-900 dark:text-white dark:placeholder:text-neutral-500; }
   .label { @apply mb-1.5 block text-sm font-bold text-slate-700 dark:text-neutral-300; }
   .hint { @apply mt-1 text-xs text-slate-500 dark:text-neutral-400; }
 
   /* House Visit style section header (class="section-head section-blue") */
-  .section-head { @apply flex items-center justify-between gap-3 border-b px-4 py-2.5 text-sm font-bold uppercase tracking-wide dark:border-neutral-800; }
+  .section-head { @apply flex items-center justify-between gap-3 border-b px-4 py-3 text-sm font-bold uppercase tracking-wide dark:border-neutral-800; }
   .section-blue { @apply border-blue-100 bg-blue-50 text-blue-700 dark:bg-blue-900/40 dark:text-blue-200; }
   .section-red { @apply border-red-100 bg-red-50 text-red-700 dark:bg-red-900/40 dark:text-red-200; }
   .section-indigo { @apply border-indigo-100 bg-indigo-50 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-200; }
@@ -71,7 +71,7 @@
   .badge-purple { @apply bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300; }
 
   /* alerts */
-  .alert { @apply rounded-lg border px-3 py-2.5 text-sm font-medium; }
+  .alert { @apply rounded-xl border p-3 text-sm font-medium; }
   .alert-error { @apply border-red-200 bg-red-50 text-red-600 dark:border-red-800/50 dark:bg-red-900/20 dark:text-red-400; }
   .alert-info { @apply border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-800/60 dark:bg-indigo-950/40 dark:text-indigo-300; }
   .alert-success { @apply border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-800/60 dark:bg-emerald-950/40 dark:text-emerald-300; }
@@ -129,7 +129,7 @@ body.wide .app-bar, body.wide .app-main, body.wide .app-tabs, body.wide .app-sub
 @media (min-width: 768px) { .only-wide { display: block !important; } .only-narrow { display: none !important; } }
 
 /* Tables become stacked cards on phones (kit.js → table). */
-.rt-card { display: block; padding: .625rem .875rem; }
+.rt-card { display: block; padding: .875rem 1rem; }
 .rt-card + .rt-card { border-top: 1px solid #f1f5f9; }
 .dark .rt-card + .rt-card { border-color: #262626; }
 .rt-line { display: flex; justify-content: space-between; gap: 1rem; padding: .125rem 0; font-size: .875rem; }
@@ -180,7 +180,7 @@ body.wide .app-bar, body.wide .app-main, body.wide .app-tabs, body.wide .app-sub
 .check-row input { margin-top: .2rem; width: 1.05rem; height: 1.05rem; accent-color: #4f46e5; flex-shrink: 0; }
 .tile-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; }
 @media (min-width: 768px) { .tile-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
-.tile { position: relative; display: flex; flex-direction: column; gap: .375rem; border: 1px solid #e2e8f0; border-radius: .75rem; background: #fff; padding: .75rem; }
+.tile { position: relative; display: flex; flex-direction: column; gap: .5rem; border: 1px solid #e2e8f0; border-radius: 1rem; background: #fff; padding: 1rem; }
 .tile:hover { border-color: #a5b4fc; box-shadow: 0 4px 12px rgba(79, 70, 229, .08); }
 .dark .tile { border-color: #171717; background: #0a0a0a; }
 .select-ring { box-shadow: inset 0 0 0 2px #4f46e5; background: #eef2ff; }
@@ -638,10 +638,10 @@ body { padding-left: env(safe-area-inset-left, 0px); padding-right: env(safe-are
 .dark .side-sub-link:hover { background: #171717; }
 .dark .side-sub-link[aria-current="page"] { background: rgba(79, 70, 229, .25); color: #c7d2fe; }
 
-
-/* ===== Design update: more concise, easier to move around on every screen size.
-   Plain CSS so it applies whether or not Tailwind is rebuilt. ===== */
-#env-bar { padding: 0; letter-spacing: .12em; }
+/* ===================================================================================
+   Kept from the design updates (Version 4.4–4.6), on top of the Version 4.3 design.
+   Plain CSS, so it applies whether or not Tailwind is rebuilt.
+   =================================================================================== */
 
 /* Phones and tablets (< 1024 px): the main tabs become a bar fixed to the bottom, within thumb reach. */
 @media (max-width: 1023.98px) {
@@ -667,16 +667,7 @@ body { padding-left: env(safe-area-inset-left, 0px); padding-right: env(safe-are
 }
 #subnav-wrap:has(> #subnav[hidden]) { display: none; }
 
-/* Small phones (< 360 px, e.g. Galaxy Fold folded): icons only in the tab bar, tighter page. */
-@media (max-width: 359.98px) {
-  body.has-sidebar #tabs .seg-item { font-size: 0; gap: 0; padding: .5rem 0; }
-  body.has-sidebar #tabs .seg-item svg { width: 1.375rem; height: 1.375rem; }
-  #view { padding-left: .75rem !important; padding-right: .75rem !important; }
-  .app-bar { padding-left: .75rem !important; padding-right: .75rem !important; }
-}
-
-
-/* Computers: shrinkable sidebar, and wider pages on large screens. */
+/* Computers: shrinkable sidebar. */
 .side-mini-btn { display: none; }
 @media (min-width: 1024px) {
   body.has-sidebar .app-sidebar { position: fixed; }
@@ -696,315 +687,68 @@ body { padding-left: env(safe-area-inset-left, 0px); padding-right: env(safe-are
   body.side-mini .side-scroll { padding: .75rem .5rem; }
   body.side-mini .side-link { justify-content: center; padding: .625rem 0; }
   body.side-mini .side-count { position: absolute; top: .125rem; right: .25rem; margin: 0; min-width: 1rem; line-height: 1rem; font-size: .625rem; }
-  .side-link { padding: .4375rem .75rem; }
-  .app-main, .app-bar { max-width: 48rem; }
-}
-@media (min-width: 1536px) {
-  body.wide .app-bar, body.wide .app-main, body.wide .app-tabs, body.wide .app-subnav { max-width: 96rem; }
 }
 
-/* ===== Design update: volunteer and trainee details pages ===== */
-.hv-row { padding: .5rem 0; }
-@media (min-width: 480px) { .hv-row { display: grid; grid-template-columns: minmax(7rem, 38%) minmax(0, 1fr); gap: 1rem; } }
-.hv-row dt, .hv-row dd { overflow-wrap: anywhere; }
-.hv-jump { display: flex; gap: .375rem; overflow-x: auto; margin-top: .75rem; padding-bottom: .125rem; scrollbar-width: none; }
-.hv-jump::-webkit-scrollbar { display: none; }
-.hv-jump-btn { flex-shrink: 0; border: 1px solid; border-radius: 9999px; padding: .25rem .75rem; font-size: .75rem; font-weight: 700; white-space: nowrap; }
-@media (min-width: 1024px) { .hv-jump { flex-wrap: wrap; overflow: visible; } }
-.hv-cols > details:first-child { margin-top: .75rem; }
-@media (min-width: 1024px) {
-  .hv-cols { columns: 2; column-gap: 1.25rem; }
-  .hv-cols { margin-top: .75rem; }
-  .hv-cols > details, .hv-cols > details:first-child { break-inside: avoid; display: block; margin-top: 0; margin-bottom: .75rem; }
-}
-.dl-group { margin-top: .75rem; padding-top: .25rem; font-size: .6875rem; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; color: #94a3b8; border: 0 !important; }
-.dl-group:first-child { margin-top: .25rem; }
-.stat-compact { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; gap: .5rem !important; }
-.stat-compact > .card { padding: .5rem .625rem; }
-.stat-compact > .card > p:first-child { font-size: .625rem; letter-spacing: .03em; line-height: 1.1; }
-.stat-compact > .card > p:nth-child(2) { margin-top: .125rem; font-size: 1.25rem; line-height: 1.75rem; }
-@media (min-width: 640px) { .stat-compact > .card > p:nth-child(2) { font-size: 1.5rem; line-height: 2rem; } }
-
-/* Presentation prototype: consistent geometry without changing app actions. */
-:root {
-  --minds-surface: var(--color-white);
-  --minds-canvas: var(--color-slate-50);
-  --minds-ink: var(--color-slate-900);
-  --minds-muted: var(--color-slate-500);
-  --minds-border: var(--color-slate-200);
-  --minds-selected: var(--color-indigo-50);
-  --minds-accent: var(--color-indigo-700);
-  --minds-sidebar-width: 16rem;
-  --minds-bottom-nav: 4rem;
-  --minds-section-gap: 1rem;
-  --minds-item-gap: .75rem;
-}
-.dark {
-  --minds-surface: var(--color-neutral-950);
-  --minds-canvas: var(--color-neutral-900);
-  --minds-ink: var(--color-neutral-100);
-  --minds-muted: var(--color-neutral-400);
-  --minds-border: var(--color-neutral-800);
-  --minds-selected: var(--color-indigo-950);
-  --minds-accent: var(--color-indigo-300);
-}
-html { scroll-padding-top: 5.5rem; }
-body { letter-spacing: 0; }
-.app-main { min-width: 0; }
-.app-main h1, .app-main h2, .app-main h3, .section-head, .pb-head { letter-spacing: 0; }
-.app-main .btn { max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
-.card, .dash-card, .dash-session, .pb-col { border-radius: .5rem; }
-.dash-grid { gap: 1rem; }
-.dash-card { padding: 1rem; box-shadow: none; }
-.dash-head { font-size: 1rem; }
-.dash-session { background: var(--minds-canvas); }
-.person-summary h1.title-in-header { display: block !important; font-size: 1.125rem; }
-.person-summary a { overflow-wrap: anywhere; }
-.person-actions .btn { min-height: 2.75rem; }
-.person-facts > div { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); gap: .5rem 1rem; }
-.person-facts dt, .person-facts dd { min-width: 0; overflow-wrap: anywhere; }
-.person-facts dd { text-align: left; }
-.stat-compact { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
-.stat-compact > .card { padding: .75rem; }
-.stat-compact > .card > p:first-child { font-size: .75rem; letter-spacing: 0; line-height: 1.4; }
-.hv-jump { flex-wrap: wrap; overflow: visible; gap: .375rem; }
-.hv-jump-menu { margin-top: .75rem; }
-.hv-jump-menu > summary { width: fit-content; min-height: 2.75rem; list-style: none; cursor: pointer; }
-.hv-jump-menu > summary::-webkit-details-marker { display: none; }
-.hv-jump-btn { min-height: 2.25rem; max-width: 100%; white-space: normal; text-align: left; border-radius: .5rem; }
-.hv-cols > details { scroll-margin-top: 5.5rem; }
-.hv-cols .section-head { text-transform: none; min-height: 2.75rem; }
-.app-dialog { max-height: calc(100dvh - 2rem); overflow: hidden; }
-.app-dialog .dialog-head { flex-wrap: nowrap; }
-.app-dialog .dialog-head h2 { min-width: 0; overflow-wrap: anywhere; }
-.app-dialog .dialog-body { max-height: calc(100dvh - 7rem); overscroll-behavior: contain; }
-.app-dialog .icon-btn { flex-shrink: 0; width: 2.75rem; height: 2.75rem; }
-.admin-menu-grid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 9rem), 1fr)); }
-.admin-menu-link { border-radius: .5rem; }
-@media (min-width: 640px) {
-  .stat-compact { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; }
-}
-@media (max-width: 1023.98px) {
-  body.has-sidebar #tabs:not([hidden]) {
-    min-height: calc(var(--minds-bottom-nav) + env(safe-area-inset-bottom, 0px));
-    padding-left: max(.375rem, env(safe-area-inset-left, 0px));
-    padding-right: max(.375rem, env(safe-area-inset-right, 0px));
-  }
-  body.has-sidebar #tabs .seg-item { min-width: 0; min-height: 3.5rem; font-size: .6875rem; letter-spacing: 0; }
-  body.has-sidebar #view { padding-bottom: calc(var(--minds-bottom-nav) + 3rem + env(safe-area-inset-bottom, 0px)); }
-  body.has-sidebar:has(.action-bar:not([hidden])) #view { padding-bottom: calc(var(--minds-bottom-nav) + 9rem + env(safe-area-inset-bottom, 0px)); }
-  body.has-sidebar .action-bar { bottom: calc(var(--minds-bottom-nav) + env(safe-area-inset-bottom, 0px)); padding: .75rem; }
-  .app-dialog { width: calc(100vw - 1rem); max-height: calc(100dvh - 1rem); }
-  .app-dialog .dialog-body { padding: 1rem; }
-}
-@media (max-width: 359.98px) {
-  body.has-sidebar #tabs .seg-item { font-size: .625rem; gap: .125rem; }
-  .person-facts > div { grid-template-columns: minmax(0, 1fr); gap: .125rem; }
-}
-@media (min-width: 1024px) {
-  body.side-mini { --minds-sidebar-width: 4.5rem; }
-  body.has-sidebar .action-bar { left: var(--minds-sidebar-width); }
-  .hv-cols { columns: auto; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: .75rem 1rem; }
-  .hv-cols > details, .hv-cols > details:first-child { margin: 0; }
-  body.has-sidebar .side-mini-btn { width: 2.75rem; height: 2.75rem; right: .25rem; top: 3.25rem; border-radius: .5rem; }
-  .side-scroll { padding-top: 3rem; }
-  body.side-mini .side-scroll { padding-top: 3rem; }
-  .side-link { min-height: 2.75rem; border-radius: .5rem; }
-}
-
-/* Separate independent surfaces, not the joined rows/headers inside a surface.
-   Flow stacks use sibling margins; grids and flex lists keep their own gaps. */
-:where(.app-main, .dialog-body) :where(div, section, form):not(.grid):not(.flex):not(.dash-grid):not(.hv-cols):not(.pb):not(.pb-list):not(.tile-grid):not(.stat-grid):not(.stat-compact):not(.admin-menu-grid)
-  > :is(.card, .well, .alert, .danger-zone, .major-warning, .dash-card, .dash-session)
-  + :is(.card, .well, .alert, .danger-zone, .major-warning, .dash-card, .dash-session, div:has(> .card:first-child), div:has(> .well:first-child), div:has(> .alert:first-child)) {
-  margin-block-start: var(--minds-section-gap);
-}
-.app-main > :is(.card, .well, .alert, .danger-zone, .major-warning)
-  + :is(.card, .well, .alert, .danger-zone, div:has(> .card:first-child), div:has(> .alert:first-child)) {
-  margin-block-start: var(--minds-section-gap);
-}
-:where(.app-main, .dialog-body) .grid:has(> .card),
-.dash-grid, .hv-cols {
-  gap: var(--minds-section-gap);
-}
-.stat-compact { gap: var(--minds-item-gap) !important; }
-.tile-grid, .admin-menu-grid { gap: var(--minds-item-gap); }
-.admin-menu { gap: 1.25rem; }
-.admin-menu-head { margin-bottom: .625rem; letter-spacing: 0; }
-.admin-menu-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.admin-menu-link { display: grid; grid-template-columns: minmax(0, 1fr) auto; min-width: 0; min-height: 3rem; padding: .75rem; gap: .5rem; overflow-wrap: anywhere; }
-.admin-menu-link .tab-count { margin-left: 0; }
-@media (max-width: 639px) {
-  .app-dialog:has(.admin-menu) {
-    display: flex;
-    flex-direction: column;
-    width: calc(100vw - 1rem);
-    height: calc(100dvh - 2rem);
-    max-height: calc(100dvh - 2rem);
-  }
-  .app-dialog:has(.admin-menu) .dialog-head { flex-shrink: 0; background: var(--minds-surface); }
-  .app-dialog:has(.admin-menu) .dialog-body { flex: 1; min-height: 0; max-height: none; padding: 1rem; }
-  .admin-menu { gap: 1.5rem; }
-  .admin-menu-grid { grid-template-columns: minmax(0, 1fr); gap: .625rem; }
-  .admin-menu-head { font-size: .875rem; line-height: 1.4; color: var(--minds-muted); }
-  .admin-menu-link { min-height: 3.25rem; font-size: 1rem; line-height: 1.4; padding: .75rem 1rem; color: var(--minds-ink); }
-  .admin-menu-link .tab-count { font-size: .75rem; }
-}
-.hv-cols > details, .hv-cols > details:first-child { margin-bottom: var(--minds-section-gap); }
-.me-page { min-width: 0; }
-.me-profile { padding: 1rem; gap: .75rem; }
-.me-profile h1 { white-space: normal; overflow-wrap: anywhere; font-size: 1.125rem; }
-.me-profile p { white-space: normal; overflow-wrap: anywhere; font-family: var(--font-sans); font-size: .875rem; line-height: 1.5; }
-.me-stats { gap: var(--minds-item-gap) !important; }
-.me-stats > .card { padding: .75rem 1rem; }
-.me-stats > .card > p:first-child { font-size: 1.5rem; line-height: 1.3; }
-.me-stats > .card > p:last-child { font-size: .8125rem; line-height: 1.4; text-transform: none; letter-spacing: 0; }
-.me-page .group-label { font-size: .875rem; letter-spacing: 0; text-transform: none; margin-top: 1.25rem; color: var(--minds-ink); }
-.me-history-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: .75rem; padding: .875rem 1rem; }
-.me-history-row > .badge { margin-top: .125rem; }
-.me-history-text { overflow-wrap: anywhere; line-height: 1.5; }
-.me-history-date { display: flex; flex-wrap: wrap; gap: 0 .75rem; }
-.me-history-date > span { display: block; }
-.me-detail { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); gap: .25rem .75rem; padding: .625rem 0; }
-.me-detail dt, .me-detail dd { min-width: 0; overflow-wrap: anywhere; line-height: 1.5; }
-.me-detail dd { text-align: left; font-weight: 600; }
-.me-page .section-head { text-transform: none; letter-spacing: 0; }
-@media (max-width: 479px) {
-  .me-history-date { display: grid; gap: 0; }
-  .me-detail { grid-template-columns: minmax(0, 1fr); }
-}
-@media (min-width: 1024px) {
-  .hv-cols > details, .hv-cols > details:first-child { margin: 0; }
-}
-
-/* Phone readability, improvements 19–35. Same content and controls at every size. */
-:root { --minds-readable-muted: var(--color-slate-600); }
-.dark { --minds-readable-muted: var(--color-neutral-300); }
-:where(.app-main, .dialog-body) { line-height: 1.5; }
-:where(.app-main, .dialog-body) :is(p, h1, h2, h3, dt, dd, label, legend, .link, .rt-title) { overflow-wrap: anywhere; }
-:where(.app-main, .dialog-body) .muted,
-:where(.app-main, .dialog-body) :is(.hint, .hv-guide, .hv-q-guide, .qv-facts dt, .dl-group) { color: var(--minds-readable-muted); }
-:where(.app-main, .dialog-body) :is(.hint, .hv-guide, .hv-q-guide, .qv-facts dt, .dl-group) { font-size: .8125rem; line-height: 1.5; letter-spacing: 0; }
-:where(.app-main, .dialog-body) .group-label { font-size: .875rem; text-transform: none; letter-spacing: 0; }
-.record-page-head, .record-panel-head { min-width: 0; }
-.record-page-actions { min-width: 0; }
-.rt-title { font-size: 1rem; line-height: 1.5; color: var(--minds-ink); }
-.rt-line > span { overflow-wrap: anywhere; }
-.rt-line > span:first-child { color: var(--minds-readable-muted); font-weight: 600; }
-.rt-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; }
-.rt-actions > * { max-width: 100%; }
-.stat-tile > p { white-space: normal; overflow-wrap: anywhere; letter-spacing: 0; }
-.stat-tile > p:first-child { text-transform: none; font-size: .8125rem; line-height: 1.4; }
-.stat-tile > p:last-child:not(:nth-child(2)) { font-size: .8125rem; line-height: 1.4; }
-.stat-tile > p:nth-child(2) { font-variant-numeric: tabular-nums; }
-.pb-searches .label { font-size: .875rem; }
-.hv-likert-ends { font-size: .8125rem; line-height: 1.5; }
-.hv-likert-opt span { min-height: 2.75rem; }
-.hv-row dt { font-size: .875rem; line-height: 1.5; }
-.section-head { text-transform: none; letter-spacing: 0; align-items: flex-start; }
-.section-head > :is(svg, span:has(svg)) { flex-shrink: 0; }
-.qr-pass :is(h1, p) { overflow-wrap: anywhere; }
-.qr-pass p.font-mono { font-family: var(--font-sans); }
-:where(.app-main, .dialog-body) :is(.check-row, .share-opt) { min-height: 2.75rem; align-items: flex-start; }
-:where(.app-main, .dialog-body) :is(.check-row, .share-opt) input { flex-shrink: 0; width: 1.25rem; height: 1.25rem; margin-top: .125rem; }
-
-@media (max-width: 767px) {
-  :where(.app-main, .dialog-body) .text-xs { font-size: .8125rem; line-height: 1.5; letter-spacing: 0; }
-  :where(.app-main, .dialog-body) :is(.btn, .chip, .pick-row, .edit-row-actions a, .edit-row-actions button) { min-height: 2.75rem; }
-  :where(.app-main, .dialog-body) :is(.input, input[type=date], input[type=time]) { font-size: 1rem; min-height: 2.75rem; }
-  :where(.app-main, .dialog-body) .badge { max-width: 100%; white-space: normal; font-size: .8125rem; line-height: 1.4; }
-  :where(.app-main, .dialog-body) .truncate { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; }
-  .rt-card { padding: 1rem; margin: .75rem; border: 1px solid var(--minds-border); border-radius: .5rem; background: var(--minds-surface); }
-  .rt-card + .rt-card, .dark .rt-card + .rt-card { border-top: 1px solid var(--minds-border); }
-  .rt-line { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); gap: .25rem .75rem; padding: .375rem 0; }
-  .rt-line > span:first-child { flex-shrink: 1; }
-  .rt-line > span:last-child { text-align: left; }
-  .rt-line > span:last-child > .flex { justify-content: flex-start; flex-wrap: wrap; }
-  .rt-line :is(input, select, .input) { min-width: 0; max-width: 100%; }
-  .rt-actions { padding-top: .5rem; border-top: 1px solid var(--minds-border); margin-top: .5rem; }
-  .rt-actions .flex { flex-wrap: wrap; justify-content: flex-start; gap: .5rem; }
-  .record-panel-head { display: grid; grid-template-columns: minmax(0, 1fr); gap: .75rem; }
-  .record-panel-head > .flex { flex-wrap: wrap; }
-  .record-page-head { gap: .75rem; margin-bottom: 1rem; }
-  .record-page-head > .min-w-0 { flex-basis: 100%; }
-  .stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: .75rem !important; }
-  .stat-grid .stat-tile { min-width: 0; padding: .75rem; }
-  .stat-tile > p:nth-child(2) { font-size: 1.375rem; line-height: 1.3; margin-top: .375rem; }
-  .dash-session .dash-table { font-size: .8125rem; table-layout: fixed; }
-  .dash-table th, .dash-table td { overflow-wrap: anywhere; padding: .5rem .25rem; }
-  .dash-table th:first-child { width: 28%; }
-  .dash-label { font-size: .875rem; text-transform: none; letter-spacing: 0; }
-  .session-meta { display: grid; gap: .375rem; }
-  .session-meta > span { min-width: 0; align-items: flex-start; }
-  .session-choice { display: grid; grid-template-columns: minmax(0, 1fr); gap: .75rem; }
-  .session-choice-action { display: flex; align-items: center; padding-top: .75rem; border-top: 1px solid var(--minds-border); }
-  .session-choice-action input { width: 1.75rem; height: 1.75rem; }
-  .review-identity { display: grid; grid-template-columns: minmax(0, 1fr); gap: .625rem; }
-  .review-identity > .flex { justify-content: flex-start; }
-  .activity-entry { display: grid; grid-template-columns: minmax(0, 1fr); gap: .25rem; padding: 1rem; }
-  .activity-entry > span:first-child { width: auto; font-family: var(--font-sans); }
-  .trainee-identity { align-items: flex-start; gap: .75rem; }
-  .trainee-identity .avatar-lg { width: 3.5rem; height: 3.5rem; }
-  .qv-facts { grid-template-columns: minmax(0, 1fr); gap: .125rem; margin-top: .5rem; }
-  .qv-facts dd { margin-bottom: .375rem; }
-  .hv-row { display: grid; grid-template-columns: minmax(0, 1fr); gap: .25rem; padding: .75rem 0; }
-  .hv-likert { padding: .75rem; }
-  .hv-likert-ends { gap: .75rem; }
-  .hv-likert-row { gap: .375rem; }
-  .edit-row-actions { flex-wrap: wrap; margin-left: 0; }
-  .report { font-size: .875rem; white-space: pre-wrap; overflow-wrap: anywhere; }
-}
-@media (max-width: 639px) {
-  /* Date/filter pairs take one row; search and session choices keep full width. */
-  main .record-toolbar { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; }
-  main .record-toolbar > * { min-width: 0 !important; }
-  main .record-toolbar > :has(.search-input),
-  main .record-toolbar > :has(select[aria-label="Session"]),
-  main .record-toolbar > .flex { grid-column: 1 / -1; }
-  .record-toolbar .label { font-size: .8125rem; }
-  .record-toolbar > .flex { flex-wrap: wrap; gap: .5rem; }
-  .activity-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .activity-filters > :first-child, .activity-filters > :nth-child(2) { grid-column: 1 / -1; }
-  .pb-searches { gap: .75rem; }
-  .pb-searches .input { padding-left: 2.5rem; }
-  .qr-pass h1 { font-size: 1.5rem; }
-}
-@media (max-width: 359px) {
-  .rt-line { grid-template-columns: minmax(0, 1fr); gap: .125rem; }
-  .rt-line + .rt-line { margin-top: .25rem; }
-  .stat-grid .stat-tile { padding: .625rem; }
-  .stat-tile > p:nth-child(2) { font-size: 1.25rem; }
-  .pb-searches { grid-template-columns: minmax(0, 1fr); gap: .5rem; }
-  main .record-toolbar { grid-template-columns: minmax(0, 1fr); }
-}
-.activity-filters > .activity-filter-wide { grid-column: 1 / -1; }
-
-/* Home: the slim "Feedback needed" line keeps room for its text; the button wraps below on narrow phones. */
-.fb-text { flex: 1 1 9rem; min-width: 0; }
-/* Phones and tablets: things scrolled into view (a field with an error, keyboard focus) stop above the
-   bottom tab bar instead of behind it. */
+/* Phones and tablets: things scrolled into view (a field with an error, keyboard focus) stop above
+   the bottom tab bar instead of behind it. */
 @media (max-width: 1023.98px) {
   html:has(body.has-sidebar) { scroll-padding-bottom: calc(4.5rem + env(safe-area-inset-bottom)); }
 }
 
-/* Phones: in lists you can reorder (Settings: venues, projects, guide), the name now wraps (above),
-   so it takes the row next to the handle and Edit / Delete move underneath. */
-@media (max-width: 767px) {
-  :where(.app-main) .flex:has(> .sort-handle) { flex-wrap: wrap; }
-  :where(.app-main) .flex:has(> .sort-handle) > .min-w-0.flex-1 { flex-basis: calc(100% - 3rem); }
+/* All pages on phones: one full-width choice per row, bigger text. */
+@media (max-width: 639.98px) {
+  .admin-menu { gap: 1.25rem; }
+  .admin-menu-grid { grid-template-columns: minmax(0, 1fr); gap: .5rem; }
+  .admin-menu-head { font-size: .8125rem; }
+  .admin-menu-link { min-height: 3.25rem; padding: .75rem 1rem; font-size: 1rem; }
 }
 
-/* Phones: a row with text and a group of buttons or badges beside it: the text keeps at least
-   10rem, so on the narrowest phones the group moves below it instead of squeezing it. */
-@media (max-width: 767px) {
-  :where(.app-main) .flex:has(> .min-w-0.flex-1):has(> div.flex.shrink-0) { flex-wrap: wrap; }
-  :where(.app-main) .flex:has(> div.flex.shrink-0) > .min-w-0.flex-1 { flex-basis: 10rem; }
+/* Organised information: details grouped under small headings (Contact, Personal, Emergency
+   contact, Admin), label and answer side by side from 480 px. Used by Me and
+   an admin's volunteer page. */
+.dl-group { margin-top: .75rem; padding-top: .5rem; font-size: .6875rem; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; color: #64748b; border: 0 !important; }
+.dl-group:first-child { margin-top: .25rem; }
+.dark .dl-group { color: #a3a3a3; }
+/* Label above answer on phones; side by side from 480 px (the same as House Visit details below). */
+.person-facts > div { display: grid; grid-template-columns: minmax(0, 1fr); gap: .125rem; }
+@media (min-width: 480px) { .person-facts > div { grid-template-columns: minmax(7rem, 38%) minmax(0, 1fr); gap: 1rem; } }
+.person-facts dt, .person-facts dd { min-width: 0; overflow-wrap: anywhere; }
+/* An admin's volunteer page: name, labels, email and phone in one card; statistics in one row. */
+.person-summary h1 { overflow-wrap: anywhere; }
+.person-actions .btn { white-space: nowrap; }
+.stat-compact { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: .75rem !important; }
+@media (min-width: 640px) { .stat-compact { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; } }
+
+/* A trainee's House Visit details: question and answer side by side (guide text under the
+   question), the Sections menu that jumps to one, and two columns on computers. */
+.hv-row { padding: .625rem 0; }
+@media (min-width: 480px) { .hv-row { display: grid; grid-template-columns: minmax(7rem, 38%) minmax(0, 1fr); gap: 1rem; } }
+.hv-row dt, .hv-row dd { min-width: 0; overflow-wrap: anywhere; }
+.hv-jump-menu { margin-top: .75rem; }
+.hv-jump-menu > summary { width: fit-content; list-style: none; cursor: pointer; }
+.hv-jump-menu > summary::-webkit-details-marker { display: none; }
+.hv-jump { display: flex; flex-wrap: wrap; gap: .375rem; margin-top: .5rem; }
+.hv-jump-btn { border: 1px solid; border-radius: 9999px; padding: .25rem .75rem; font-size: .75rem; font-weight: 700; }
+.hv-cols > details { scroll-margin-top: 5.5rem; }
+@media (min-width: 1024px) {
+  .hv-cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; column-gap: 1.25rem; }
+}
+
+/* Pairing cards: the name has the full width; +Trn / +Vol sits at the end of the row below it.
+   Labelled searches above the columns. On narrow phones (iPhone SE, mini) names and chips are a
+   little smaller, so most fit on one line. */
+.pb-add-end { margin-left: auto; }
+.pb-searches > div { min-width: 0; }
+@media (max-width: 379.98px) {
+  .pb-card .pb-name { font-size: .8125rem; }
+  .pb-card { padding: .375rem .5rem; }
+  .pb-list { padding: .375rem; }
+  .pb-pill { font-size: .75rem; }
 }
 
 /* Date boxes: never wider than their container. iPhone and iPad Safari give a date box a minimum
-   width of its own (which pushed Activity log's From / To past the screen edge) and show an empty
-   one as blank: there they fill the width and an empty one says "Any date" / "Choose a date"
-   (controls.js). Other browsers are unchanged. */
+   width of its own and show an empty one as blank: there they fill the width and an empty one says
+   "Any date" / "Choose a date" (controls.js). Other browsers are unchanged. */
 input[type="date"] { min-width: 0; max-width: 100%; }
 .date-wrap { position: relative; display: block; min-width: 0; max-width: 100%; }
 .date-ph { display: none; position: absolute; left: .875rem; top: 50%; transform: translateY(-50%); pointer-events: none; color: #94a3b8; font-size: 1rem; }
@@ -1014,16 +758,6 @@ input[type="date"] { min-width: 0; max-width: 100%; }
   .date-wrap.is-empty .date-ph { display: block; }
 }
 
-/* Pairing cards: the name has the full width; +Trn / +Vol sits at the end of the row below it. */
-.pb-add-end { margin-left: auto; }
-
-/* Tables: buttons stay on one line; a wide table scrolls sideways instead of squeezing them. */
-.app-main table .btn { white-space: nowrap; overflow-wrap: normal; }
-/* Pairing board on narrow phones (iPhone SE, mini): slightly smaller names and padding, so most
-   names fit on one line in the two columns. */
-@media (max-width: 379.98px) {
-  .pb-card .pb-name { font-size: .8125rem; }
-  .pb-card { padding: .375rem .5rem; }
-  .pb-list { padding: .375rem; }
-  .pb-pill { font-size: .75rem; }
-}
+/* Small buttons (short labels) stay on one line; rows of them wrap instead (e.g. Hours: All time,
+   This month, This year; "Who can read" in a notes table). */
+.btn-sm { white-space: nowrap; }

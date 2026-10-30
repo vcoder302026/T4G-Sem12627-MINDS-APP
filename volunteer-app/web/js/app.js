@@ -414,7 +414,7 @@ function renderChrome(name, full = name) {
   // Phones, on admin pages: the admin sections as a scrollable row.
   if (!subnav.hidden) {
     // "All pages" first: every admin page, grouped by section, one tap away (Version 4).
-    const allPages = el('button', { type: 'button', class: 'sub-link sub-all', 'aria-haspopup': 'dialog' }, icon('list', 'size-4'), 'All pages');
+    const allPages = el('button', { type: 'button', class: 'sub-link sub-all', 'aria-haspopup': 'dialog' }, icon('apps', 'size-4'), 'All pages');
     allPages.addEventListener('click', () => openAdminMenu(count));
     mount(subnav, allPages, ADMIN_SECTIONS.map((sec) => el('a', { href: `#/${sec.key}`, class: 'sub-link', 'aria-current': sec === section ? 'page' : null },
       icon(sec.icon, 'size-4'), sec.label, count(sec.key) ? ` (${count(sec.key)})` : '')));
@@ -450,7 +450,7 @@ function renderChrome(name, full = name) {
       volunteerItems.map(sideLink),
       admin ? [el('p', { class: 'side-group' }, 'Admin'),
         el('button', { type: 'button', class: 'side-link w-full', title: 'All pages', 'aria-label': 'All pages', 'aria-haspopup': 'dialog', onclick: () => openAdminMenu(count) },
-          icon('list', 'size-5'), el('span', { class: 'side-text' }, 'All pages')),
+          icon('apps', 'size-5'), el('span', { class: 'side-text' }, 'All pages')),
         // A section's pages are the tabs at the top of the page (not repeated here).
         ADMIN_SECTIONS.map((sec) => sideLink({ ...sec, active: sec === section }))] : null),
     el('div', { class: 'side-foot border-t border-slate-200 p-4 text-xs dark:border-neutral-900' },

@@ -83,7 +83,7 @@ export function renderAttendance(root, app, ctx) {
       { label: 'Hours', cell: (r) => (r.hours === null ? badge('In progress', 'amber') : hours(r.hours)), class: 'whitespace-nowrap' },
       { label: 'How', cell: (r) => el('span', {}, methodBadge(r), r.editedBy ? el('span', { class: 'mt-1 block text-xs muted' }, `Edited by ${r.editedBy}`) : null) },
       { label: '', cell: (r) => el('button', { class: 'btn btn-secondary btn-sm', onclick: () => editRecord(r) }, icon('pencil', 'size-4'), 'Fix'), class: 'text-right' },
-    ], rows, { empty: data.records.length ? 'No records match.' : 'No attendance in this date range.', titleColumn: 2 }));
+    ], rows, { empty: data.records.length ? 'No records match.' : 'No attendance in this date range.' }));
   };
 
   const draw = (d) => {
@@ -156,7 +156,7 @@ export function renderHours(root, app, ctx) {
         stat('Total hours', hours(d.totals.hours), { tone: 'emerald' })),
       el('div', { class: 'mt-6' }, panel(`Hours per volunteer${d.from || d.to ? '' : ' (all time)'}`, csv,
         toolbar(...rangeInputs(range, (r) => { range = r; refresh(); }),
-          el('div', { class: 'flex gap-2' },
+          el('div', { class: 'flex flex-wrap gap-2' },
             el('button', { class: 'btn btn-secondary btn-sm', onclick: () => { range = { from: `${today.slice(0, 7)}-01`, to: today }; refresh(); } }, 'This month'),
             el('button', { class: 'btn btn-secondary btn-sm', onclick: () => { range = { from: `${today.slice(0, 4)}-01-01`, to: today }; refresh(); } }, 'This year'),
             el('button', { class: 'btn btn-secondary btn-sm', onclick: () => { range = { from: '', to: '' }; refresh(); } }, 'All time')),
