@@ -184,3 +184,6 @@ people what to do. Keep, shorten or remove?
 - [ ] Decide with MINDS whether the single-page layout is acceptable, or whether they want the
   template's one-page-per-area structure (large change)
 
+## Wording to confirm
+
+- Sign-in page hint "Use the email registered with MINDS." (added in 4.6 by the design update): keep or remove?

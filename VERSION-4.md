@@ -192,3 +192,28 @@ Checked: `dev/check-deploy.mjs` ready to deploy (130 tests); `check-phones.py` a
 `check-squash.py` (280–768 px) nothing squashed; `check-scroll.py` clean; in a browser the
 Sections menu, guide text, dates, the volunteer summary card and the sidebar's All pages work.
 
+## 9. Version 4.6: design improvements 19–36 (third Lovable round)
+
+From `minds-all-updates-v3.zip` (presentation only, 12 website files; the service-worker
+registration is unchanged). Easier to read on phones: names, dates and details wrap instead of
+being cut off; phone record cards with label/value rows (attendance cards titled with the
+volunteer's name); labelled pairing searches ("Volunteers", "Trainees"); trainee IDs in the
+trainee directory; the Activity log with labelled filters and readable action names; tidier Me
+page, QR pass, session choices, settings, More pages and house visits; larger touch targets and
+16 px form text on phones. The sign-in page adds the hint "Use the email registered with MINDS."
+(listed in TODO.md under wording to confirm).
+
+Like 4.5's overlay it was built on the overlay before 4.5's merge, so it was merged again, not
+copied: the 280 px feedback line, `scroll-padding-bottom` above the tab bar, guide text visible
+under House Visit questions, "Design update" comments, and two unused classes removed
+(`pb-show-both`, `review-item`). One layout problem it introduced was fixed: on phones every
+cut-off line now wraps, which squeezed rows that also hold buttons (Settings lists: 88 px of
+360 px; All sessions: 106 px of 280 px). In lists you can reorder, the buttons now move under
+the name; in other rows a group of buttons or badges moves below once the text would get under
+10rem.
+
+Checked: `dev/check-deploy.mjs` ready to deploy (130 tests); `check-squash.py` at 280, 320, 360,
+412 and 768 px nothing squashed; `check-phones.py` all clean; `check-scroll.py` clean; in a
+browser the pairing searches filter, attendance cards, Activity log filters, the sign-in hint and
+the two fixed rows.
+

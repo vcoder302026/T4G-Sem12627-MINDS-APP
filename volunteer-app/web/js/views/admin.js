@@ -40,7 +40,7 @@ export function renderAdminHub(root, app, ctx) {
     return el('div', { class: 'dash-session' },
       el('div', { class: 'flex items-start justify-between gap-2' },
         el('div', { class: 'min-w-0' },
-          el('p', { class: 'truncate font-bold text-slate-900 dark:text-white' }, s.title, s.date === today ? el('span', { class: 'ml-2' }, badge('Today', 'emerald')) : null),
+          el('p', { class: 'font-bold text-slate-900 dark:text-white' }, s.title, s.date === today ? el('span', { class: 'ml-2' }, badge('Today', 'emerald')) : null),
           el('p', { class: 'text-xs muted' }, `${fmtDay(s.date, today)} · ${fmtTimes(s)}`)),
         null),
       el('div', { class: 'mt-3 overflow-x-auto' },
@@ -99,6 +99,7 @@ export function renderAdminHub(root, app, ctx) {
 /* ---------------- activity log ---------------- */
 
 export function renderActivityLog(root, app, ctx) {
+  const actionLabel = (value) => String(value || '').replace(/([a-z])([A-Z])/g, '$1 $2').replace(/_/g, ' ').replace(/^./, (c) => c.toUpperCase());
   const filters = { adminId: '', query: '', from: '', to: '' };
   const host = el('div', { class: 'mt-4' });
   let timer = null;
@@ -120,11 +121,11 @@ export function renderActivityLog(root, app, ctx) {
           `${d.total} change${d.total === 1 ? '' : 's'}${d.entries.length < d.total ? `, newest ${d.entries.length} shown` : ''}`),
         d.entries.length ? Object.keys(byDay).map((day) => [
           el('h2', { class: 'group-label' }, fmtDay(day)),
-          el('div', { class: 'card divide-y divide-slate-100 overflow-hidden dark:divide-neutral-900' }, byDay[day].map((e) => el('div', { class: 'flex gap-3 p-3 text-sm' },
+          el('div', { class: 'card divide-y divide-slate-100 overflow-hidden dark:divide-neutral-900' }, byDay[day].map((e) => el('div', { class: 'activity-entry flex gap-3 p-3 text-sm' },
             el('span', { class: 'w-12 shrink-0 font-mono text-xs muted' }, e.at.slice(11, 16)),
             // Who did it sits under the details (not a third column), so phones keep the text wide.
             el('span', { class: 'min-w-0 flex-1' },
-              el('span', { class: 'block font-bold text-slate-900 dark:text-white' }, e.action),
+              el('span', { class: 'block font-bold text-slate-900 dark:text-white' }, actionLabel(e.action)),
               el('span', { class: 'block break-words text-slate-600 dark:text-neutral-400' }, e.summary),
               el('span', { class: 'mt-0.5 block text-xs' }, personName(e.adminName, e.adminId, 'font-bold text-indigo-700 dark:text-indigo-300')))))),
         ]) : el('p', { class: 'text-sm muted' }, 'Nothing matches these filters.'));
@@ -135,10 +136,12 @@ export function renderActivityLog(root, app, ctx) {
   to.addEventListener('change', () => { filters.to = to.value; load(); });
   mount(root,
     el('h1', { class: 'page-title' }, 'Activity log'),
-    el('div', { class: 'mt-4 grid gap-2 sm:grid-cols-2' },
-      adminSelect,
-      searchBox('Search, e.g. a name or "pairing"', (q) => { filters.query = q; clearTimeout(timer); timer = setTimeout(load, 300); }, 'Search the log'),
-      from, to),
+      el('div', { class: 'activity-filters mt-4 grid gap-2 sm:grid-cols-2' },
+      el('div', { class: 'activity-filter-wide' }, el('label', { class: 'label' }, 'Admin'), adminSelect),
+      el('div', { class: 'activity-filter-wide' }, el('label', { class: 'label' }, 'Search'),
+        searchBox('Name or action', (q) => { filters.query = q; clearTimeout(timer); timer = setTimeout(load, 300); }, 'Search the log')),
+      el('div', {}, el('label', { class: 'label' }, 'From'), from),
+      el('div', {}, el('label', { class: 'label' }, 'To'), to)),
     host);
   return load();
 }
