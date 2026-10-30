@@ -16,7 +16,7 @@ volunteer hours, attendance and pairing.
 It runs on **Google Apps Script + Google Sheets** (MINDS's own sheets, including the House
 Visit form responses), with the web app on GitHub Pages.
 
-**Status: Version 4.3**, tested on the Exp environment with 100 volunteers and 10 admins at once.
+**Status: Version 4.4.1**, tested on the Exp environment with 100 volunteers and 10 admins at once.
 
 | Read this | For |
 | --- | --- |
@@ -73,13 +73,14 @@ PLAN.md               Prototype 1's build plan
 | [Version 1](VERSION-1.md) | Oct 2026 | The volunteer app on Google Apps Script and Sheets |
 | [Version 2](VERSION-2.md), [STEVEN-UPDATE](STEVEN-UPDATE.md) | Oct 2026 (update: 27 Oct) | MINDS's registration form, trainee sheet, pairing, House Visit Form |
 | [Version 3](VERSION-3.md) | 28 Oct 2026 | Pairing board like the WERONE outing app, every phone size, warnings, standard projects |
-| **[Version 4](VERSION-4.md)** | 29–30 Oct 2026 | Short names, Google Contacts on save, files on notes, one trainee & house visit database, Add trainee with the House Visit Form, the Dashboard, speed and live updates (4.1–4.3) |
+| **[Version 4](VERSION-4.md)** | 29–30 Oct 2026 | Short names, Google Contacts on save, files on notes, one trainee & house visit database, Add trainee with the House Visit Form, the Dashboard, speed and live updates (4.1–4.3), design update with Lovable (4.4) |
 
 ## Working together
 
 - Make changes on a branch and open a pull request into `main`. **Merging to `main` deploys**
   the web app (GitHub Pages) and, with the repository secrets set, the backend (Apps Script).
-- Run the tests first: `cd volunteer-app && npm test`. For layout changes, also run the
+- Run the tests first: `cd volunteer-app && npm test`, and before merging,
+  `node dev/check-deploy.mjs` ("ready to deploy"). For layout changes, also run the
   `dev/check-*.py` scripts (volunteer app README, Part 2, Step 6). The rules for changes are in
   [AGENTS.md](AGENTS.md).
 - Use fictional data only. Never commit real volunteer or trainee details, `.clasp.json`,

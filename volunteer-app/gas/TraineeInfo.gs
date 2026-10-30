@@ -28,7 +28,21 @@ function formSectionOrder_(titles) {
   return titles.map((t, i) => ({ t, i })).sort((a, b) => rank(a.t) - rank(b.t) || a.i - b.i).map((x) => x.t);
 }
 
+/** The sections, from a recent copy when there is one (Speed.gs): saves opening the trainee file. */
 function sectionMap_() {
+  const c = !IN_LOCK_ && tableCacheOn_() ? cache_() : null;
+  if (!c) return sectionMapFresh_();
+  const key = `secmap:${tableVersion_('trainees')}:${c.get('tv-epoch') || '0'}`;
+  const hit = c.get(key);
+  if (hit) {
+    try { return JSON.parse(hit); } catch (e) { /* read it again */ }
+  }
+  const map = sectionMapFresh_();
+  try { c.put(key, JSON.stringify(map), TABLE_SECONDS_); } catch (e) { /* too big: read it each time */ }
+  return map;
+}
+
+function sectionMapFresh_() {
   const tabName = CONFIG.TRAINEES.sectionMapTab;
   const out = {};
   const order = [];

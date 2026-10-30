@@ -10,11 +10,11 @@ There is **one app** and **no modes to switch**.
 - **Names** are short names, in alphanumeric order; if two people share a short name, both show their full name.
 - **Everyone** sees **Home · QR pass · Sessions · Me**. Regular volunteers also see
   **Trainees**; admins also see **Admin**.
-- **On a phone** these are the tabs under the header. Admin pages add a row of section buttons
-  (**All pages**, Dashboard, Sessions, Pairing, …) that scrolls away with the page; **All pages**
-  lists every admin page, and sections with several
-  pages show them as tabs (e.g. People · Attendance · Hours).
-- **On a computer** (1024 px and wider) everything is a sidebar on the left.
+- **On a phone or tablet** these are the tabs in the **bar at the bottom of the screen**, within
+  thumb reach. Admin pages add a row under the header with **All pages** (every admin page, by
+  section) and the section you're in; each section's pages are tabs at the top of the page.
+- **On a computer** (1024 px and wider) they're in the sidebar on the left. The small arrow at its edge **shrinks it
+  to icons** (or back); the app remembers your choice on that computer.
 - **The header:** **←** goes back to the page you came from; **↻** loads the newest version of
   the app; **🌗** switches dark mode; **🏠** goes Home (on phones Home is in the tab bar instead);
   the red arrow signs you out.

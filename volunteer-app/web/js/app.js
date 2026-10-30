@@ -429,12 +429,20 @@ function renderChrome(name, full = name) {
   }
 
   // Computers: the same items in a sidebar.
-  const sideLink = (item) => el('a', { href: item.href || `#/${item.key}`, class: 'side-link', 'aria-current': (item.active !== undefined ? item.active : isActive(item, name)) ? 'page' : null },
-    icon(item.icon, 'size-5'), item.label, count(item.key) ? el('span', { class: 'side-count' }, String(count(item.key))) : null);
-  mount(sidebar,
-    el('a', { href: '#/home', class: 'flex h-16 shrink-0 items-center gap-3 border-b border-slate-200 px-5 dark:border-neutral-900' },
+  const sideLink = (item) => el('a', { href: item.href || `#/${item.key}`, class: 'side-link', title: item.label, 'aria-current': (item.active !== undefined ? item.active : isActive(item, name)) ? 'page' : null },
+    icon(item.icon, 'size-5'), el('span', { class: 'side-text' }, item.label), count(item.key) ? el('span', { class: 'side-count' }, String(count(item.key))) : null);
+  // Design update: computers can shrink the sidebar to icons (remembered on this device).
+  const mini = el('button', { type: 'button', class: 'side-mini-btn', title: 'Shrink or expand menu', 'aria-label': 'Shrink or expand menu' }, icon('chevron', 'size-4'));
+  mini.addEventListener('click', () => {
+    const on = !document.body.classList.contains('side-mini');
+    document.body.classList.toggle('side-mini', on);
+    try { localStorage.setItem('minds.sideMini', on ? '1' : ''); } catch { /* ignore */ }
+  });
+  try { document.body.classList.toggle('side-mini', localStorage.getItem('minds.sideMini') === '1'); } catch { /* ignore */ }
+  mount(sidebar, mini,
+    el('a', { href: '#/home', class: 'side-brand flex h-14 shrink-0 items-center gap-3 border-b border-slate-200 px-5 dark:border-neutral-900' },
       el('span', { class: 'flex size-10 items-center justify-center rounded-xl bg-indigo-600 text-white' }, icon(admin ? 'dashboard' : 'qr', 'size-6')),
-      el('span', { class: 'min-w-0' },
+      el('span', { class: 'side-text min-w-0' },
         el('span', { class: 'block truncate text-base font-extrabold leading-tight text-slate-900 dark:text-white' }, 'MINDS Volunteers'),
         el('span', { class: 'block truncate text-xs font-medium uppercase tracking-wider muted' }, brandSub.textContent))),
     el('nav', { class: 'side-scroll' },
@@ -443,7 +451,7 @@ function renderChrome(name, full = name) {
       admin ? [el('p', { class: 'side-group' }, 'Admin'),
         // A section's pages are the tabs at the top of the page (not repeated here).
         ADMIN_SECTIONS.map((sec) => sideLink({ ...sec, active: sec === section }))] : null),
-    el('div', { class: 'border-t border-slate-200 p-4 text-xs dark:border-neutral-900' },
+    el('div', { class: 'side-foot border-t border-slate-200 p-4 text-xs dark:border-neutral-900' },
       el('p', { class: 'truncate font-bold text-slate-900 dark:text-white' }, u.name),
       el('p', { class: 'truncate muted' }, u.email)));
 }

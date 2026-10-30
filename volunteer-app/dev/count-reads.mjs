@@ -7,7 +7,7 @@
 import { createDemoRuntime } from './mock-server.js';
 
 const ACTIONS = [
-  ['volunteerHome', 'volunteer'], ['me', 'volunteer'], ['guide', 'volunteer'], ['changes', 'admin'],
+  ['volunteerHome', 'volunteer'], ['me', 'volunteer'], ['guide', 'volunteer'], ['traineeInfo', 'regular'], ['changes', 'admin'],
   ['adminHome', 'admin'], ['sessionDetail', 'admin'], ['updateBooking', 'admin'],
 ];
 
@@ -16,6 +16,7 @@ function measure(cacheOn) {
   rt.props.set('TABLE_CACHE', cacheOn ? 'on' : 'off');
   const admin = rt.call('login', { email: 'admin@example.com', password: 'AdminDemo123' }).data.token;
   const vol = rt.call('login', { email: 'volunteer@example.com', password: 'VolunteerDemo123' }).data.token;
+  const regular = rt.call('login', { email: 'regular@example.com', password: 'RegularDemo123' }).data.token;
   const home = rt.call('adminHome', {}, admin).data;
   const sessionId = home.sessions.find((s) => s.date >= home.today).sessionId;
   const detail = rt.call('sessionDetail', { sessionId }, admin).data;
@@ -25,8 +26,8 @@ function measure(cacheOn) {
   let add = true;
   const out = {};
   for (const [action, who] of ACTIONS) {
-    const token = who === 'admin' ? admin : vol;
-    const payload = action === 'sessionDetail' ? { sessionId }
+    const token = who === 'admin' ? admin : who === 'regular' ? regular : vol;
+    const payload = action === 'traineeInfo' ? { traineeId: 'T-0001' } : action === 'sessionDetail' ? { sessionId }
       : action === 'updateBooking' ? (add ? { bookingId: booking.bookingId, addTraineeId: trainee } : { bookingId: booking.bookingId, removeTraineeId: trainee })
         : {};
     rt.call(action, payload, token); // warm up, as after the app has been used for a while

@@ -31,16 +31,16 @@
 
 @layer components {
   /* surfaces */
-  .card { @apply rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-neutral-900 dark:bg-neutral-950; }
-  .well { @apply rounded-2xl border border-slate-200 bg-slate-50 dark:border-neutral-800 dark:bg-neutral-900; }
+  .card { @apply rounded-xl border border-slate-200 bg-white shadow-sm dark:border-neutral-900 dark:bg-neutral-950; }
+  .well { @apply rounded-xl border border-slate-200 bg-slate-50 dark:border-neutral-800 dark:bg-neutral-900; }
   .muted { @apply text-slate-500 dark:text-neutral-400; }
-  .group-label { @apply mb-2 mt-6 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-neutral-400; }
-  .page-title { @apply text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white; }
+  .group-label { @apply mb-1.5 mt-5 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-neutral-400; }
+  .page-title { @apply text-xl sm:text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white; }
 
   /* buttons (class="btn btn-primary") */
-  .btn { @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-3 font-bold transition-all active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50; }
-  .btn-primary { @apply bg-indigo-600 text-white shadow-lg hover:bg-indigo-700 hover:shadow-xl hover:shadow-indigo-500/20; }
-  .btn-success { @apply bg-emerald-500 text-white shadow-lg hover:bg-emerald-600 hover:shadow-xl hover:shadow-emerald-500/20; }
+  .btn { @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 font-bold transition-all active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50; }
+  .btn-primary { @apply bg-indigo-600 text-white shadow-sm hover:bg-indigo-700 hover:shadow-md; }
+  .btn-success { @apply bg-emerald-500 text-white shadow-sm hover:bg-emerald-600 hover:shadow-md; }
   .btn-secondary { @apply border border-slate-200 bg-white text-slate-700 shadow-sm hover:text-indigo-600 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-200 dark:hover:text-indigo-400; }
   .btn-danger { @apply border border-red-200 bg-white text-red-600 hover:bg-red-50 dark:border-red-900/60 dark:bg-neutral-900 dark:text-red-400 dark:hover:bg-red-900/20; }
   .btn-dark { @apply bg-slate-900 text-white shadow-md hover:shadow-lg dark:bg-white dark:text-neutral-900; }
@@ -49,12 +49,12 @@
   .link { @apply font-bold text-indigo-600 hover:underline dark:text-indigo-400; }
 
   /* forms */
-  .input { @apply w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20 dark:border-neutral-800 dark:bg-neutral-900 dark:text-white dark:placeholder:text-neutral-500; }
+  .input { @apply w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20 dark:border-neutral-800 dark:bg-neutral-900 dark:text-white dark:placeholder:text-neutral-500; }
   .label { @apply mb-1.5 block text-sm font-bold text-slate-700 dark:text-neutral-300; }
   .hint { @apply mt-1 text-xs text-slate-500 dark:text-neutral-400; }
 
   /* House Visit style section header (class="section-head section-blue") */
-  .section-head { @apply flex items-center justify-between gap-3 border-b px-4 py-3 text-sm font-bold uppercase tracking-wide dark:border-neutral-800; }
+  .section-head { @apply flex items-center justify-between gap-3 border-b px-4 py-2.5 text-sm font-bold uppercase tracking-wide dark:border-neutral-800; }
   .section-blue { @apply border-blue-100 bg-blue-50 text-blue-700 dark:bg-blue-900/40 dark:text-blue-200; }
   .section-red { @apply border-red-100 bg-red-50 text-red-700 dark:bg-red-900/40 dark:text-red-200; }
   .section-indigo { @apply border-indigo-100 bg-indigo-50 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-200; }
@@ -71,7 +71,7 @@
   .badge-purple { @apply bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300; }
 
   /* alerts */
-  .alert { @apply rounded-xl border p-3 text-sm font-medium; }
+  .alert { @apply rounded-lg border px-3 py-2.5 text-sm font-medium; }
   .alert-error { @apply border-red-200 bg-red-50 text-red-600 dark:border-red-800/50 dark:bg-red-900/20 dark:text-red-400; }
   .alert-info { @apply border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-800/60 dark:bg-indigo-950/40 dark:text-indigo-300; }
   .alert-success { @apply border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-800/60 dark:bg-emerald-950/40 dark:text-emerald-300; }
@@ -180,7 +180,7 @@ body.wide .app-bar, body.wide .app-main, body.wide .app-tabs, body.wide .app-sub
 .check-row input { margin-top: .2rem; width: 1.05rem; height: 1.05rem; accent-color: #4f46e5; flex-shrink: 0; }
 .tile-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; }
 @media (min-width: 768px) { .tile-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
-.tile { position: relative; display: flex; flex-direction: column; gap: .5rem; border: 1px solid #e2e8f0; border-radius: 1rem; background: #fff; padding: 1rem; }
+.tile { position: relative; display: flex; flex-direction: column; gap: .375rem; border: 1px solid #e2e8f0; border-radius: .75rem; background: #fff; padding: .75rem; }
 .tile:hover { border-color: #a5b4fc; box-shadow: 0 4px 12px rgba(79, 70, 229, .08); }
 .dark .tile { border-color: #171717; background: #0a0a0a; }
 .select-ring { box-shadow: inset 0 0 0 2px #4f46e5; background: #eef2ff; }
@@ -637,3 +637,64 @@ body { padding-left: env(safe-area-inset-left, 0px); padding-right: env(safe-are
 .dark .side-sub-link { color: #a3a3a3; }
 .dark .side-sub-link:hover { background: #171717; }
 .dark .side-sub-link[aria-current="page"] { background: rgba(79, 70, 229, .25); color: #c7d2fe; }
+
+
+/* ===== Design update: more concise, easier to move around on every screen size.
+   Plain CSS so it applies whether or not Tailwind is rebuilt. ===== */
+#env-bar { padding: 0; letter-spacing: .12em; }
+
+/* Phones and tablets (< 1024 px): the main tabs become a bar fixed to the bottom, within thumb reach. */
+@media (max-width: 1023.98px) {
+  body.has-sidebar #tabs:not([hidden]) {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 35; max-width: none; margin: 0;
+    padding: .25rem .5rem max(.25rem, env(safe-area-inset-bottom));
+    background: rgba(255, 255, 255, .96); border-top: 1px solid #e2e8f0; box-shadow: 0 -4px 14px rgba(15, 23, 42, .05);
+    -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+  }
+  .dark body.has-sidebar #tabs:not([hidden]), body.has-sidebar.dark #tabs:not([hidden]) { background: rgba(10, 10, 10, .96); border-color: #171717; }
+  body.has-sidebar #tabs .seg { max-width: 42rem; margin: 0 auto; background: transparent; padding: 0; gap: .125rem; }
+  body.has-sidebar #tabs .seg-item { flex-direction: column; gap: .125rem; padding: .375rem .125rem; font-size: .6875rem; border-radius: .625rem; }
+  body.has-sidebar #tabs .seg-item[aria-current="page"] { background: #eef2ff; box-shadow: none; }
+  .dark body.has-sidebar #tabs .seg-item[aria-current="page"] { background: rgba(49, 46, 129, .45); }
+  body.has-sidebar #view { padding-bottom: calc(6rem + env(safe-area-inset-bottom)); }
+  /* Bottom action bars sit just above the tab bar. */
+  body.has-sidebar .action-bar { bottom: calc(3.6rem + env(safe-area-inset-bottom)); padding-bottom: .75rem; }
+  /* Admin pages: just "All pages" and the current section, instead of a long sideways row. */
+  .app-subnav { padding-bottom: .5rem; }
+  .app-subnav .sub-link:not(.sub-all):not([aria-current="page"]) { display: none; }
+  #subnav-wrap { padding-top: .5rem; }
+  .page-tabs { margin-top: .75rem; }
+}
+#subnav-wrap:has(> #subnav[hidden]) { display: none; }
+
+/* Computers: shrinkable sidebar. */
+.side-mini-btn { display: none; }
+@media (min-width: 1024px) {
+  body.has-sidebar .app-sidebar { position: fixed; }
+  body.has-sidebar .side-mini-btn {
+    display: flex; position: absolute; top: 1.125rem; right: -.75rem; z-index: 41; width: 1.5rem; height: 1.5rem;
+    align-items: center; justify-content: center; border-radius: 9999px; border: 1px solid #e2e8f0; background: #fff; color: #64748b;
+    transform: rotate(180deg); box-shadow: 0 1px 3px rgba(0, 0, 0, .08);
+  }
+  .dark body.has-sidebar .side-mini-btn { border-color: #262626; background: #171717; color: #a3a3a3; }
+  body.has-sidebar .app-sidebar { transition: width .15s; }
+  body.has-sidebar .app-shell { transition: padding-left .15s; }
+  body.side-mini.has-sidebar .app-sidebar { width: 4.5rem; }
+  body.side-mini.has-sidebar .app-shell { padding-left: 4.5rem; }
+  body.side-mini .side-mini-btn { transform: none; }
+  body.side-mini .side-text, body.side-mini .side-group, body.side-mini .side-foot { display: none; }
+  body.side-mini .side-brand { justify-content: center; padding: 0; }
+  body.side-mini .side-scroll { padding: .75rem .5rem; }
+  body.side-mini .side-link { justify-content: center; padding: .625rem 0; }
+  body.side-mini .side-count { position: absolute; top: .125rem; right: .25rem; margin: 0; min-width: 1rem; line-height: 1rem; font-size: .625rem; }
+  .side-link { padding: .4375rem .75rem; }
+}
+
+/* Home: the slim "Feedback needed" line keeps room for its text; the button wraps below on narrow phones. */
+.fb-text { flex: 1 1 9rem; min-width: 0; }
+
+/* Phones and tablets: things scrolled into view (a field with an error, keyboard focus) stop above the
+   bottom tab bar instead of behind it. */
+@media (max-width: 1023.98px) {
+  html:has(body.has-sidebar) { scroll-padding-bottom: calc(4.5rem + env(safe-area-inset-bottom)); }
+}

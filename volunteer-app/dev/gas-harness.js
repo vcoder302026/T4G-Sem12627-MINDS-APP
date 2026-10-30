@@ -436,7 +436,13 @@ export function createGasRuntime() {
           const hit = cache.get(k);
           return hit && hit.expires > Date.now() ? hit.value : null;
         },
-        put: (k, value, seconds) => cache.set(k, { value, expires: Date.now() + seconds * 1000 }),
+        // Apps Script's limits: keys up to 250 characters, values up to 100 KB (in bytes), up to 6 hours.
+        put: (k, value, seconds) => {
+          if (String(k).length > 250) throw new Error('Argument too large: key');
+          if (Buffer.byteLength(String(value), 'utf8') > 100 * 1024) throw new Error('Argument too large: value');
+          if (seconds > 21600) throw new Error('Expiration too long');
+          cache.set(k, { value: String(value), expires: Date.now() + seconds * 1000 });
+        },
         remove: (k) => cache.delete(k),
       }),
     },

@@ -137,10 +137,10 @@ function notesList(notes, isAdmin) {
  */
 export function traineeLine(trainee, pairing, label) {
   if (!trainee) return null;
-  return asTrainee(el('a', { href: `#/info/${encodeURIComponent(trainee.id)}`, class: 'well mt-3 flex items-center gap-3 p-3 hover:shadow-sm' },
+  return asTrainee(el('a', { href: `#/info/${encodeURIComponent(trainee.id)}`, class: 'well mt-2 flex items-center gap-3 px-3 py-2 hover:shadow-sm' },
     traineeAvatar(trainee, 'sm'),
     el('span', { class: 'min-w-0 flex-1' },
-      el('span', { class: 'block text-xs font-bold uppercase tracking-wider muted' }, label || 'Paired trainee'),
+      el('span', { class: 'block text-xs font-semibold muted' }, label || 'Paired trainee'),
       traineeName(trainee.name, trainee.id, 'block truncate font-bold text-slate-900 dark:text-white'),
       null),
     icon('chevron', 'size-5 text-slate-400')), trainee.id);

@@ -123,7 +123,7 @@ fundraising / outing / trip examples. Session dates are around 28 October 2026.
    npm run gas:push
    ```
    Terminal lists each file as it's pushed (`└─ gas/Admin.gs`, …) and ends with
-   `Pushed 25 files.` If it says *User has not enabled the Apps Script API*, turn the API on
+   `Pushed 28 files.` (the number grows as the app does) If it says *User has not enabled the Apps Script API*, turn the API on
    (item 1 above) and wait a minute. If it says the script ID is invalid, check `.clasp.json`
    (item 4 above).
 
