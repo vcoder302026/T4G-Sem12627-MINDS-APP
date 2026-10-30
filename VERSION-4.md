@@ -129,3 +129,45 @@ request, 30 at once, saves one at a time.
 **4.3.1:** dates read from the copies of the sheets are kept as dates (they could show as
 timestamps such as `2025-12-29T12:26:09.000Z`); a test reads a trainee's dates through the copy.
 
+## 7. Version 4.4: design update (with Lovable)
+
+Five design changes suggested in Lovable (the design copy of the repo), checked against the app
+and added. Nothing the app does has changed: only layout and looks.
+
+1. A shorter top bar; on phones and tablets the main tabs are in a **bar at the bottom of the
+   screen** (`index.html`, `src/input.css`).
+2. Home: today's session first, a slim "Feedback needed" line, a compact regular-trainee card
+   (`js/views/volunteer.js`).
+3. Tighter cards; time and place on one line; small sentence-case labels
+   (`js/views/volunteer.js`, `js/views/trainees.js`, `src/input.css`).
+4. Softer shadows and slightly smaller corners; indigo stays the primary colour; status colours and
+   dark mode kept (`src/input.css`).
+5. Admin on phones: **All pages** plus the current section; on computers the **sidebar can shrink
+   to icons** (remembered on that computer) (`js/app.js`, `src/input.css`).
+
+Checked before adding: all 130 tests; `check-phones.py` all clean; `check-scroll.py` (every page
+scrolls, nothing left over); the bottom action bars sit just above the tab bar; dropdowns near the
+bottom open upwards; no style the app uses was lost in the rebuilt `styles.css`. Two fixes on top
+of Lovable's files:
+
+- on 280 px phones the slim feedback line squeezed its text to 44 px: the button now moves below
+  the text when there isn't room (`.fb-text`);
+- things the browser scrolls into view (a field with an error, keyboard focus) could stop behind
+  the bottom tab bar: `scroll-padding-bottom` keeps them above it.
+
+**4.4.1: checked against the deployment.** Both GitHub workflows' steps were run on a copy (the
+offline-cache stamp, the environment and Apps Script URL in `config.js`, every file the page and
+service worker load, every style in the committed `styles.css`, all 27 `.gs` files, the manifest,
+the tests). No new Google permissions are needed. Two fixes for real Apps Script:
+
+- Apps Script's cache holds at most **100 KB per entry, counted in bytes**. Big copies were split
+  every 90,000 characters, which Chinese text (3 bytes a character, e.g. the House Visit form's
+  column names) could push over the limit, so the trainee sheet would never have been cached on
+  Exp. Pieces are now 30,000 characters (at most ~90 KB), and the test environment enforces
+  Google's real limits (keys 250 characters, values 100 KB, 6 hours).
+- The House Visit form's "Map (Fixed)" tab is cached like the others: a trainee page now makes no
+  sheet reads at all (it opened the trainee file every time).
+
+**`node dev/check-deploy.mjs`** runs all of these checks in one go (no internet needed) and prints
+"ready to deploy" or what to fix. Run it before merging into `main`, e.g. after a Lovable update.
+

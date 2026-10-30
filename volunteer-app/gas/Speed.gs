@@ -12,7 +12,7 @@
 
 const SHARED_READS_ = ['adminHome', 'listTrainees', 'listPeople', 'listStandingPairings', 'sessionDetail', 'traineeProfile', 'reviewQueue', 'listVisits', 'pairingHistory'];
 const CACHE_SECONDS_ = 120;
-const MAX_CACHED_CHARS_ = 90000; // CacheService keeps up to 100 KB a value
+const MAX_CACHED_CHARS_ = 900000; // bigger answers aren't cached (kept in pieces: putBig_)
 
 function cache_() {
   try {
@@ -52,12 +52,36 @@ function hashText_(s) {
   return (h1 >>> 0).toString(36) + (h2 >>> 0).toString(36);
 }
 
+/**
+ * Values bigger than one cache entry (100 KB, counted in bytes) are kept in pieces of 30,000
+ * characters: at most ~90 KB even when every character takes 3 bytes (e.g. Chinese text).
+ */
+const PIECE_CHARS_ = 30000;
+
+function putBig_(c, key, text, seconds) {
+  const n = Math.ceil(text.length / PIECE_CHARS_) || 1;
+  for (let i = 0; i < n; i++) c.put(`${key}#${i}`, text.slice(i * PIECE_CHARS_, (i + 1) * PIECE_CHARS_), seconds);
+  c.put(key, String(n), seconds); // last, so a half-written value is never read
+}
+
+function getBig_(c, key) {
+  const n = Number(c.get(key) || 0);
+  if (!n) return null;
+  const parts = [];
+  for (let i = 0; i < n; i++) {
+    const part = c.get(`${key}#${i}`);
+    if (part === null) return null;
+    parts.push(part);
+  }
+  return parts.join('');
+}
+
 /** A value cached for this data version, or computed and cached. */
 function cachedForVersion_(name, compute) {
   const c = cache_();
   if (!c) return compute();
   const key = `${name}:${dataVersion_()}`;
-  const hit = c.get(key);
+  const hit = getBig_(c, key);
   if (hit) {
     try { return JSON.parse(hit); } catch (e) { /* recompute */ }
   }
@@ -66,7 +90,7 @@ function cachedForVersion_(name, compute) {
   if (c.get(building)) {
     for (let i = 0; i < 16; i++) {
       Utilities.sleep(250);
-      const ready = c.get(key);
+      const ready = getBig_(c, key);
       if (ready) {
         try { return JSON.parse(ready); } catch (e) { break; }
       }
@@ -77,7 +101,7 @@ function cachedForVersion_(name, compute) {
   try {
     value = compute();
     const text = JSON.stringify(value);
-    if (text.length <= MAX_CACHED_CHARS_) c.put(key, text, CACHE_SECONDS_);
+    if (text.length <= MAX_CACHED_CHARS_) putBig_(c, key, text, CACHE_SECONDS_);
   } catch (e) {
     if (value === undefined) { c.remove(building); throw e; }
     // too big or not storable: just don't cache
@@ -203,16 +227,9 @@ function readTableSnapshot_(cacheKey) {
   const c = cache_();
   if (!c) return null;
   try {
-    const key = snapshotKey_(cacheKey);
-    const n = Number(c.get(key) || 0);
-    if (!n) return null;
-    const parts = [];
-    for (let i = 0; i < n; i++) {
-      const part = c.get(`${key}#${i}`);
-      if (part === null) return null;
-      parts.push(part);
-    }
-    const snap = JSON.parse(parts.join(''));
+    const text = getBig_(c, snapshotKey_(cacheKey));
+    if (!text) return null;
+    const snap = JSON.parse(text);
     snap.values = snap.values.map((row) => row.map((v) => (v && typeof v === 'object' && '$d' in v ? new Date(v.$d) : v)));
     return snap;
   } catch (e) {
@@ -227,11 +244,7 @@ function writeTableSnapshot_(cacheKey, values, tz) {
   try {
     const text = JSON.stringify({ tz, values: values.map((row) => row.map((v) => (Object.prototype.toString.call(v) === '[object Date]' ? { $d: v.getTime() } : v))) });
     if (text.length > 4000000) return; // very large tabs are read from the sheet
-    const key = snapshotKey_(cacheKey);
-    const size = 90000;
-    const n = Math.ceil(text.length / size) || 1;
-    for (let i = 0; i < n; i++) c.put(`${key}#${i}`, text.slice(i * size, (i + 1) * size), TABLE_SECONDS_);
-    c.put(key, String(n), TABLE_SECONDS_);
+    putBig_(c, snapshotKey_(cacheKey), text, TABLE_SECONDS_);
   } catch (e) {
     // the cache is full or unavailable: read from the sheet next time
   }

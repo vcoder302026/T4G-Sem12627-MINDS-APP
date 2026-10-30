@@ -33,7 +33,7 @@ pages.
 <sub>Screenshots use the local demo; every person in them is fictional (the trainees are
 MINDS's mock House Visit data).</sub>
 
-**Status:** working prototype (**Version 4.3**). It runs fully on a laptop with demo data, and
+**Status:** working prototype (**Version 4.4.1**). It runs fully on a laptop with demo data, and
 connects to Google Apps Script and Google Sheets as described in
 [Part 3](#part-3-integrating-google-apps-script--google-sheets). What changed in Version 4, and
 why, is in [VERSION-4.md](../VERSION-4.md); step-by-step use is in the
@@ -89,8 +89,10 @@ The **Dashboard** is the admin home (the **Admin** tab on a phone; **Dashboard**
 on a computer), with three tabs: **Home** (Create New Session; **Session Management**: pick a
 session, then Pair, Who's coming, Scan or Clock in; **Upcoming Sessions** with who's coming,
 paired and still to pair per project, and **Copy Info** for Telegram), **Overview** (number
-tiles) and **Activity log**. Each action has one place in the app. On a phone, **All pages**
-lists every admin page by section. **Press and hold any underlined name** (right-click on a
+tiles) and **Activity log**. Each action has one place in the app. On phones and tablets the
+main tabs are in a **bar at the bottom of the screen**, and admin pages show **All pages** (every
+admin page by section) and the current section; on a computer the sidebar can **shrink to
+icons**. **Press and hold any underlined name** (right-click on a
 computer) for a quick card. Every change to someone's access or status, every removal and every
 save of someone's details shows a short warning first ("Warning: You are … Do you wish to
 continue?").
@@ -683,7 +685,7 @@ volunteer-app/
                       visits, fundraising, outings, trips, overview)
   dev/              local demo server, in-memory Google Sheets stand-in, the layout checks
                     (check-phones.py, check-squash.py, check-scroll.py), the load test
-                    (load-test.mjs), count-reads.mjs, and the Exp database generator
+                    (load-test.mjs), count-reads.mjs, check-deploy.mjs, and the Exp database generator
   tests/            backend tests (npm test)
   docs/             user guide, screenshots and the demo spreadsheet
   README.md         this file
@@ -728,7 +730,12 @@ node dev/load-test.mjs --url "<the Apps Script /exec URL>" --volunteers 100 --ad
 ```
 
 It prints request times (median and 95%), failures and busy retries, and how long one admin's
-pairing change takes to show on the other admins' boards. `node dev/count-reads.mjs` shows how
+pairing change takes to show on the other admins' boards.
+
+**Before merging into `main`** (which deploys), run `node dev/check-deploy.mjs`: it checks what
+both deploy workflows rely on (the offline-cache stamp, the Apps Script URL placeholders, every
+file and style the page loads, every `.gs` file, the manifest and the tests) and prints
+"ready to deploy" or what to fix. `node dev/count-reads.mjs` shows how
 many sheet reads each request makes. Results and history are in
 [VERSION-4.md](../VERSION-4.md) §4–6.
 

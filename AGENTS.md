@@ -45,6 +45,7 @@ Patterns already shared (keep them; reuse the helpers rather than writing new on
 | Time wheel (HH · MM); dropdowns as the app's own list right below the box (above it when there's no room), same width, ✓ on the current choice, search for long lists; never the browser's own pop-ups | MINDS template (Rolodex) | `web/js/controls.js` (every `<input type="time">` and `<select>`, automatically) |
 | Show / hide eye on password boxes | House Visit, Overseas | `ui.js` `field()`; `controls.js` for any other password box |
 | Fixed bottom action bar for the main button | House Visit | `.action-bar` |
+| Phones and tablets: main tabs in a bar fixed to the bottom; action bars sit just above it, and `scroll-padding-bottom` keeps anything scrolled into view clear of it. Computers: sidebar that can shrink to icons | Design update (Lovable, v4.4) | `web/src/input.css` (end), `app.js` |
 | Top-centre toasts, green / red | House Visit | `ui.js` `toast` |
 | Pairing exactly like the WERONE outing app's Manual Pair page: two searches, green VOLUNTEERS / blue TRAINEES headers with one ALL ↔ PAIRED button each, plain cards (name, +Trn / +Vol, profile label and project underneath, dashed box with ✕ pills or "Drop … here"), pulsing "N Unpaired", "Saved / Saving…", quick-pair pop-up; no groupings | MYG Outing (Overseas pairing page) | `web/js/views/pairing.js`, `dnd.js`, `quickview.js` |
 | Search boxes with a clear (✕) button | Overseas | `ui.js` `searchBox` |
@@ -62,7 +63,7 @@ where it differs on purpose:
 | Installable PWA, desktop and mobile, Tailwind, modern minimalist UI for non-technical users | Yes |
 | 🌗 dark/light toggle top right; dark mode black-based, not blue | Yes |
 | Update App icon that animates, beside 🌗, clears non-user caches; reload does the same | Yes (↻; the service worker cache is re-versioned on every deploy) |
-| Header: refresh · 🌗 · home (back arrow and page title on the left); logout at the far right when there's a login | Yes (↻ · 🌗 · 🏠 · sign out). On phones under 480 px 🏠 is hidden, because Home is in the tab bar right below |
+| Header: refresh · 🌗 · home (back arrow and page title on the left); logout at the far right when there's a login | Yes (↻ · 🌗 · 🏠 · sign out). On phones under 480 px 🏠 is hidden, because Home is in the tab bar (at the bottom of the screen on phones and tablets) |
 | Dev = red "Testing" bar, Exp = purple "Experimentation" bar, Prod = none | Yes |
 | GAS backend, Execute as Me, Anyone (anonymous); data in Sheets and Drive | Yes |
 | GitHub Pages frontend; GitHub Actions + clasp deploy keeping the same Web App URL; secrets `CLASPRC_JSON`, `GAS_SCRIPT_ID`, `GAS_DEPLOYMENT_ID` | Yes (`.github/workflows/volunteer-app-gas.yml`, same credential conversion) |
@@ -76,6 +77,7 @@ where it differs on purpose:
 | No squashed text on phones or tablets: a row of text + badges / buttons wraps (the text keeps ~11rem), status badges go above titles, long header titles use 2 lines (3 on the narrowest), label/value lines let long values drop below, third columns move under the text | `python3 volunteer-app/dev/check-squash.py` (280–1024 px) must print "nothing squashed" |
 | Profile labels everywhere as on the Volunteers page: Admin (purple), Regular (green), Volunteer (indigo), via `typeBadges()` in `ui.js`; never "new / ad hoc" | Yes |
 | Number tiles: the line under a number is only for another figure ("97 without a regular"), never an explanation | `web/admin/js/kit.js` `stat()` |
+| Before merging into `main` (it deploys): `node volunteer-app/dev/check-deploy.mjs` must print "ready to deploy" (deploy workflows' needs, styles, `.gs` syntax, tests) | `volunteer-app/dev/check-deploy.mjs` |
 | Works on every phone: check 280 px (Galaxy Fold folded) to 430 px (iPhone Pro Max) and phones held sideways | `python3 volunteer-app/dev/check-phones.py` must print "all clean"; keep inputs at 16 px text (no iPhone zoom), leave room for notches (`safe-area-inset-*`), and keep only the header and tab bar pinned |
 | Keep text short: no explanation lines under titles, no hint text under options or obvious fields; admins know the workflow | Yes. Only add text that carries information, gives a format, or prevents a mistake (and keep it to a few words) |
 | Warnings before major actions | Short: "Warning: You are <action>. Do you wish to continue?" (`ui.js` `majorActionPrompt`) |
