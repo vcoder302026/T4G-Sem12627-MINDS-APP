@@ -5,7 +5,7 @@
 
 import { call } from '../api.js';
 import {
-  attachmentList, attachPicker, backLink, badge, busy, el, errorBlock, field, fmtDay, fmtTimes, fuzzyFilter, hvSections, icon, loading, modal, mount, multiPick, searchBox, toast, traineeAvatar,
+  attachmentList, attachPicker, backLink, hvJump, badge, busy, el, errorBlock, field, fmtDay, fmtTimes, fuzzyFilter, hvSections, icon, loading, modal, mount, multiPick, searchBox, toast, traineeAvatar,
 } from '../ui.js';
 import { asTrainee, personName, traineeName } from '../quickview.js';
 
@@ -187,14 +187,14 @@ export function renderTraineeInfo(root, app, ctx, traineeId) {
             [['Short name', t.preferredName], ['Gender', t.gender], ['Language', t.language]]
               .filter(([, v]) => v).map(([k, v]) => [el('dt', {}, k), el('dd', {}, v)])),
           d.isMyRegular ? el('div', { class: 'mt-2' }, badge('Your regular trainee', 'emerald', 'heart')) : null)),
-      d.regulars.length ? el('p', { class: 'mt-2 text-sm muted' }, `Regular volunteers: ${d.regulars.join(', ')}`) : null,
+      d.regulars.length ? el('p', { class: 'alert alert-success mt-3' }, 'Regular volunteers: ', el('strong', {}, d.regulars.join(', '))) : null,
       d.together.length ? el('div', { class: 'alert alert-info mt-4' },
         el('p', { class: 'font-bold' }, "You're paired for:"),
         el('ul', { class: 'mt-1 list-disc pl-5' }, d.together.map((s) => el('li', {}, `${s.title}, ${fmtDay(s.date)}${s.startTime ? `, ${fmtTimes(s)}` : ''}`)))) : null,
       d.access === 'admin' ? el('p', { class: 'alert alert-info mt-4' }, 'You see every detail as an admin. ',
         el('a', { href: `#/trainee/${encodeURIComponent(t.id)}`, class: 'link' }, 'Open the admin profile')) : null,
       // Grouped and coloured like MINDS's House Visit form, each question with its guide text.
-      d.sections.length ? hvSections(d.sections)
+      d.sections.length ? [hvJump(d.sections), hvSections(d.sections)]
         : el('p', { class: 'alert alert-warn mt-4' }, 'No details are shared for this trainee yet.'),
       el('h2', { class: 'group-label' }, 'Notes from volunteers and admins'),
       d.notes.length ? el('div', { class: 'card p-4' }, notesBlock(d.notes, d.access === 'admin')) : el('p', { class: 'text-sm muted' }, 'No notes yet.'),

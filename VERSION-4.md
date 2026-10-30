@@ -171,3 +171,24 @@ the tests). No new Google permissions are needed. Two fixes for real Apps Script
 **`node dev/check-deploy.mjs`** runs all of these checks in one go (no internet needed) and prints
 "ready to deploy" or what to fix. Run it before merging into `main`, e.g. after a Lovable update.
 
+## 8. Version 4.5: 18 design updates (second Lovable round)
+
+From `minds-all-updates-v2.zip` (presentation only; nothing about Apps Script, the sheets or
+deployment). New since 4.4: separated boxes, alerts and cards; the admin volunteer page with a
+summary card (name, profile labels, email and phone to tap), compact statistics and details
+grouped (Contact, Personal, Emergency contact, Admin); the trainee page and admin trainee page
+with a **Sections** menu that jumps to (and opens) a section, the first two sections open, label
+and answer side by side, readable dates, and two columns on computers; regular volunteers in a
+green box; roomier pairing cards and columns, larger touch targets, dialogs that fit; **All
+pages** also in the computer sidebar; the phone admin menu with full-width choices and a fixed title.
+
+The overlay was built on 4.4 before 4.4.1, so it was merged, not copied over. Kept from 4.4.1:
+the 280 px feedback line (`.fb-text`) and `scroll-padding-bottom` above the bottom tab bar. Changed
+from the overlay: the House Visit **guide text stays visible under each question** (the overlay
+made it a hover tooltip, which phones can't show; AGENTS: "guide text under questions"); comments
+say "Design update" rather than "Version 5"; an unused `pb-show-both` class removed.
+
+Checked: `dev/check-deploy.mjs` ready to deploy (130 tests); `check-phones.py` all clean;
+`check-squash.py` (280–768 px) nothing squashed; `check-scroll.py` clean; in a browser the
+Sections menu, guide text, dates, the volunteer summary card and the sidebar's All pages work.
+
