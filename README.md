@@ -16,7 +16,7 @@ volunteer hours, attendance and pairing.
 It runs on **Google Apps Script + Google Sheets** (MINDS's own sheets, including the House
 Visit form responses), with the web app on GitHub Pages.
 
-**Status: Version 4.6**, tested on the Exp environment with 100 volunteers and 10 admins at once.
+**Status: Version 4.6.1**, tested on the Exp environment with 100 volunteers and 10 admins at once.
 
 | Read this | For |
 | --- | --- |
@@ -33,7 +33,7 @@ Try the app on your computer with demo data (no Google account needed; Node.js 2
 ```bash
 git clone https://github.com/vcoder302026/T4G-Sem12627-MINDS-APP.git
 cd T4G-Sem12627-MINDS-APP/volunteer-app
-npm test         # 130 tests
+npm test         # 131 tests
 npm run dev      # → http://localhost:5173
 ```
 

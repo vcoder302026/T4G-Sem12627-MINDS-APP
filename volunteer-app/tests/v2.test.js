@@ -492,3 +492,16 @@ describe('Version 4.3: dates read from the copies of the sheets', () => {
     assert.ok(first.length && fromCopy.length && again.length);
   });
 });
+
+describe('Activity log: readable house visit entries', () => {
+  test('a house visit (or a trainee added with the form) is described in words, not field names', () => {
+    const required = ok(call('houseVisitForm', {})).sections.flatMap((s) => s.fields).filter((f) => f.requiredNew);
+    const answers = Object.fromEntries(required.map((f) => [f.key,
+      /^date of birth/i.test(f.label) ? '2001-02-03' : /^nric/i.test(f.label) ? '123A' : /^project$/i.test(f.label) ? 'West End' : /full name/i.test(f.label) ? 'Log Test Trainee' : 'x']));
+    ok(call('createVisit', { newTrainee: true, traineeOnly: true, answers }));
+    const entry = ok(call('listAdminLog', {})).entries[0];
+    assert.equal(entry.action, 'Recorded a house visit');
+    assert.match(entry.summary, /Log Test Trainee added as T-\d{4}/);
+    assert.doesNotMatch(entry.summary, /answers|newTrainee|traineeOnly/);
+  });
+});

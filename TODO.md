@@ -187,3 +187,12 @@ people what to do. Keep, shorten or remove?
 ## Wording to confirm
 
 - Sign-in page hint "Use the email registered with MINDS." (added in 4.6 by the design update): keep or remove?
+
+## Check on a real iPhone after deploying 4.6.1
+
+- Activity log (Dashboard → Activity log): From / To fit the screen and say "Any date" when empty;
+  picking a date shows it. Same for Attendance and Hours date ranges.
+- Pairing board: cards compact, names on one line, +Trn / +Vol beside the project.
+- Known limit: on 320 px phones (2016 iPhone SE) a long trainee name in a pairing chip wraps
+  between words.
+

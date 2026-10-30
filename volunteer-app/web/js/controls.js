@@ -197,6 +197,27 @@ function enhanceDate(input) {
   }
 }
 
+/* ---------------- date boxes on iPhone and iPad ---------------- */
+
+// Safari on iPhone and iPad shows an empty date box as blank (other browsers show the date
+// format), so an empty one says "Any date" (a filter) or "Choose a date" (a form) until a date is
+// picked. Only on those devices: elsewhere the box is left exactly as it is.
+const IOS_SAFARI = typeof CSS !== 'undefined' && CSS.supports && CSS.supports('-webkit-touch-callout', 'none');
+
+function enhanceDateHint(input) {
+  if (!IOS_SAFARI || input.dataset.hint || input.hidden) return;
+  input.dataset.hint = '1';
+  const wrap = make('span', { class: 'date-wrap' });
+  const hint = make('span', { class: 'date-ph', 'aria-hidden': 'true' });
+  hint.textContent = input.getAttribute('data-empty') || (input.closest('form') ? 'Choose a date' : 'Any date');
+  input.before(wrap);
+  wrap.append(input, hint);
+  const sync = () => wrap.classList.toggle('is-empty', !input.value);
+  input.addEventListener('input', sync);
+  input.addEventListener('change', sync);
+  sync();
+}
+
 /* ---------------- show / hide password ---------------- */
 
 const EYE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="size-5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>';
@@ -429,6 +450,8 @@ function enhance(root) {
   root.querySelectorAll('input[type=time]:not([data-wheel])').forEach(enhanceTime);
   root.querySelectorAll('input[type=password]:not([data-eye])').forEach(enhancePassword);
   root.querySelectorAll('select:not([data-list])').forEach(enhanceSelect);
+  if (root.matches && root.matches('input[type=date]')) enhanceDateHint(root);
+  root.querySelectorAll('input[type=date]:not([data-hint])').forEach(enhanceDateHint);
 }
 
 export function installControls() {
