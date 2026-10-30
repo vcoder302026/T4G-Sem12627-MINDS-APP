@@ -4,7 +4,7 @@ import { personName, traineeName } from '../../../js/quickview.js';
 import { audienceBadge, shareChooser } from '../../../js/views/trainees.js';
 import { call } from '../../../js/api.js';
 import {
-  attachmentList, attachPicker, badge, busy, el, filePicker, fuzzyFilter, hvSections, labelled, majorActionPrompt, modal, mount, passwordPrompt, searchBox, toast, traineeAvatar, typeBadges,
+  attachmentList, attachPicker, badge, busy, el, filePicker, fuzzyFilter, hvJump, hvSections, niceDates, shortLabel, labelled, majorActionPrompt, modal, mount, passwordPrompt, searchBox, toast, traineeAvatar, typeBadges,
 } from '../../../js/ui.js';
 import {
   backTo, dateRangeText, day, field, formModal, hours, icon, load, pageHead, panel, plural, row, selectField, stat, statGrid, table,
@@ -218,29 +218,45 @@ export function renderVolunteer(root, app, ctx, userId) {
         refresh();
       });
     });
-    const dl = (label, value) => el('div', { class: 'flex justify-between gap-4 py-2' }, el('dt', { class: 'muted' }, label), el('dd', { class: 'text-right font-bold' }, value || '—'));
-    mount(host,
-      backTo('#/volunteers', 'Volunteers'),
-      pageHead(p.name, p.email, typeBadges(p), p.status === 'inactive' ? badge('Deactivated', 'red') : null, p.hasAccount ? null : badge('No login yet', 'amber')),
-      statGrid(stat('Hours', hours(d.stats.hours), { tone: 'indigo' }),
+    const dl = (label, value) => el('div', { class: 'flex justify-between gap-4 py-2' }, el('dt', { class: 'muted' }, shortLabel(label)), el('dd', { class: 'text-right font-bold' }, (typeof value === 'string' ? niceDates(value) : value) || '—'));
+    const group = (title) => el('p', { class: 'dl-group' }, title);
+    const answers = (p.answers || []).filter((a) => a.value);
+    const isEmergency = (a) => /emergency/i.test(`${a.key} ${a.label}`);
+    const stats = statGrid(stat('Hours', hours(d.stats.hours), { tone: 'indigo' }),
         stat('Sessions attended', d.stats.attended, { tone: 'emerald', sub: regular ? undefined : `${Math.max(0, d.regularAfter - d.stats.attended)} more to become a regular` }),
         stat('No-shows', d.stats.noShows, { tone: d.stats.noShows ? 'red' : 'slate' }),
-        stat('Coming up', d.stats.upcoming)),
-      el('div', { class: 'mt-6 grid gap-6 lg:grid-cols-2' },
+        stat('Coming up', d.stats.upcoming));
+    stats.classList.add('stat-compact');
+    mount(host,
+      backTo('#/volunteers', 'Volunteers'),
+      // Design update: one small card with who they are and how to reach them.
+      el('div', { class: 'person-summary card mb-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 px-4 py-3' },
+        el('h1', { class: 'page-title mr-auto' }, p.name),
+        el('span', { class: 'flex flex-wrap gap-1' }, typeBadges(p), p.status === 'inactive' ? badge('Deactivated', 'red') : null, p.hasAccount ? null : badge('No login yet', 'amber')),
+        el('span', { class: 'flex w-full flex-wrap gap-x-4 gap-y-0.5 text-sm muted' },
+          el('a', { href: `mailto:${p.email}`, class: 'hover:underline' }, p.email),
+          p.phone ? el('a', { href: `tel:${p.phone}`, class: 'hover:underline' }, p.phone) : null)),
+      stats,
+      el('div', { class: 'mt-5 grid gap-5 lg:grid-cols-2' },
         panel('Details', el('button', { class: 'btn btn-secondary btn-sm', onclick: () => edit(p) }, icon('pencil', 'size-4'), 'Edit'),
-          el('dl', { class: 'divide-y divide-slate-100 px-4 py-2 text-sm dark:divide-neutral-800' },
-            dl('Phone', p.phone), dl('Telegram', p.telegram ? `@${p.telegram}` : ''), dl('Birthday', p.birthday),
+          el('dl', { class: 'person-facts divide-y divide-slate-100 px-4 py-2 text-sm dark:divide-neutral-800' },
+            group('Contact'),
+            dl('Phone', p.phone), dl('Telegram', p.telegram ? `@${p.telegram}` : ''),
+            group('Personal'),
+            dl('Birthday', p.birthday),
+            answers.filter((a) => !isEmergency(a)).map((a) => dl(a.label, a.value)),
+            group('Emergency contact'),
+            // The emergency contact is a registration question now (relationship and number);
+            // a name given in Version 1 is still shown.
+            p.emergencyName ? dl('Emergency contact name (Version 1)', p.emergencyName) : null,
+            answers.filter(isEmergency).map((a) => dl(a.label, a.value)),
+            group('Admin'),
             dl((d.regularTrainees || []).length > 1 ? 'Regular trainees' : 'Regular trainee', (d.regularTrainees || []).length
               ? d.regularTrainees.map((t, i) => [i ? ', ' : '', traineeName(t.name, t.id)])
               : (regular ? 'Not set: see Pairing → Regular pairings' : '')),
             d.typeSetBy ? dl('Profile set by', d.typeSetBy) : null,
             d.contact && d.contact.on ? dl('Google Contacts', d.contact.saved ? d.contact.status
               : d.contact.status ? el('span', { class: 'font-bold text-red-600 dark:text-red-400' }, d.contact.status) : 'Not saved yet') : null,
-            // The emergency contact is a registration question now (relationship and number, below);
-            // a name given in Version 1 is still shown.
-            p.emergencyName ? dl('Emergency contact name (Version 1)', p.emergencyName) : null,
-            // The registration form's other questions (Config.gs → REGISTRATION).
-            (p.answers || []).filter((a) => a.value).map((a) => dl(a.label, a.value)),
             dl('Registered', p.createdAt),
             p.updatedBy ? dl('Last edited', `${p.updatedAt} by ${p.updatedBy}`) : null)),
         el('div', { class: 'space-y-6' },
@@ -475,20 +491,28 @@ export function renderTrainee(root, app, ctx, traineeId) {
     }
     mount(host,
       backTo('#/trainees', 'Trainees'),
-      el('div', { class: 'mb-4 flex flex-wrap items-center gap-4' },
-        traineeAvatar(t, 'lg'),
-        el('div', { class: 'flex flex-wrap gap-2' }, photoBtn, removePhoto)),
-      pageHead(t.fullName || t.name, `${t.id}${t.fields.preferredName && t.fields.preferredName !== (t.fullName || t.name) ? ` · goes by ${t.fields.preferredName}` : ''}`,
-        t.active ? badge('Active', 'emerald') : badge('Inactive', 'slate'),
+      // Design update: one tidy card: photo, name, ID and status together, the actions in one row below.
+      el('div', { class: 'person-summary card mb-3 p-4' },
+        el('div', { class: 'flex items-center gap-4' },
+          traineeAvatar(t, 'md'),
+          el('div', { class: 'min-w-0 flex-1' },
+            el('h1', { class: 'page-title leading-tight' }, t.fullName || t.name),
+            el('p', { class: 'mt-0.5 flex flex-wrap items-center gap-2 text-sm muted' },
+              `${t.id}${t.fields.preferredName && t.fields.preferredName !== (t.fullName || t.name) ? ` · goes by ${t.fields.preferredName}` : ''}`,
+              t.active ? badge('Active', 'emerald') : badge('Inactive', 'slate')),
+            el('div', { class: 'mt-1.5 flex flex-wrap gap-1.5 [&>.btn]:px-2 [&>.btn]:py-1 [&>.btn]:text-xs' }, photoBtn, removePhoto))),
+        el('div', { class: 'person-actions mt-3 flex flex-wrap gap-2 border-t border-slate-100 pt-3 dark:border-neutral-800' },
         el('a', { href: `#/visit-new/${encodeURIComponent(t.id)}`, class: 'btn btn-primary btn-sm' }, icon('plus', 'size-4'), 'New house visit'),
         el('a', { href: `#/visibility/${encodeURIComponent(t.id)}`, class: 'btn btn-secondary btn-sm' }, icon('eye', 'size-4'),
           d.visibility.volunteer || d.visibility.regular ? 'What volunteers see (own settings)' : 'What volunteers see'),
-        el('button', { class: 'btn btn-secondary btn-sm', onclick: edit }, icon('pencil', 'size-4'), 'Edit')),
-      el('div', { class: `alert ${d.regulars.length ? 'alert-success' : 'alert-warn'} mb-6 flex flex-wrap items-center justify-between gap-2` },
+        el('button', { class: 'btn btn-secondary btn-sm', onclick: edit }, icon('pencil', 'size-4'), 'Edit'))),
+      el('div', { class: `alert ${d.regulars.length ? 'alert-success' : 'alert-warn'} mb-3 flex flex-wrap items-center justify-between gap-2` },
         el('span', {}, d.regulars.length ? ['Regular volunteers: ', d.regulars.map((r, i) => [i ? ', ' : '', personName(r.name, r.userId, 'font-bold')])] : 'No regular volunteer yet.'),
         el('a', { href: '#/pairings/regular', class: 'link' }, 'Regular pairings')),
       // Details grouped and coloured like MINDS's House Visit form.
-      el('div', { class: 'grid gap-x-6 lg:grid-cols-2 [&>details:first-child]:mt-0 lg:[&>details:nth-child(2)]:mt-0' },
+      hvJump(d.sections),
+      // Design update: sections flow in two columns on computers without leaving gaps.
+      el('div', { class: 'hv-cols' },
         hvSections(d.sections.length ? d.sections : [{ title: 'Details', fields: [] }])),
       el('div', { class: 'mt-6 grid gap-6 lg:grid-cols-2' },
         panel(`Notes (${d.notes.length})`, null,

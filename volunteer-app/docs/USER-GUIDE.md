@@ -13,8 +13,11 @@ There is **one app** and **no modes to switch**.
 - **On a phone or tablet** these are the tabs in the **bar at the bottom of the screen**, within
   thumb reach. Admin pages add a row under the header with **All pages** (every admin page, by
   section) and the section you're in; each section's pages are tabs at the top of the page.
-- **On a computer** (1024 px and wider) they're in the sidebar on the left. The small arrow at its edge **shrinks it
-  to icons** (or back); the app remembers your choice on that computer.
+- **On a computer** (1024 px and wider) they're in the sidebar on the left (admins also have
+  **All pages** there). The small arrow at its edge **shrinks it to icons** (or back); the app
+  remembers your choice on that computer.
+- **Trainee pages:** the details are grouped like MINDS's House Visit form. **Sections** jumps to
+  one (the first two start open; tap a heading to open or close it).
 - **The header:** **←** goes back to the page you came from; **↻** loads the newest version of
   the app; **🌗** switches dark mode; **🏠** goes Home (on phones Home is in the tab bar instead);
   the red arrow signs you out.

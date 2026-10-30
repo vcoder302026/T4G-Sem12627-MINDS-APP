@@ -449,6 +449,8 @@ function renderChrome(name, full = name) {
       el('p', { class: 'side-group' }, 'My volunteering'),
       volunteerItems.map(sideLink),
       admin ? [el('p', { class: 'side-group' }, 'Admin'),
+        el('button', { type: 'button', class: 'side-link w-full', title: 'All pages', 'aria-label': 'All pages', 'aria-haspopup': 'dialog', onclick: () => openAdminMenu(count) },
+          icon('list', 'size-5'), el('span', { class: 'side-text' }, 'All pages')),
         // A section's pages are the tabs at the top of the page (not repeated here).
         ADMIN_SECTIONS.map((sec) => sideLink({ ...sec, active: sec === section }))] : null),
     el('div', { class: 'side-foot border-t border-slate-200 p-4 text-xs dark:border-neutral-900' },

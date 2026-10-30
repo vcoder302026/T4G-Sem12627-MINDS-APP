@@ -479,12 +479,12 @@ export function richText(body) {
  * body: nodes; returns { close }. onClose runs however it was closed.
  */
 export function modal(title, body, onClose) {
-  const dlg = el('dialog', { class: 'card m-auto w-[min(32rem,calc(100vw-2rem))] p-0 text-slate-900 shadow-2xl backdrop:bg-black/50 dark:text-neutral-100' });
+  const dlg = el('dialog', { class: 'app-dialog card m-auto w-[min(32rem,calc(100vw-2rem))] p-0 text-slate-900 shadow-2xl backdrop:bg-black/50 dark:text-neutral-100' });
   const closeBtn = el('button', { type: 'button', class: 'icon-btn', 'aria-label': 'Close' }, icon('x'));
   mount(dlg,
-    el('div', { class: 'flex items-center justify-between gap-3 border-b border-slate-100 px-5 py-3 dark:border-neutral-800' },
+    el('div', { class: 'dialog-head flex items-center justify-between gap-3 border-b border-slate-100 px-5 py-3 dark:border-neutral-800' },
       el('h2', { class: 'text-lg font-extrabold' }, title), closeBtn),
-    el('div', { class: 'max-h-[75vh] overflow-y-auto p-5' }, body));
+    el('div', { class: 'dialog-body max-h-[75vh] overflow-y-auto p-5' }, body));
   const close = () => { if (dlg.open) dlg.close(); };
   closeBtn.addEventListener('click', close);
   dlg.addEventListener('click', (e) => { if (e.target === dlg) close(); });
@@ -653,15 +653,59 @@ export function likertView(f) {
       [1, 2, 3, 4, 5].map((n) => el('span', { class: `hv-likert-cell ${String(n) === v ? 'hv-on' : ''}` }, String(n)))));
 }
 
+/* ---- Design update: easier-to-read details pages ---- */
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+/** Dates written for people: "2025-12-29T12:26:09.000Z" → "29 Dec 2025"; "2026-10-30 01:58:47" → "30 Oct 2026, 1:58 am". */
+export function niceDates(value) {
+  if (typeof value !== 'string') return value;
+  const iso = /^(\d{4})-(\d{2})-(\d{2})T[\d:.]+Z$/.exec(value.trim());
+  if (iso) {
+    const d = new Date(value.trim());
+    if (!Number.isNaN(d.getTime())) return d.toLocaleDateString('en-GB', { timeZone: 'Asia/Singapore', day: 'numeric', month: 'short', year: 'numeric' });
+  }
+  return value.replace(/\b(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2})(?::\d{2})?)?\b/g, (m, y, mo, d, h, mi) => {
+    const date = `${Number(d)} ${MONTHS[Number(mo) - 1] || mo} ${y}`;
+    if (h === undefined) return date;
+    const hr = Number(h);
+    return `${date}, ${hr % 12 || 12}:${mi} ${hr < 12 ? 'am' : 'pm'}`;
+  });
+}
+/** Form questions as short labels: drops the "(e.g. …)" format guide, which belongs on the form. */
+export function shortLabel(label) {
+  const text = String(label || '');
+  if (/^nric/i.test(text)) return 'NRIC (last 4)';
+  return text.replace(/\s*[(（][^)）]*[)）]\s*/g, ' ').replace(/\s+/g, ' ').trim() || text;
+}
+const hvId = (title, i) => `hv-${i}-${String(title).toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
+/** A row of jump buttons above the House Visit sections (opens and scrolls to one). */
+export function hvJump(sections) {
+  if (!sections || sections.length < 3) return null;
+  return el('details', { class: 'hv-jump-menu' },
+    el('summary', { class: 'btn btn-secondary btn-sm' }, icon('list', 'size-4'), 'Sections', icon('down', 'size-4')),
+    el('nav', { class: 'hv-jump', 'aria-label': 'Jump to a section' }, sections.map((s, i) => {
+    const b = el('button', { type: 'button', class: `hv-jump-btn section-${sectionTone(s.title)}` }, hvLabel(s.title).label.replace(/'s details$/i, ''));
+    b.addEventListener('click', () => {
+      const d = document.getElementById(hvId(s.title, i));
+      if (!d) return;
+      d.open = true;
+      d.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+    return b;
+  })));
+}
+
 export function hvSections(sections, { open = true } = {}) {
-  return sections.map((s) => el('details', { class: 'card group mt-3 overflow-hidden', open },
+  // Design update: the first two sections start open, the rest closed (jump buttons open them).
+  return sections.map((s, i) => el('details', { id: hvId(s.title, i), class: 'card group mt-3 overflow-hidden', open: open && i < 2 },
     el('summary', { class: `section-head section-${sectionTone(s.title)} cursor-pointer list-none select-none` }, s.title,
       icon('down', 'size-5 transition-transform duration-200 group-open:rotate-180')),
     s.fields.length ? el('dl', { class: 'divide-y divide-slate-100 px-4 text-sm dark:divide-neutral-800' }, s.fields.map((f) => {
       const q = hvLabel(f.label);
-      return el('div', { class: 'py-2.5' },
-        el('dt', { class: 'font-bold text-slate-700 dark:text-neutral-200' }, q.label, q.guide ? el('span', { class: 'hv-guide' }, q.guide) : null),
-        el('dd', { class: 'mt-0.5 whitespace-pre-line text-slate-600 dark:text-neutral-400' }, likertView(f) || f.value));
+      // Design update: label left, answer right; the form's guide text stays visible under the
+      // question (as on MINDS's House Visit form; a tooltip can't be seen on a phone).
+      return el('div', { class: 'hv-row' },
+        el('dt', { class: 'font-semibold text-slate-500 dark:text-neutral-400' }, q.label, q.guide ? el('span', { class: 'hv-guide' }, q.guide) : null),
+        el('dd', { class: 'whitespace-pre-line text-slate-900 dark:text-neutral-100' }, likertView(f) || niceDates(f.value)));
     })) : el('p', { class: 'p-4 text-sm muted' }, 'Nothing filled in yet.')));
 }
 
