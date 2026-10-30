@@ -258,9 +258,11 @@ function pairBoard(o) {
     }
   };
 
-  const searches = el('div', { class: 'mb-3 grid grid-cols-2 gap-2' },
-    searchBox(`Search ${o.volunteerLabel}…`, (q) => { state.vq = q; draw(); }, `Search ${o.volunteerLabel.toLowerCase()}`),
-    searchBox('Search Trainees…', (q) => { state.tq = q; draw(); }, 'Search trainees'));
+  const searches = el('div', { class: 'pb-searches mb-3 grid grid-cols-2 gap-2' },
+    el('div', {}, el('span', { class: 'label' }, o.volunteerLabel),
+      searchBox('Search name', (q) => { state.vq = q; draw(); }, `Search ${o.volunteerLabel.toLowerCase()}`)),
+    el('div', {}, el('span', { class: 'label' }, 'Trainees'),
+      searchBox('Search name', (q) => { state.tq = q; draw(); }, 'Search trainees')));
   const stopDrag = pairDrag(host, (from, to) => {
     const vKey = from.role === 'vol' ? from.key : to.key;
     const tId = from.role === 'tr' ? from.key : to.key;

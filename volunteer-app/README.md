@@ -33,7 +33,7 @@ pages.
 <sub>Screenshots use the local demo; every person in them is fictional (the trainees are
 MINDS's mock House Visit data).</sub>
 
-**Status:** working prototype (**Version 4.5**). It runs fully on a laptop with demo data, and
+**Status:** working prototype (**Version 4.6**). It runs fully on a laptop with demo data, and
 connects to Google Apps Script and Google Sheets as described in
 [Part 3](#part-3-integrating-google-apps-script--google-sheets). What changed in Version 4, and
 why, is in [VERSION-4.md](../VERSION-4.md); step-by-step use is in the

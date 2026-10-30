@@ -141,7 +141,7 @@ export function traineeLine(trainee, pairing, label) {
     traineeAvatar(trainee, 'sm'),
     el('span', { class: 'min-w-0 flex-1' },
       el('span', { class: 'block text-xs font-semibold muted' }, label || 'Paired trainee'),
-      traineeName(trainee.name, trainee.id, 'block truncate font-bold text-slate-900 dark:text-white'),
+      traineeName(trainee.name, trainee.id, 'block font-bold text-slate-900 dark:text-white'),
       null),
     icon('chevron', 'size-5 text-slate-400')), trainee.id);
 }
@@ -177,7 +177,7 @@ export function renderTraineeInfo(root, app, ctx, traineeId) {
   const draw = (d) => {
     const t = d.trainee;
     mount(root, back,
-      el('div', { class: 'flex items-center gap-4' },
+      el('div', { class: 'trainee-identity flex items-center gap-4' },
         traineeAvatar(t, 'lg'),
         // Beside the photo: short name, gender and language (the full name is the page title);
         // the sections below don't repeat them. Only what this person may see comes from the server.
@@ -215,8 +215,9 @@ export function renderDirectory(root, app, ctx) {
   const row = (t, mine) => asTrainee(el('a', { href: `#/info/${encodeURIComponent(t.id)}`, class: `flex items-center gap-3 p-4 hover:bg-slate-50 dark:hover:bg-neutral-900 ${mine ? 'select-ring' : ''}` },
     traineeAvatar(t, 'sm'),
     el('span', { class: 'min-w-0 flex-1' },
-      el('span', { class: 'block truncate font-bold text-slate-900 dark:text-white' }, t.name),
-      el('span', { class: 'block truncate text-sm muted' }, [t.preferredName && t.preferredName !== t.name ? `Goes by ${t.preferredName}` : '', t.gender,
+      el('span', { class: 'block font-bold text-slate-900 dark:text-white' }, t.name),
+      el('span', { class: 'block text-xs muted' }, t.id),
+      el('span', { class: 'block text-sm muted' }, [t.preferredName && t.preferredName !== t.name ? `Goes by ${t.preferredName}` : '', t.gender,
         t.regulars.length ? `Regular: ${t.regulars.join(', ')}` : 'No regular volunteer yet'].filter(Boolean).join(' · '))),
     mine ? badge('Yours', 'emerald') : icon('chevron', 'size-5 text-slate-300 dark:text-neutral-700')), t.id);
   const draw = () => {
@@ -269,7 +270,7 @@ export function renderReview(root, app, ctx) {
         })));
       });
       return el('article', { class: 'card p-4' },
-        el('div', { class: 'flex items-start justify-between gap-3' },
+        el('div', { class: 'review-identity flex items-start justify-between gap-3' },
           el('div', { class: 'min-w-0' },
             el('a', { href: `#/trainee/${encodeURIComponent(it.traineeId)}`, class: 'font-bold text-slate-900 hover:underline dark:text-white' }, traineeName(it.traineeName, it.traineeId)),
             el('p', { class: 'text-sm muted' }, 'From ', personName(it.volunteerName, it.userId), `, ${fmtDay(it.date)}`)),

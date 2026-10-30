@@ -83,7 +83,7 @@ export function renderAttendance(root, app, ctx) {
       { label: 'Hours', cell: (r) => (r.hours === null ? badge('In progress', 'amber') : hours(r.hours)), class: 'whitespace-nowrap' },
       { label: 'How', cell: (r) => el('span', {}, methodBadge(r), r.editedBy ? el('span', { class: 'mt-1 block text-xs muted' }, `Edited by ${r.editedBy}`) : null) },
       { label: '', cell: (r) => el('button', { class: 'btn btn-secondary btn-sm', onclick: () => editRecord(r) }, icon('pencil', 'size-4'), 'Fix'), class: 'text-right' },
-    ], rows, { empty: data.records.length ? 'No records match.' : 'No attendance in this date range.' }));
+    ], rows, { empty: data.records.length ? 'No records match.' : 'No attendance in this date range.', titleColumn: 2 }));
   };
 
   const draw = (d) => {
