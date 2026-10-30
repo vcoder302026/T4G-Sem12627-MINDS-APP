@@ -196,15 +196,17 @@ function pairBoard(o) {
       role: 'button', tabindex: '0', 'aria-label': label, dataset: { dndRole: role, dndKey: key },
     }, ...body);
     const volCard = (v) => {
-      const add = el('button', { type: 'button', class: 'pb-add', 'aria-label': `Add a trainee for ${v.name}` }, '+Trn');
+      const add = el('button', { type: 'button', class: 'pb-add pb-add-end', 'aria-label': `Add a trainee for ${v.name}` }, '+Trn');
       add.addEventListener('click', (e) => { e.stopPropagation(); pickTrainee(v); });
       const c = card('vol', v.key, flashed(v.key, null),
         `${v.name}: ${v.trainees.length ? `with ${v.trainees.map((t) => t.name).join(', ')}` : 'unpaired'}. Tap to pair, or drag onto a trainee.`,
-        el('span', { class: 'pb-top' }, el('span', { class: 'pb-name' }, v.name), add),
-        // The same labels as the Volunteers page (Admin, Regular / Volunteer), then their project.
+        // The name has the card's full width (so it doesn't break on phones); +Trn sits at the end
+        // of the row below, with the same labels as the Volunteers page and their project.
+        el('span', { class: 'pb-top' }, el('span', { class: 'pb-name' }, v.name)),
         el('span', { class: 'pb-meta' },
           typeBadges({ role: v.isAdmin ? 'admin' : '', type: v.type }),
-          v.project ? el('span', { class: 'pb-sub' }, v.project) : null),
+          v.project ? el('span', { class: 'pb-sub' }, v.project) : null,
+          add),
         el('span', { class: 'pb-drop' },
           v.trainees.length
             ? v.trainees.map((t) => pill(t.name, t.id, () => change('remove', v, traineeById(t.id)), true, flashed(null, t.id) && String(state.flash.key) === String(v.key) ? 'pb-pill-new' : ''))
@@ -215,12 +217,12 @@ function pairBoard(o) {
     };
     const traineeCard = (t) => {
       const withVols = byTrainee[t.id] || [];
-      const add = el('button', { type: 'button', class: 'pb-add', 'aria-label': `Add a volunteer for ${t.name}` }, '+Vol');
+      const add = el('button', { type: 'button', class: 'pb-add pb-add-end', 'aria-label': `Add a volunteer for ${t.name}` }, '+Vol');
       add.addEventListener('click', (e) => { e.stopPropagation(); pickVolunteer(t); });
       const c = card('tr', t.id, flashed(null, t.id),
         `${t.name}: ${withVols.length ? `with ${withVols.map((v) => v.name).join(', ')}` : 'no one yet'}. Tap to pair, or drag onto a volunteer.`,
-        el('span', { class: 'pb-top' }, el('span', { class: 'pb-name' }, t.name), add),
-        t.project ? el('span', { class: 'pb-sub' }, t.project) : null,
+        el('span', { class: 'pb-top' }, el('span', { class: 'pb-name' }, t.name)),
+        el('span', { class: 'pb-meta' }, t.project ? el('span', { class: 'pb-sub' }, t.project) : null, add),
         el('span', { class: 'pb-drop' },
           withVols.length
             ? withVols.map((v) => pill(v.name, v.userId, () => change('remove', v, t), false))

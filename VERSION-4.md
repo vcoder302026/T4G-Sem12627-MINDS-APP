@@ -217,3 +217,37 @@ Checked: `dev/check-deploy.mjs` ready to deploy (130 tests); `check-squash.py` a
 browser the pairing searches filter, attendance cards, Activity log filters, the sign-in hint and
 the two fixed rows.
 
+## 10. Version 4.6.1: design faults found on a real iPhone
+
+Two problems seen on Exp (v4.5) on an iPhone, which the layout checks (run in Chrome) had missed:
+
+- **Activity log dates:** the From / To date boxes were blank, unlabelled and stuck out past the
+  screen edge. iPhone Safari gives a date box its own minimum width and shows an empty one as
+  blank. Date boxes now never get wider than their box; on iPhones and iPads they fill it and an
+  empty one says **"Any date"** (filters) or **"Choose a date"** (forms) (`controls.js`, only on
+  those devices). From / To have labels (4.6).
+- **Pairing board squashed:** Lovable's second and third rounds made +Trn / +Vol take a row of
+  their own and the buttons and name chips 2.75rem tall, so names broke ("Mock Trainee / 1").
+  Those 57 lines of pairing size rules were removed from `input.css` and the same 42 rules from
+  the built `styles.css` (matched by selector, properties and values), so the board measures
+  exactly as in v4.3.1 (card 106 px tall at 393 px). The name now has the card's full width and
+  +Trn / +Vol sits at the end of the row below; on phones under 380 px names and chips are a
+  little smaller. Names fit on one line from 375 px; at 320 px (2016 iPhone SE) a long name in a
+  chip wraps between words.
+
+Found by a new check, **`dev/check-fit.py`**, which (unlike `check-squash.py`) looks inside the
+pairing board: controls sticking out of their box or past the screen edge, short labels breaking
+across lines, and date boxes with no visible label. It also found, and these were fixed: table
+buttons squeezed on tablets ("Deactivate" 36 px, "Fix", "Who can read"; they now stay on one line
+and the table scrolls), and the Hours search box squeezed to 59 px by a phone-only rule that
+applied at every width.
+
+**Activity log wording:** a house visit was described by its field names ("traineeId, date,
+family, …"); entries now use the message the admin saw ("Priya Nair added as T-0101.") and 17
+actions got readable names ("Recorded a house visit", "Added an outing", …). New test (131).
+
+Checked: `check-deploy.mjs` ready to deploy; `check-fit.py` all fit except the 320 px chips;
+`check-squash.py` (280–768), `check-phones.py`, `check-scroll.py` clean. Safari itself couldn't be
+run here: the iPhone date behaviour was checked by simulating it in Chrome, so check the Activity
+log's From / To on a real iPhone after deploying.
+

@@ -8,6 +8,23 @@
  */
 
 const ADMIN_ACTION_LABELS = {
+  createVisit: 'Recorded a house visit',
+  createFundraiser: 'Added a fundraiser',
+  updateFundraiser: 'Changed a fundraiser',
+  saveProduct: 'Saved a product',
+  createOrder: 'Added an order',
+  updateOrder: 'Changed an order',
+  createOuting: 'Added an outing',
+  updateOuting: 'Changed an outing',
+  assignOutingTrainee: 'Added a trainee to an outing',
+  updateOutingAssignment: 'Changed an outing assignment',
+  createTrip: 'Added an overseas trip',
+  updateTrip: 'Changed an overseas trip',
+  addTripParticipant: 'Added a trip participant',
+  updateTripParticipant: 'Changed a trip participant',
+  addTripLogistics: 'Added trip logistics',
+  updateTripLogistics: 'Changed trip logistics',
+  addTripExpense: 'Added a trip expense',
   createSession: 'Created a session',
   createSessions: 'Added sessions',
   updateSession: 'Edited a session',
@@ -117,7 +134,10 @@ function describeAdminAction_(action, p, out) {
     case 'createTrainee': return p.name || '';
     case 'updateTrainee': return `${trainee(p.traineeId)}: ${list(p).replace('traineeId', '').replace(/^, |, $/g, '')}`;
     case 'makeFirstAdmin': return person(p.userId);
-    default: return list(p);
+    // A house visit, or a trainee added with the House Visit Form: the message the admin saw.
+    case 'createVisit': return out && out.message ? out.message : `${trainee(p.traineeId) || 'New trainee'}: house visit`;
+    // Anything else: the message the admin saw, if there was one; the changed fields otherwise.
+    default: return out && out.message ? String(out.message) : list(p);
   }
 }
 

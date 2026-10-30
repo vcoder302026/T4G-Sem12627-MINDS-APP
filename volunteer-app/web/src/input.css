@@ -675,18 +675,6 @@ body { padding-left: env(safe-area-inset-left, 0px); padding-right: env(safe-are
   .app-bar { padding-left: .75rem !important; padding-right: .75rem !important; }
 }
 
-/* Pairing board on phones: Both / one column switch. */
-.pb-view { display: flex; gap: .25rem; margin-bottom: .5rem; border-radius: .625rem; background: rgba(226, 232, 240, .6); padding: .25rem; }
-.dark .pb-view { background: rgba(23, 23, 23, .7); }
-.pb-view button { flex: 1; border-radius: .5rem; padding: .375rem .25rem; font-size: .75rem; font-weight: 700; color: #64748b; }
-.pb-view button[aria-pressed="true"] { background: #fff; color: #4338ca; box-shadow: 0 1px 2px rgba(0, 0, 0, .06); }
-.dark .pb-view button[aria-pressed="true"] { background: #404040; color: #a5b4fc; }
-@media (max-width: 767.98px) {
-  .pb.pb-show-vol, .pb.pb-show-tr { grid-template-columns: minmax(0, 1fr); }
-  .pb.pb-show-vol .pb-tr, .pb.pb-show-tr .pb-vol { display: none; }
-}
-.pb-card { padding: .4375rem .5625rem; }
-.pb-list { gap: .375rem; }
 
 /* Computers: shrinkable sidebar, and wider pages on large screens. */
 .side-mini-btn { display: none; }
@@ -786,9 +774,6 @@ body { letter-spacing: 0; }
 .hv-jump-btn { min-height: 2.25rem; max-width: 100%; white-space: normal; text-align: left; border-radius: .5rem; }
 .hv-cols > details { scroll-margin-top: 5.5rem; }
 .hv-cols .section-head { text-transform: none; min-height: 2.75rem; }
-.pb-head-center { justify-content: space-between; gap: .5rem; }
-.pb-head-center .pb-toggle { position: static; flex-shrink: 0; }
-.pb-head { letter-spacing: 0; min-height: 2.5rem; }
 .app-dialog { max-height: calc(100dvh - 2rem); overflow: hidden; }
 .app-dialog .dialog-head { flex-wrap: nowrap; }
 .app-dialog .dialog-head h2 { min-width: 0; overflow-wrap: anywhere; }
@@ -814,8 +799,6 @@ body { letter-spacing: 0; }
 }
 @media (max-width: 359.98px) {
   body.has-sidebar #tabs .seg-item { font-size: .625rem; gap: .125rem; }
-  .pb-head { font-size: .6875rem; padding: .5rem; }
-  .pb-head-center { flex-wrap: wrap; }
   .person-facts > div { grid-template-columns: minmax(0, 1fr); gap: .125rem; }
 }
 @media (min-width: 1024px) {
@@ -827,12 +810,6 @@ body { letter-spacing: 0; }
   .side-scroll { padding-top: 3rem; }
   body.side-mini .side-scroll { padding-top: 3rem; }
   .side-link { min-height: 2.75rem; border-radius: .5rem; }
-}
-@media (pointer: coarse) {
-  .pb-add, .pb-x { min-width: 2rem; min-height: 2.5rem; display: inline-flex; align-items: center; justify-content: center; }
-  .pb-pill { min-height: 2.5rem; padding-right: 2.25rem; }
-  .pb-toggle { min-height: 2.25rem; }
-  .pb-view button { min-height: 2.75rem; }
 }
 
 /* Separate independent surfaces, not the joined rows/headers inside a surface.
@@ -851,8 +828,6 @@ body { letter-spacing: 0; }
   gap: var(--minds-section-gap);
 }
 .stat-compact { gap: var(--minds-item-gap) !important; }
-.pb { gap: var(--minds-item-gap); }
-.pb-list { gap: var(--minds-item-gap); }
 .tile-grid, .admin-menu-grid { gap: var(--minds-item-gap); }
 .admin-menu { gap: 1.25rem; }
 .admin-menu-head { margin-bottom: .625rem; letter-spacing: 0; }
@@ -874,22 +849,6 @@ body { letter-spacing: 0; }
   .admin-menu-head { font-size: .875rem; line-height: 1.4; color: var(--minds-muted); }
   .admin-menu-link { min-height: 3.25rem; font-size: 1rem; line-height: 1.4; padding: .75rem 1rem; color: var(--minds-ink); }
   .admin-menu-link .tab-count { font-size: .75rem; }
-}
-.pb-head, .pb-head.pb-head-center {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: .5rem;
-  text-transform: none;
-  font-size: .875rem;
-  letter-spacing: 0;
-}
-.pb-head > span { min-width: 0; overflow-wrap: anywhere; }
-.pb-head .pb-toggle { position: static; min-height: 2rem; font-size: .75rem; letter-spacing: 0; }
-@media (max-width: 479px) {
-  .pb-head, .pb-head.pb-head-center { grid-template-columns: minmax(0, 1fr); padding: .625rem; }
-  .pb-head > span { font-size: .875rem; line-height: 1.25; }
-  .pb-head .pb-toggle { justify-self: start; }
 }
 .hv-cols > details, .hv-cols > details:first-child { margin-bottom: var(--minds-section-gap); }
 .me-page { min-width: 0; }
@@ -929,7 +888,6 @@ body { letter-spacing: 0; }
 :where(.app-main, .dialog-body) .group-label { font-size: .875rem; text-transform: none; letter-spacing: 0; }
 .record-page-head, .record-panel-head { min-width: 0; }
 .record-page-actions { min-width: 0; }
-.record-toolbar > * { min-width: 0; }
 .rt-title { font-size: 1rem; line-height: 1.5; color: var(--minds-ink); }
 .rt-line > span { overflow-wrap: anywhere; }
 .rt-line > span:first-child { color: var(--minds-readable-muted); font-weight: 600; }
@@ -940,14 +898,6 @@ body { letter-spacing: 0; }
 .stat-tile > p:last-child:not(:nth-child(2)) { font-size: .8125rem; line-height: 1.4; }
 .stat-tile > p:nth-child(2) { font-variant-numeric: tabular-nums; }
 .pb-searches .label { font-size: .875rem; }
-.pb-card .pb-sub, .pb-card .pb-meta .badge, .pb-card .pb-hint { font-size: .8125rem; line-height: 1.4; }
-.pb-card .pb-hint { color: var(--minds-readable-muted); }
-.pb-card .pb-name { font-size: .9375rem; line-height: 1.4; }
-.pb-pill { font-size: .8125rem; line-height: 1.4; }
-.pb-add { min-width: 2.5rem; min-height: 2.75rem; display: inline-flex; align-items: center; justify-content: center; }
-.pb-x { min-height: 2.75rem; width: 2rem; }
-.pb-pill { min-height: 2.75rem; padding-right: 2.25rem; }
-.pb-sync, .pb-legend { font-size: .8125rem; letter-spacing: 0; }
 .hv-likert-ends { font-size: .8125rem; line-height: 1.5; }
 .hv-likert-opt span { min-height: 2.75rem; }
 .hv-row dt { font-size: .875rem; line-height: 1.5; }
@@ -1015,10 +965,6 @@ body { letter-spacing: 0; }
   .record-toolbar > .flex { flex-wrap: wrap; gap: .5rem; }
   .activity-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .activity-filters > :first-child, .activity-filters > :nth-child(2) { grid-column: 1 / -1; }
-  .pb-card .pb-top { flex-direction: column; gap: .375rem; }
-  .pb-top .pb-add { align-self: flex-start; }
-  .pb-card { padding: .625rem; }
-  .pb-list { padding: .5rem; max-height: 70dvh; }
   .pb-searches { gap: .75rem; }
   .pb-searches .input { padding-left: 2.5rem; }
   .qr-pass h1 { font-size: 1.5rem; }
@@ -1028,10 +974,6 @@ body { letter-spacing: 0; }
   .rt-line + .rt-line { margin-top: .25rem; }
   .stat-grid .stat-tile { padding: .625rem; }
   .stat-tile > p:nth-child(2) { font-size: 1.25rem; }
-  .pb { gap: .5rem; }
-  .pb-card, .pb-list { padding: .375rem; }
-  .pb-card .pb-name { font-size: .875rem; }
-  .pb-pill { padding-left: .25rem; }
   .pb-searches { grid-template-columns: minmax(0, 1fr); gap: .5rem; }
   main .record-toolbar { grid-template-columns: minmax(0, 1fr); }
 }
@@ -1057,4 +999,31 @@ body { letter-spacing: 0; }
 @media (max-width: 767px) {
   :where(.app-main) .flex:has(> .min-w-0.flex-1):has(> div.flex.shrink-0) { flex-wrap: wrap; }
   :where(.app-main) .flex:has(> div.flex.shrink-0) > .min-w-0.flex-1 { flex-basis: 10rem; }
+}
+
+/* Date boxes: never wider than their container. iPhone and iPad Safari give a date box a minimum
+   width of its own (which pushed Activity log's From / To past the screen edge) and show an empty
+   one as blank: there they fill the width and an empty one says "Any date" / "Choose a date"
+   (controls.js). Other browsers are unchanged. */
+input[type="date"] { min-width: 0; max-width: 100%; }
+.date-wrap { position: relative; display: block; min-width: 0; max-width: 100%; }
+.date-ph { display: none; position: absolute; left: .875rem; top: 50%; transform: translateY(-50%); pointer-events: none; color: #94a3b8; font-size: 1rem; }
+@supports (-webkit-touch-callout: none) {
+  input[type="date"] { -webkit-appearance: none; appearance: none; display: block; width: 100%; min-height: 2.75rem; }
+  input[type="date"]::-webkit-date-and-time-value { text-align: left; }
+  .date-wrap.is-empty .date-ph { display: block; }
+}
+
+/* Pairing cards: the name has the full width; +Trn / +Vol sits at the end of the row below it. */
+.pb-add-end { margin-left: auto; }
+
+/* Tables: buttons stay on one line; a wide table scrolls sideways instead of squeezing them. */
+.app-main table .btn { white-space: nowrap; overflow-wrap: normal; }
+/* Pairing board on narrow phones (iPhone SE, mini): slightly smaller names and padding, so most
+   names fit on one line in the two columns. */
+@media (max-width: 379.98px) {
+  .pb-card .pb-name { font-size: .8125rem; }
+  .pb-card { padding: .375rem .5rem; }
+  .pb-list { padding: .375rem; }
+  .pb-pill { font-size: .75rem; }
 }

@@ -33,7 +33,7 @@ pages.
 <sub>Screenshots use the local demo; every person in them is fictional (the trainees are
 MINDS's mock House Visit data).</sub>
 
-**Status:** working prototype (**Version 4.6**). It runs fully on a laptop with demo data, and
+**Status:** working prototype (**Version 4.6.1**). It runs fully on a laptop with demo data, and
 connects to Google Apps Script and Google Sheets as described in
 [Part 3](#part-3-integrating-google-apps-script--google-sheets). What changed in Version 4, and
 why, is in [VERSION-4.md](../VERSION-4.md); step-by-step use is in the
@@ -193,7 +193,7 @@ There's nothing to `npm install`, because the volunteer app has no dependencies.
 npm test
 ```
 
-Expected result: `ℹ tests 130`, `ℹ pass 130`, `ℹ fail 0`. The tests run the real backend code
+Expected result: `ℹ tests 131`, `ℹ pass 131`, `ℹ fail 0`. The tests run the real backend code
 against an in-memory spreadsheet:
 
 | File | Covers |
@@ -684,7 +684,7 @@ volunteer-app/
     admin/js/views/   admin pages that came from the Version 1 dashboard (people, attendance,
                       visits, fundraising, outings, trips, overview)
   dev/              local demo server, in-memory Google Sheets stand-in, the layout checks
-                    (check-phones.py, check-squash.py, check-scroll.py), the load test
+                    (check-phones.py, check-squash.py, check-scroll.py, check-fit.py), the load test
                     (load-test.mjs), count-reads.mjs, check-deploy.mjs, and the Exp database generator
   tests/            backend tests (npm test)
   docs/             user guide, screenshots and the demo spreadsheet
