@@ -67,7 +67,7 @@ spreadsheet (MINDS's large House Visit responses) on almost every request.
 
 ```bash
 cd volunteer-app
-node dev/load-test.mjs --url <the Exp /exec URL> --volunteers 100 --admins 10 --minutes 3
+node dev/load-test.mjs --url <https://script.google.com/macros/s/AKfycbzHxrOJEAazsDfVYNjkqc09R7jvjHHtwxj6grKVVViXGlkxn3KSRZxFGZN9qbgsNZ8o/exec> --volunteers 100 --admins 10 --minutes 3
 ```
 
 It signs in volunteers (with the mock database's accounts) and admins, has volunteers use Home,
