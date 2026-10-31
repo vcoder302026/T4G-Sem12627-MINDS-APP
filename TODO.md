@@ -187,7 +187,10 @@ people what to do. Keep, shorten or remove?
 ## Wording to confirm
 
 
-## Check on a real iPhone after deploying 4.6.1
+## Check on a real iPhone after deploying 4.7.1
+
+- New session: the date box fills the row and says "Choose a date"; Attendance and Hours From / To on an iPad.
+- Pairing: the column button goes ALL → UNPAIRED → PAIRED.
 
 - Activity log (Dashboard → Activity log): From / To fit the screen and say "Any date" when empty;
   picking a date shows it. Same for Attendance and Hours date ranges.

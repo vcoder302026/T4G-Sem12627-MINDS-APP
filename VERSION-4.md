@@ -288,3 +288,26 @@ Checked: `check-deploy.mjs` ready to deploy (131 tests); `check-fit.py` all fit 
 320 px pairing chips; `check-squash.py` (280–768) nothing squashed; `check-phones.py` all clean;
 `check-scroll.py` clean; phone and computer screenshots reviewed.
 
+## 12. Version 4.7.1: date boxes on iPhone and iPad; pairing filter with Unpaired
+
+**Date box too small (seen on an iPhone, New session):** an empty date box in Safari has almost
+no width of its own. The wrapper that shows "Choose a date" sat in a row (date and its ✕) and
+shrank around it, to 34 px. The wrapper now fills its row, and any labelled block holding a date
+box keeps at least 10rem on iPhone and iPad (Attendance / Hours From and To were 34 px side by
+side on an iPad). Pop-up form buttons ("Create fundraiser") keep their words on one line; the row
+wraps on narrow phones.
+
+**Found with an iPhone mode for `dev/check-fit.py`** (`--ios`): Chrome pretends to be iPhone
+Safari (the iOS-only CSS applies, and empty date boxes lose their built-in width, as in Safari).
+It reproduced the New session bug before the fix (34 px) and passes after it. The check also
+flags boxes too small to use (text and date under 7rem, numbers under 4rem), and now covers the
+signed-out pages (sign-in, registration) and the pop-ups with date boxes (Add volunteer, New
+fundraiser, New outing, New trip, Edit trainee).
+
+**Pairing filter:** each column's button now goes **ALL → UNPAIRED → PAIRED → ALL**. UNPAIRED is
+red, like the "N unpaired" count, so it's clear the list is filtered.
+
+Checked: `check-deploy.mjs` ready to deploy (131 tests); `check-fit.py --ios` at 320, 375, 393,
+430 and 768 px and `check-fit.py` all fit (except the known 320 px pairing chips);
+`check-squash.py`, `check-phones.py`, `check-scroll.py` clean; the filter cycle tested in a browser.
+

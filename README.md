@@ -16,7 +16,7 @@ volunteer hours, attendance and pairing.
 It runs on **Google Apps Script + Google Sheets** (MINDS's own sheets, including the House
 Visit form responses), with the web app on GitHub Pages.
 
-**Status: Version 4.7**, tested on the Exp environment with 100 volunteers and 10 admins at once.
+**Status: Version 4.7.1**, tested on the Exp environment with 100 volunteers and 10 admins at once.
 
 | Read this | For |
 | --- | --- |
