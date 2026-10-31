@@ -448,12 +448,17 @@ body { padding-left: env(safe-area-inset-left, 0px); padding-right: env(safe-are
    width of its own and show an empty one as blank: there they fill the width and an empty one says
    "Any date" / "Choose a date" (controls.js). Other browsers are unchanged. */
 input[type="date"] { min-width: 0; max-width: 100%; }
-.date-wrap { position: relative; display: block; min-width: 0; max-width: 100%; }
+/* The wrapper fills its row: an empty date box on iPhone has almost no width of its own, so in a
+   row (e.g. New session: date and its ✕) it would shrink to a sliver. */
+.date-wrap { position: relative; display: block; flex: 1 1 10rem; width: 100%; min-width: 0; max-width: 100%; }
 .date-ph { display: none; position: absolute; left: .875rem; top: 50%; transform: translateY(-50%); pointer-events: none; color: #94a3b8; font-size: 1rem; }
 @supports (-webkit-touch-callout: none) {
   input[type="date"] { -webkit-appearance: none; appearance: none; display: block; width: 100%; min-height: 2.75rem; }
   input[type="date"]::-webkit-date-and-time-value { text-align: left; }
   .date-wrap.is-empty .date-ph { display: block; }
+  /* A labelled block holding a date box (e.g. Attendance / Hours: From, To, side by side on an
+     iPad) keeps room for it instead of shrinking around an empty box. */
+  div:has(> .date-wrap) { min-width: min(10rem, 100%); }
 }
 
 /* Tailwind utilities used by the kept code (Tailwind generates these on deploy; here for the fallback copy). */
@@ -465,3 +470,11 @@ input[type="date"] { min-width: 0; max-width: 100%; }
 /* Small buttons (short labels) stay on one line; rows of them wrap instead (e.g. Hours: All time,
    This month, This year; "Who can read" in a notes table). */
 .btn-sm { white-space: nowrap; }
+
+/* Pairing filter button: ALL → UNPAIRED → PAIRED. Unpaired in red, like the "N unpaired" count. */
+.pb-toggle.pb-toggle-unpaired { border-color: #dc2626; color: #b91c1c; background: #fef2f2; }
+.dark .pb-toggle.pb-toggle-unpaired { border-color: #f87171; color: #fca5a5; background: rgba(127, 29, 29, .35); }
+
+/* Pop-up forms: Cancel and the main button keep their words on one line; on a narrow phone the
+   row wraps instead (e.g. "Create fundraiser" at 320 px). */
+.form-actions .btn { white-space: nowrap; }

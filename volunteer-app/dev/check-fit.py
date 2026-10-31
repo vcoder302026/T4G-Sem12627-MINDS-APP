@@ -13,11 +13,21 @@ Unlike check-squash.py it looks inside the pairing board too.
   PORT=5326 npm run dev &
   python3 dev/check-fit.py            # 320, 375, 393, 430 and 768 px
   python3 dev/check-fit.py 393        # one width
+  python3 dev/check-fit.py --ios 393  # as iPhone Safari shows it (empty date boxes have no width)
 """
 import asyncio, sys
 from playwright.async_api import async_playwright
 
 BASE = 'http://localhost:5326'
+# --ios: imitate iPhone Safari in Chrome. The page believes it's on iOS (CSS.supports
+# '-webkit-touch-callout'), gets the iOS-only CSS, and empty date boxes lose their built-in
+# width, as in Safari (Chrome gives them one, which hid the New session date box bug).
+IOS = '--ios' in sys.argv
+IOS_INIT = "const s = CSS.supports.bind(CSS); CSS.supports = (a, v) => (String(a).includes('touch-callout') ? true : s(a, v));"
+IOS_CSS = '''input[type="date"] { -webkit-appearance: none; appearance: none; display: block; width: 100%; min-height: 2.75rem; }
+.date-wrap.is-empty .date-ph { display: block; }
+div:has(> .date-wrap) { min-width: min(10rem, 100%); }
+input[type="date"]::-webkit-datetime-edit, input[type="date"]::-webkit-calendar-picker-indicator { display: none !important; }'''
 SIZES = [(320, 640), (375, 812), (393, 852), (430, 932), (768, 1024)]
 ADMIN = ['admin', 'overview', 'log', 'today', 'new-session', 'pairings', 'pairings/regular', 'pairings/history', 'volunteers',
          'attendance', 'hours', 'trainees', 'trainee/T-0001', 'trainee-new', 'review', 'visibility', 'guide-edit', 'venues',
@@ -40,6 +50,14 @@ CHECK = r"""(() => {
     const inner = p.right - parseFloat(ps.borderRightWidth || 0);
     if (r.right > vw + 1) out.add(`past the screen edge: ${e.tagName.toLowerCase()} "${name(e)}" (right ${Math.round(r.right)} of ${vw})`);
     else if (r.right > inner + 2 && ps.overflow === 'visible') out.add(`sticks out of its box by ${Math.round(r.right - inner)}px: ${e.tagName.toLowerCase()} "${name(e)}"`);
+  }
+
+  // 1b. Boxes too small to use: text and date boxes under 7rem, number boxes under 4rem.
+  for (const e of document.querySelectorAll('main input, main select, main textarea, dialog input, dialog select, dialog textarea')) {
+    if (!visible(e) || ['hidden', 'checkbox', 'radio', 'file', 'range', 'color'].includes(e.type) || e.closest('.sr-only')) continue;
+    const w = e.getBoundingClientRect().width;
+    const min = e.type === 'number' ? 64 : 112;
+    if (w < min) out.add(`box too small to use (${Math.round(w)}px): ${e.type || e.tagName.toLowerCase()} "${name(e)}"`);
   }
 
   // 2. Short labels and names breaking across lines.
@@ -73,6 +91,22 @@ CHECK = r"""(() => {
 })()"""
 
 
+# Pop-ups with date boxes (and other fields): open each, check it, close it.
+DIALOGS = [('volunteers', 'Add volunteer'), ('fundraising', 'New fundraiser'), ('outings', 'New outing'), ('trips', 'New trip'),
+           ('trainee/T-0001', 'Edit')]
+
+
+async def check_dialogs(pg, found, size):
+    for route, button in DIALOGS:
+        await pg.goto(BASE + '/#/' + route); await pg.wait_for_timeout(1300)
+        b = pg.locator('main button:visible', has_text=button).first
+        if not await b.count(): continue
+        await b.click(); await pg.wait_for_timeout(600)
+        for f in await pg.evaluate(CHECK):
+            found.setdefault(size, {}).setdefault(f'{route} → {button}', []).append(f)
+        await pg.keyboard.press('Escape'); await pg.wait_for_timeout(200)
+
+
 async def first_pairing(pg):
     await pg.goto(BASE + '/#/admin'); await pg.wait_for_timeout(1200)
     href = await pg.locator('main a[href^="#/pair/"]').first.get_attribute('href')
@@ -84,8 +118,18 @@ async def run(widths):
         b = await p.chromium.launch()
         found = {}
         for w, h in [s for s in SIZES if not widths or s[0] in widths]:
+            c = await b.new_context(viewport={'width': w, 'height': h}, is_mobile=w < 1024, has_touch=w < 1024)
+            if IOS: await c.add_init_script(IOS_INIT)
+            pg = await c.new_page()
+            for r in ['login', 'register']:  # signed out
+                await pg.goto(BASE + '/#/' + r); await pg.wait_for_timeout(1200)
+                if IOS: await pg.add_style_tag(content=IOS_CSS)
+                for f in await pg.evaluate(CHECK):
+                    found.setdefault(f'{w}px', {}).setdefault(r, []).append(f)
+            await c.close()
             for email, pw, routes in [('admin@example.com', 'AdminDemo123', ADMIN), ('volunteer@example.com', 'VolunteerDemo123', VOL)]:
                 c = await b.new_context(viewport={'width': w, 'height': h}, is_mobile=w < 1024, has_touch=w < 1024)
+                if IOS: await c.add_init_script(IOS_INIT)
                 pg = await c.new_page()
                 await pg.goto(BASE + '/#/login'); await pg.wait_for_timeout(400)
                 await pg.fill('[name=email]', email); await pg.fill('[name=password]', pw); await pg.click('button[type=submit]'); await pg.wait_for_timeout(1200)
@@ -93,6 +137,8 @@ async def run(widths):
                 if email.startswith('admin'):
                     pair = await first_pairing(pg)
                     if pair: pages.append(pair)
+                    await check_dialogs(pg, found, f'{w}px')
+                if IOS: await pg.add_style_tag(content=IOS_CSS)
                 for r in pages:
                     await pg.goto(BASE + '/#/' + r); await pg.wait_for_timeout(1300)
                     for f in await pg.evaluate(CHECK):
@@ -109,5 +155,5 @@ async def run(widths):
 
 
 if __name__ == '__main__':
-    widths = [int(a) for a in sys.argv[1:]]
+    widths = [int(a) for a in sys.argv[1:] if a.isdigit()]
     sys.exit(asyncio.run(run(widths)))

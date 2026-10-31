@@ -296,7 +296,7 @@ As Ada:
 ### 11. Test round
 
 - **Pairing:** Admin → Session Management → the 31 Oct session → **Pair**. 26 people are
-  coming; 5 are already paired (regulars). Drag the rest onto trainees; try **All ↔ Paired**.
+  coming; 5 are already paired (regulars). Drag the rest onto trainees; try **All → Unpaired → Paired**.
 - **Register** a new volunteer (pick an RSPID project to see the extra questions).
 - **QR pass:** on a phone, sign in as Vera → QR pass; on another phone, as Ada → **Scan**
   (needs the real HTTPS site; works on the day of a session).

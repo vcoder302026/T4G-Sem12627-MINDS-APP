@@ -152,7 +152,7 @@ export function formModal(title, body, submitLabel, onSubmit, { wide = false } =
   const submit = el('button', { type: 'submit', class: 'btn btn-primary' }, submitLabel);
   const cancel = el('button', { type: 'button', class: 'btn btn-secondary' }, 'Cancel');
   const form = el('form', { novalidate: true, class: 'space-y-4' }, error, body,
-    el('div', { class: 'flex justify-end gap-2 pt-2' }, cancel, submit));
+    el('div', { class: 'form-actions flex flex-wrap justify-end gap-2 pt-2' }, cancel, submit));
   const m = modal(title, form);
   if (wide) m.el.classList.add('sm:w-[min(48rem,calc(100vw-2rem))]');
   cancel.addEventListener('click', () => m.close());

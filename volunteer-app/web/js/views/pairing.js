@@ -231,11 +231,13 @@ function pairBoard(o) {
       c.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pickVolunteer(t); } });
       return asTrainee(c, t.id); // press and hold: photo and key details
     };
-    // One filter button per column: ALL ↔ PAIRED, changed by tapping it.
-    const toggle = (value, label, flip) => {
-      const b = el('button', { type: 'button', class: 'pb-toggle', 'aria-label': `${label}: showing ${value === 'paired' ? 'paired only' : 'all'}. Tap to change.` },
-        value === 'paired' ? 'Paired' : 'All');
-      b.addEventListener('click', flip);
+    // One filter button per column: ALL → UNPAIRED → PAIRED → ALL, changed by tapping it.
+    const NEXT = { all: 'unpaired', unpaired: 'paired', paired: 'all' };
+    const SHOWS = { all: ['All', 'everyone'], unpaired: ['Unpaired', 'unpaired only'], paired: ['Paired', 'paired only'] };
+    const toggle = (value, label, set) => {
+      const [text, says] = SHOWS[value] || SHOWS.all;
+      const b = el('button', { type: 'button', class: `pb-toggle pb-toggle-${value}`, 'aria-label': `${label}: showing ${says}. Tap to change.` }, text);
+      b.addEventListener('click', () => set(NEXT[value] || 'all'));
       return b;
     };
     const empty = (filter, query, text) => el('p', { class: 'p-2 text-xs muted' }, query || filter !== 'all' ? 'No one matches.' : text);
@@ -247,11 +249,11 @@ function pairBoard(o) {
       el('div', { class: 'pb' },
         el('section', { class: 'pb-col pb-vol', 'aria-label': o.volunteerLabel },
           el('div', { class: 'pb-head' }, el('span', {}, o.volunteerLabel),
-            toggle(state.vf, o.volunteerLabel, () => { state.vf = state.vf === 'paired' ? 'all' : 'paired'; draw(); })),
+            toggle(state.vf, o.volunteerLabel, (next) => { state.vf = next; draw(); })),
           el('div', { class: 'pb-list' }, vols.length ? vols.map(volCard) : empty(state.vf, state.vq, o.emptyVolunteers))),
         el('section', { class: 'pb-col pb-tr', 'aria-label': 'Trainees' },
           el('div', { class: 'pb-head' }, el('span', {}, 'Trainees'),
-            toggle(state.tf, 'Trainees', () => { state.tf = state.tf === 'paired' ? 'all' : 'paired'; draw(); })),
+            toggle(state.tf, 'Trainees', (next) => { state.tf = next; draw(); })),
           el('div', { class: 'pb-list' }, trainees.length ? trainees.map(traineeCard) : empty(state.tf, state.tq, 'No trainees.')))));
     redrawers.forEach((fn) => fn());
     if (state.flash) {

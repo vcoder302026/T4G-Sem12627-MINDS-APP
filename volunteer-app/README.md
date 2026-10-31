@@ -33,7 +33,7 @@ pages.
 <sub>Screenshots use the local demo; every person in them is fictional (the trainees are
 MINDS's mock House Visit data).</sub>
 
-**Status:** working prototype (**Version 4.7**). It runs fully on a laptop with demo data, and
+**Status:** working prototype (**Version 4.7.1**). It runs fully on a laptop with demo data, and
 connects to Google Apps Script and Google Sheets as described in
 [Part 3](#part-3-integrating-google-apps-script--google-sheets). What changed in Version 4, and
 why, is in [VERSION-4.md](../VERSION-4.md); step-by-step use is in the
@@ -101,7 +101,7 @@ continue?").
 | --- | --- | --- |
 | **Dashboard** | Home · Overview · Activity log | As above. The **activity log** lists every change an admin makes (also kept in the sheet). |
 | **All sessions** | | Who's coming to each session (no-shows after the day); **Scan** and **Clock in** (by hand, with walk-ins) on the day. **New session**: pick the date (or several): a "Regular session", 2:30–5:30 pm at Woodlands, for **West End** and **RSPID (WGS)**, unless you change it. Edit, close or cancel sessions. |
-| **Pairing** | Sessions to pair · Regular pairings · History | A board laid out like the WERONE outing app's **Manual Pair** page: green **Volunteers** and blue **Trainees** columns with search and **All ↔ Paired**; **drag and drop** or tap to pair; **✕** to unpair; the **N unpaired** count and **Saved**. Boards **update by themselves** (every 3 seconds) when another admin changes something. **Pairing list** gives a table to screenshot. **Regular pairings**: each regular's fixed trainees. **History**: every pair that has been together. |
+| **Pairing** | Sessions to pair · Regular pairings · History | A board laid out like the WERONE outing app's **Manual Pair** page: green **Volunteers** and blue **Trainees** columns with search and **All → Unpaired → Paired**; **drag and drop** or tap to pair; **✕** to unpair; the **N unpaired** count and **Saved**. Boards **update by themselves** (every 3 seconds) when another admin changes something. **Pairing list** gives a table to screenshot. **Regular pairings**: each regular's fixed trainees. **History**: every pair that has been together. |
 | **Volunteers** | People · Attendance · Hours | Profiles, sessions, no-shows and hours. **Add volunteer**, promote to regular or move back, make or remove admins (needs the **admin password**), reset passwords, **Deactivate** (cancels their upcoming sessions) or **Reactivate**. Every clock-in and out, fixing missed scans, and hours exported as CSV. |
 | **Trainees** | Trainees · Notes to review · What volunteers see | **Add trainee** with MINDS's House Visit Form (required ✱: Project, Full Name, NRIC (last 4), Date of Birth, Spoken Language, Gender, Short Name, Caregiver 1's name and contact; the rest can be filled in later). Every trainee's details grouped like the form, their **photo**, regular volunteers and notes, with attached files. Each note has **Who can read** (all volunteers, regulars, selected volunteers, or private). Notes waiting for review. Which details volunteers and regulars see. |
 | **Settings** | Guide & projects · Venues · Admin password · Google Sheets · Advanced settings | The Volunteer Guide (text and **Add Files**). The standard **project list** and venues. The **admin password** (shared, separate from sign-in passwords). **Google Sheets**: the volunteer database, and the **trainee & house visit database**. **Advanced settings**: check the setup, run setup, and save (or update) all volunteers in Google Contacts. |
