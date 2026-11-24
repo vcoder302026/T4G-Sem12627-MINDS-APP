@@ -18,6 +18,7 @@ const sourceLabel = (source) => (source === 'Leader' ? 'Admin' : 'Volunteer');
 /* ---------------- who can read a note ---------------- */
 
 const AUDIENCE_BADGE = {
+  paired: ["Trainee's volunteers", 'emerald'],
   all: ['All volunteers', 'emerald'],
   regular: ['Regulars only', 'purple'],
   selected: ['Selected volunteers', 'indigo'],
@@ -71,7 +72,7 @@ function sharedWithCard(who) {
  * opens a fuzzy search to pick several people. get() returns
  * { audience, userIds } or null (with a toast) when nobody is picked.
  */
-export function shareChooser({ audiences, volunteers, audience = 'all', userIds = [], name = 'share' }) {
+export function shareChooser({ audiences, volunteers, audience = 'paired', userIds = [], name = 'share' }) {
   let value = audience;
   let picked = userIds.slice();
   const pickHost = el('div', { class: 'mt-2', hidden: value !== 'selected' });

@@ -56,6 +56,7 @@ function adminHome_() {
     sessions,
     unpairedTotal: sessions.filter((s) => s.date >= today).reduce((n, s) => n + s.stats.unpaired, 0),
     sessionOptions: CONFIG.SESSION_OPTIONS,
+    sessionSpots: Boolean(CONFIG.SESSION_SPOTS), // show the "Volunteer slots" box (Config.gs)
     reviewCount: table_('feedback').filter((f) => f.noteStatus === 'pending' && f.traineeObservation).length,
     venues: activeVenues_(),
     projects: activeProjects_(),
@@ -139,7 +140,7 @@ function createSessions_(p, admin) {
   return { created, skipped, message, home: adminHome_() };
 }
 
-function updateSession_(p) {
+function updateSession_(p, admin) {
   onlyFields_(p, ['sessionId', 'status'].concat(SESSION_FIELDS));
   const sessions = table_('sessions');
   const s = sessions.find((x) => x.sessionId === id_(p.sessionId, 'Session'));
@@ -163,7 +164,10 @@ function updateSession_(p) {
       bookings.update(b, { sessionTitle: s.title, sessionDate: s.date });
     });
   }
-  return { detail: sessionDetail_({ sessionId: s.sessionId }) };
+  // The session page is rebuilt after the lock is released (Main.gs), as updateBooking_ does,
+  // so other admins' saves don't queue behind it (31 Oct testing: cancelling a session lagged).
+  const sessionId = s.sessionId;
+  return { afterLock: () => ({ detail: cachedForVersion_(sharedReadKey_('sessionDetail', { sessionId }, admin), () => applyDisplayNames_('sessionDetail', sessionDetail_({ sessionId }))) }) };
 }
 
 function sessionDetail_(p) {
@@ -218,6 +222,7 @@ function sessionDetail_(p) {
     history: pairHistoryFor_(bookings.map((b) => b.volunteer.userId)), // who has been with whom before
     venues: activeVenues_(),
     projects: activeProjects_(),
+    sessionSpots: Boolean(CONFIG.SESSION_SPOTS),
   };
 }
 

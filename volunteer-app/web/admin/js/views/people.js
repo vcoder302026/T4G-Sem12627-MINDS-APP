@@ -445,7 +445,7 @@ export function renderTrainee(root, app, ctx, traineeId) {
     const noteForm = el('form', { class: 'space-y-2 border-t border-slate-100 p-4 dark:border-neutral-800' },
       el('textarea', { name: 'note', class: 'input min-h-[60px]', rows: 2, placeholder: 'Add a note about this trainee', 'aria-label': 'New note' }),
       noteFiles.el,
-      el('details', {}, el('summary', { class: 'cursor-pointer text-sm font-bold text-indigo-600 dark:text-indigo-400' }, 'Who can read it? (all volunteers)'),
+      el('details', {}, el('summary', { class: 'cursor-pointer text-sm font-bold text-indigo-600 dark:text-indigo-400' }, "Who can read it? (this trainee's volunteers)"),
         el('div', { class: 'mt-2' }, newShare.el)),
       el('button', { type: 'submit', class: 'btn btn-primary btn-sm' }, 'Add note'));
     noteForm.addEventListener('submit', (e) => {

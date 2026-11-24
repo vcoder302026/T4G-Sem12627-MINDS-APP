@@ -137,9 +137,12 @@ export function installQuickView(app) {
     e.preventDefault();
     if (Date.now() > swallowClickUntil) open(t); // a long press already opened it
   }, true);
-  // The click that ends a long press shouldn't also follow a link or open a pop-up.
+  // The click that ends a long press shouldn't also follow a link or open a pop-up. It can land
+  // on the name, or on the backdrop of the card that just opened under the finger; a backdrop
+  // click closes the card (ui.js modal), so the card used to flash shut and people had to press
+  // twice (31 Oct testing feedback). Swallow any click in that short window.
   document.addEventListener('click', (e) => {
-    if (Date.now() < swallowClickUntil && targetOf(e.target)) {
+    if (Date.now() < swallowClickUntil) {
       e.preventDefault();
       e.stopPropagation();
     }

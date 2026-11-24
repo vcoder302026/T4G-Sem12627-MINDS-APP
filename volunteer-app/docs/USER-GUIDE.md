@@ -49,7 +49,7 @@ The same labels are used everywhere in the app:
 | I want to… | Tap |
 | --- | --- |
 | Join | **Register now** and fill in MINDS's volunteer form (the same questions as its Google Form; your **Full Name (as per NRIC)**). Your **Sign-in email** is how you sign in. Choose your **Project**; RSPID projects also ask for course, matriculation number and school email. Type your password twice (**Re-enter password**), agree to the data notice, **Create account** |
-| Get started | Read the Volunteer Guide that opens, then **I've read the guide** (once, before your first sign-up) |
+| Get started | Read the Volunteer Guide that opens to the end, then **I've read the guide** (once, before your first sign-up; the button unlocks at the end) |
 | Say I'm coming | **Sessions** → tick every session you can come to → **I'm coming**. It's confirmed straight away: the card shows **You're coming** |
 | Can't make it | **Home** → Coming up → **Can't make it** (on the day, tell an admin instead) |
 | See my trainee | **Home**: each session card shows your **Paired trainee** once an admin has paired you. Press and hold for the quick card; tap for their full page |
@@ -104,7 +104,7 @@ Then six sections, plus **More**:
 | Fix attendance, export hours | **Volunteers** → **Attendance** (fix a missed scan) and **Hours** (export CSV) |
 | Add a trainee | **Trainees** → **Add trainee**: MINDS's House Visit Form. The ✱ questions are required (Project, Full Name, NRIC, Date of Birth, Spoken Language, Gender, Short Name, Caregiver 1's name and contact); the rest can be filled in later |
 | Look after trainees | **Trainees** → a trainee: all their details, **Change photo** / **Remove**, **New house visit**, **What volunteers see** (just for them), **Edit**, their regular volunteers and notes. Tapping a trainee anywhere in the volunteer screens also brings admins here |
-| Decide who reads a note | On the trainee's page → **Who can read**: all volunteers, regulars only, selected volunteers, or private (admins only). A note shared with selected volunteers shows **Shared with selected volunteers**: press and hold it (right-click on a computer) to see who |
+| Decide who reads a note | On the trainee's page → **Who can read**: this trainee's volunteers (the default: their regulars and anyone paired with them in the last 2 weeks), all volunteers, regulars only, selected volunteers, or private (admins only). A note shared with selected volunteers shows **Shared with selected volunteers**: press and hold it (right-click on a computer) to see who |
 | Review new notes | **Trainees** → **Notes to review**: edit if needed, choose who can read it, **Save** |
 | Choose what volunteers see | **Trainees** → **What volunteers see**: ticks for volunteers and for regulars (the default), or a trainee's own settings from their page. **Set as default** copies one trainee's settings to all |
 | Record a house visit | **More** → **House visits** → **New visit** (or **New house visit** on a trainee's page). **Find Trainee** prefills MINDS's House Visit Form with what's known; **+ Start New Blank Visit** is for a trainee who isn't in the sheet yet (they're added with the next Trainee ID). **Submit** saves the visit and updates the trainee's details |
@@ -112,7 +112,7 @@ Then six sections, plus **More**:
 | Edit projects and venues | **Settings** → **Guide & projects** (projects: RSPID (CTDC), RSPID (WGS) and West End; registration offers these plus the RSPID Alumni options) and **Venues** |
 | Change the admin password | **Settings** → **Admin password**: the current one, then the new one twice. Tell the other admins |
 | Use a different Google Sheet | **Settings** → **Google Sheets**: for the volunteer database, or the trainee & house visit database (MINDS's House Visit responses), **Create New Sheet**, search Google Drive and **Link**, or paste a URL and **Connect**. Setup runs by itself afterwards |
-| Check or repair the setup | **Settings** → **Advanced settings**: **Check the setup** (read only), **Run setup** and **Save all volunteers to Google Contacts** (both need the admin password). Each shows a report and goes in the Activity log |
+| Check or repair the setup | **Settings** → **Advanced settings**: **Check the setup** (read only), **Run setup** and **Save all volunteers to Google Contacts** (both need the admin password), and **Turn on / Turn off automatic clock-out** (anyone still clocked in an hour after their session ends is clocked out at the end time; they show **Auto clock-out** in Attendance). Each shows a report and goes in the Activity log |
 
 Fundraising, outings and overseas trips under **More** are kept from Version 1 until MINDS
 decides how they fit.

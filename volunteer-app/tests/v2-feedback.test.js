@@ -195,7 +195,7 @@ describe('how a volunteer note is shared', () => {
 
   test('all future volunteers, regulars only, selected volunteers, or private', () => {
     const q = ok(call('reviewQueue'));
-    assert.deepEqual(q.audiences.map((a) => a.key), ['all', 'regular', 'selected', 'private']);
+    assert.deepEqual(q.audiences.map((a) => a.key), ['paired', 'all', 'regular', 'selected', 'private']);
     assert.ok(q.volunteers.some((v) => v.name === 'Oli Other'));
 
     review('For everyone.', { audience: 'all' });
@@ -235,6 +235,20 @@ describe('how a volunteer note is shared', () => {
     assert.equal(ok(call('traineeDetail', { traineeId: 'T-0001' })).notes[0].audience, 'private');
   });
 
+  test("by default a note goes to the trainee's own volunteers, worked out when it is read", () => {
+    const stranger = person('stranger@example.com', 'Sam Stranger');
+    review('Likes music.', {}); // no audience chosen: the default
+    ok(call('addTraineeNote', { traineeId: 'T-0001', note: 'Bring a water bottle.' }));
+    assert.deepEqual(ok(call('traineeDetail', { traineeId: 'T-0001' })).notes.map((n) => n.audience), ['paired', 'paired']);
+    assert.deepEqual(seen(vol).sort(), ['Bring a water bottle.', 'Likes music.']); // paired this session
+    assert.deepEqual(seen(other).sort(), ['Bring a water bottle.', 'Likes music.']);
+    assert.equal(seen(reg).length, 0, "a regular who isn't this trainee's regular");
+    fails(rt.call('traineeInfo', { traineeId: 'T-0001' }, stranger.token), 'FORBIDDEN');
+    // Made this trainee's regular later: they see the notes from then on, without anyone re-sharing them.
+    ok(call('setStandingPairing', { userId: reg.user.userId, addTraineeId: 'T-0001' }));
+    assert.deepEqual(seen(reg).sort(), ['Bring a water bottle.', 'Likes music.']);
+  });
+
   test('admins add a note for regulars only', () => {
     ok(call('addTraineeNote', { traineeId: 'T-0001', note: 'Caregiver prefers calls after 6 pm.', audience: 'regular' }));
     assert.equal(seen(vol).length, 0);
@@ -243,7 +257,7 @@ describe('how a volunteer note is shared', () => {
 
   test('"What volunteers see" also filters notes, by who wrote them', () => {
     review('From a volunteer.', { audience: 'all' });
-    ok(call('addTraineeNote', { traineeId: 'T-0001', note: 'From an admin.' }));
+    ok(call('addTraineeNote', { traineeId: 'T-0001', note: 'From an admin.', audience: 'all' }));
     let v = ok(call('visibilitySettings'));
     const notesSection = v.sections.find((s) => s.notes);
     assert.deepEqual(notesSection.fields.map((f) => f.key), ['notes:volunteer', 'notes:admin']);

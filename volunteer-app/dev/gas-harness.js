@@ -383,6 +383,7 @@ export function createGasRuntime() {
   const props = new Map();
   const cache = new Map();
 
+  const triggers = []; // ScriptApp time-driven triggers
   const services = {
     SpreadsheetApp: {
       openById(id) {
@@ -449,6 +450,20 @@ export function createGasRuntime() {
     LockService: {
       getScriptLock: () => ({ tryLock: () => true, waitLock: () => {}, releaseLock: () => {}, hasLock: () => true }),
     },
+    // Time-driven triggers (AutoClock.gs): kept in a list; tests read it with runtime.triggers().
+    ScriptApp: {
+      newTrigger(fn) {
+        const t = { fn, kind: '', every: 0 };
+        const builder = {
+          timeBased() { t.kind = 'time'; return builder; },
+          everyHours(n) { t.every = n; return builder; },
+          create() { triggers.push(t); return { getHandlerFunction: () => t.fn }; },
+        };
+        return builder;
+      },
+      getProjectTriggers: () => triggers.map((t) => ({ getHandlerFunction: () => t.fn, _t: t })),
+      deleteTrigger(handle) { const i = triggers.indexOf(handle._t); if (i >= 0) triggers.splice(i, 1); },
+    },
     ContentService: {
       MimeType: { JSON: 'application/json' },
       createTextOutput(content) {
@@ -498,6 +513,10 @@ export function createGasRuntime() {
     },
     run(fnName, ...args) {
       return context[fnName](...args);
+    },
+    /** The time-driven triggers the backend has created: [{ fn, kind, every }]. */
+    triggers() {
+      return triggers.map((t) => ({ ...t }));
     },
     /** Evaluate code inside the Apps Script context, e.g. to change a CONFIG flag in a test. */
     evaluate(code) {

@@ -8,6 +8,7 @@
  */
 
 const ADMIN_ACTION_LABELS = {
+  autoClockOut: 'Clocked out volunteers automatically (session end)',
   createVisit: 'Recorded a house visit',
   createFundraiser: 'Added a fundraiser',
   updateFundraiser: 'Changed a fundraiser',

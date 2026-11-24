@@ -26,6 +26,8 @@ function rangeInputs(range, onChange) {
 
 function methodBadge(r) {
   if (r.method === 'Dashboard') return badge('Added on dashboard', 'purple');
+  // Clocked out by the hourly job at the session's end time (gas/AutoClock.gs): worth a check.
+  if (r.method && /(^|\/ )Auto$/.test(r.method)) return badge('Auto clock-out', 'amber');
   return badge(r.method || '—', r.method && r.method.startsWith('QR') ? 'indigo' : 'slate');
 }
 

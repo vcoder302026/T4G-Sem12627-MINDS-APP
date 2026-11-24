@@ -433,6 +433,7 @@ describe('signing up and pairing (volunteers, regulars, admins)', () => {
   });
 
   test('several sessions at once; each succeeds or fails on its own', () => {
+    rt.evaluate('CONFIG.SESSION_SPOTS = true');
     const a = createSession({ date: '2026-10-20', capacity: 1 });
     const b = createSession({ date: '2026-10-21' });
     const c = createSession({ date: '2026-10-22' });
@@ -452,7 +453,17 @@ describe('signing up and pairing (volunteers, regulars, admins)', () => {
     fails(rt.call('createSession', { title: 'X', date: TODAY, startTime: '10:00', endTime: '11:00', venue: SCHOOL, traineeIds: ['T-9999'] }, leader), 'VALIDATION_ERROR');
   });
 
+  test('with SESSION_SPOTS off (the default), a session has no volunteer limit', () => {
+    const s = createSession({ capacity: 1 });
+    book(s.sessionId);
+    book(s.sessionId, volunteer('v2@example.com', 'Vol Two')); // would be full with spots on
+    const home = ok(rt.call('volunteerHome', {}, volunteer('v3@example.com', 'Vol Three').token));
+    assert.equal(home.openSessions.find((x) => x.sessionId === s.sessionId).spotsLeft, null);
+    assert.equal(ok(rt.call('adminHome', {}, leader)).sessionSpots, false);
+  });
+
   test('sign-up rules: capacity, duplicates, cancelling, closed sessions', () => {
+    rt.evaluate('CONFIG.SESSION_SPOTS = true');
     const s = createSession({ capacity: 2 });
     book(s.sessionId);
     fails(rt.call('bookSession', { sessionId: s.sessionId }, vol.token), 'CONFLICT');
@@ -499,6 +510,38 @@ describe('QR clock-in / clock-out', () => {
     assert.deepEqual(home.history[0].trainee, { id: 'T-0001', name: 'Alex Tan', canView: true }, 'past sessions show who they were with');
     const person = ok(rt.call('personDetail', { userId: vol.user.userId }, leader));
     assert.equal(person.recent[0].traineeName, 'Alex Tan');
+  });
+
+  test('automatic clock-out: still clocked in an hour after the session ends → out at the end time', () => {
+    const { code } = bookAndConfirm(); // 10:00–12:00
+    rt.setNow(at('09:58'));
+    ok(rt.call('scan', { code }, leader));
+    rt.setNow(at('12:30')); // the session has ended, but within the hour
+    assert.equal(rt.evaluate('autoClockOut()'), 'Nobody to clock out.');
+    assert.equal(rt.records(SHEET, 'Attendance')[0]['Clock Out'], '');
+    rt.setNow(at('13:05'));
+    assert.match(rt.evaluate('autoClockOut()'), /^Clocked out 1 volunteer at their session's end time: Vol One \(2026-10-14\)\.$/);
+    const row = rt.records(SHEET, 'Attendance')[0];
+    assert.equal(row['Clock Out'], '2026-10-14 12:00:00');
+    assert.equal(row.Hours, 2.03);
+    assert.equal(row['Clocked Out By'], 'Automatic (session end)');
+    assert.equal(row.Method, 'QR / Auto');
+    assert.equal(ok(rt.call('volunteerHome', {}, vol.token)).totals.hours, 2.03, 'the hours count now');
+    assert.equal(ok(rt.call('scan', { code }, leader)).outcome, 'already-out');
+    assert.equal(rt.evaluate('autoClockOut()'), 'Nobody to clock out.', 'runs again harmlessly');
+    const log = ok(rt.call('listAdminLog', {}, leader)).entries || ok(rt.call('listAdminLog', {}, leader)).items;
+    assert.ok(JSON.stringify(log).includes('Clocked out volunteers automatically'));
+  });
+
+  test('automatic clock-out is switched on and off in Advanced settings', () => {
+    fails(rt.call('runMaintenance', { task: 'autoClockOutOn' }, leader), 'PASSWORD_REQUIRED');
+    let res = ok(rt.call('runMaintenance', { task: 'autoClockOutOn', adminPassword: ADMIN_PW }, leader));
+    assert.match(res.report, /Automatic clock-out is on/);
+    ok(rt.call('runMaintenance', { task: 'autoClockOutOn', adminPassword: ADMIN_PW }, leader)); // twice: still one trigger
+    assert.deepEqual(rt.triggers(), [{ fn: 'autoClockOut', kind: 'time', every: 1 }]);
+    res = ok(rt.call('runMaintenance', { task: 'autoClockOutOff' }, leader));
+    assert.equal(res.report, 'Automatic clock-out is off.');
+    assert.deepEqual(rt.triggers(), []);
   });
 
   test('forged, edited and wrong-day QR codes are rejected', () => {
@@ -1089,7 +1132,7 @@ describe('Version 3: registration checks, deactivation, project names', () => {
 describe('Advanced Settings (one-time functions from the app)', () => {
   test('admins list and run them; ones that change data need the admin password; all are logged', () => {
     const list = ok(rt.call('maintenanceTasks', {}, leader)).tasks.map((t) => `${t.key}:${t.changesData}`);
-    assert.deepEqual(list, ['checkConfig:false', 'setup:true', 'syncAllContacts:true']);
+    assert.deepEqual(list, ['checkConfig:false', 'setup:true', 'syncAllContacts:true', 'autoClockOutOn:true', 'autoClockOutOff:false']);
     assert.match(ok(rt.call('runMaintenance', { task: 'checkConfig' }, leader)).report, /Main sheet/);
     fails(rt.call('runMaintenance', { task: 'setup' }, leader), 'PASSWORD_REQUIRED');
     const res = ok(rt.call('runMaintenance', { task: 'setup', adminPassword: ADMIN_PW }, leader));

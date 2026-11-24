@@ -315,7 +315,7 @@ function comeToSession_(sessionId, user) {
   const bookings = table_('bookings');
   const active = bookings.filter((b) => b.sessionId === sessionId && b.status !== 'cancelled');
   if (active.some((b) => b.userId === user.userId)) throw err_.conflict(`You're already coming to ${s.title}.`);
-  const cap = Number(s.capacity) || 0;
+  const cap = sessionCap_(s);
   if (cap && active.length >= cap) throw err_.conflict(`Sorry, ${s.title} is full.`);
   const stampNow = fmtDateTime_(now_());
   const booking = bookings.insert({

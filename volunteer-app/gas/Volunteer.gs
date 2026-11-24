@@ -6,6 +6,11 @@
  * the refreshed state, instead of making a second round trip.
  */
 
+/** A session's volunteer limit, or 0 for no limit. Always 0 while CONFIG.SESSION_SPOTS is off. */
+function sessionCap_(s) {
+  return CONFIG.SESSION_SPOTS ? Number(s.capacity) || 0 : 0;
+}
+
 function sessionOut_(s) {
   const venue = s.venue ? venueByName_(s.venue) : null;
   return {
@@ -18,7 +23,7 @@ function sessionOut_(s) {
     venueAddress: venue ? venue.address : '',
     project: s.project || '',
     projects: parseProjects_(s.project),
-    capacity: Number(s.capacity) || 0,
+    capacity: sessionCap_(s),
     notes: s.notes,
     traineeIds: parseIds_(s.traineeIds),
     status: s.status || 'open',
@@ -94,7 +99,7 @@ function volunteerHome_(p, user) {
   });
 
   const openSessions = sortBy_(sessions.filter((s) => s.status === 'open' && s.date >= today), when).map((s) => {
-    const cap = Number(s.capacity) || 0;
+    const cap = sessionCap_(s);
     const booking = mineBySession[s.sessionId];
     return Object.assign(sessionOut_(s), {
       spotsLeft: cap ? Math.max(0, cap - (taken[s.sessionId] || 0)) : null,
@@ -230,7 +235,7 @@ function submitFeedback_(p, user) {
     rows.forEach((fb, i) => {
       const t = withNotes[i];
       const trainee = t ? traineeById_(t.id) : null;
-      if (trainee) addNote_(trainee, notes[t.id], user.name, 'Volunteer feedback', 'automatic', fb.feedbackId, att.date, null, files[t.id] || '');
+      if (trainee) addNote_(trainee, notes[t.id], user.name, 'Volunteer feedback', 'automatic', fb.feedbackId, att.date, { audience: 'paired', status: 'shared', sharedWith: '', sharedWithNames: '' }, files[t.id] || '');
     });
   }
   return {

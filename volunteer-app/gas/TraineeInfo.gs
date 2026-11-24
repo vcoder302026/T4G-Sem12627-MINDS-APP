@@ -397,7 +397,7 @@ function submitTraineeUpdate_(p, user) {
     submittedAt: fmtDateTime_(now_()),
     attachments,
   });
-  if (shareNow) addNote_(trainee, note, user.name, 'Volunteer update', 'automatic', fb.feedbackId, todayStr_(), null, attachments);
+  if (shareNow) addNote_(trainee, note, user.name, 'Volunteer update', 'automatic', fb.feedbackId, todayStr_(), { audience: 'paired', status: 'shared', sharedWith: '', sharedWithNames: '' }, attachments);
   // Goes to Trainees → Notes to review, next to session feedback, where an admin chooses who can read it.
   return {
     message: shareNow ? `Thanks! Your update is now in ${trainee.name}'s notes.` : `Thanks! An admin will review your update about ${trainee.name}.`,

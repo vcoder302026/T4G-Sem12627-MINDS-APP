@@ -52,13 +52,30 @@ export function renderGuide(root, app, ctx) {
       ? infographicCard(s, COLOURS[i % COLOURS.length])
       : section(s.title, COLOURS[i % COLOURS.length], richText(s.body)));
     let footer;
+    let endMarker = null;
     if (read) {
       footer = el('div', { class: 'mt-6 space-y-3 text-center' },
         el('p', { class: 'text-sm muted' }, `Read on ${String(g.guideReadAt).slice(0, 10)}`),
         el('a', { href: app.isAdmin ? '#/guide-edit' : '#/sessions', class: 'btn btn-primary w-full' },
           app.isAdmin ? [icon('pencil'), 'Edit the guide'] : [icon('calendar'), 'Find a session']));
     } else {
-      const done = el('button', { type: 'button', class: 'btn btn-success w-full' }, icon('tick'), "I've read the guide");
+      // Locked until the volunteer has scrolled to the end of the guide (31 Oct testing feedback):
+      // a marker after the last section unlocks it once it comes into view.
+      const done = el('button', { type: 'button', class: 'btn btn-success w-full', disabled: true }, icon('down'), 'Scroll to the end to continue');
+      endMarker = el('div', { 'aria-hidden': 'true', style: 'height:1px' });
+      const unlock = () => {
+        if (!done.disabled) return;
+        done.disabled = false;
+        done.replaceChildren(icon('tick'), "I've read the guide");
+      };
+      if ('IntersectionObserver' in window) {
+        const seen = new IntersectionObserver((entries) => {
+          if (entries.some((e) => e.isIntersecting)) { unlock(); seen.disconnect(); }
+        });
+        seen.observe(endMarker);
+      } else {
+        unlock(); // very old browsers: don't block anyone
+      }
       done.addEventListener('click', () => busy(done, 'Saving…', async () => {
         const res = await call('acknowledgeGuide');
         storage.set('minds.guide', { ...g, guideReadAt: new Date().toISOString().slice(0, 10) });
@@ -85,6 +102,7 @@ export function renderGuide(root, app, ctx) {
           g.projects.map(projectCard),
         ] : null,
         rest.map((s, i) => sectionCard(s, i + 1))),
+      endMarker,
       footer);
   };
 

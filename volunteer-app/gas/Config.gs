@@ -60,6 +60,13 @@ const CONFIG = {
   NOTES_SHOWN_TO_VOLUNTEERS: 5,  // newest shared trainee notes a paired volunteer can read
   AUTO_SHARE_OBSERVATIONS: false, // false = a leader reviews volunteer observations before they become trainee notes
 
+  // Automatic clock-out (AutoClock.gs). Turn it on in Admin → Settings → Advanced settings.
+  AUTO_CLOCK_OUT_AFTER_MINUTES: 60, // records still open this long after the session ends are clocked out at its end time
+  AUTO_CLOCK_OUT_DEFAULT_END: '17:30', // the end time to use when a record has no session
+
+  // Sessions
+  SESSION_SPOTS: false, // true = admins can set "Volunteer slots" and volunteers see "N spots left" / "Full" (removed after 31 Oct testing)
+
   // New volunteers
   REQUIRE_GUIDE_BEFORE_BOOKING: true, // volunteers must read the Volunteer Guide once before their first booking
   // Infographics in the Volunteer Guide (images or PDFs). Uploads go to a Google
@@ -242,7 +249,7 @@ const CONFIG = {
         source: 'Source',        // Volunteer feedback | Volunteer update | Leader
         feedbackId: 'Feedback ID',
         status: 'Status',        // shared | hidden (= private)
-        audience: 'Shared With', // all | regular | selected | private (see NOTE_AUDIENCES)
+        audience: 'Shared With', // paired | all | regular | selected | private (see NOTE_AUDIENCES)
         sharedWith: 'Shared With Volunteers', // user IDs, when audience = selected
         sharedWithNames: 'Shared With (Names)', // the same people by name, for reading the sheet
         addedBy: 'Added By',
@@ -602,6 +609,9 @@ const CONFIG = {
    note (Trainees → Notes to review) or add or change a note on a trainee's page.
    "private" notes are kept for admins, never deleted. */
 const NOTE_AUDIENCES = {
+  // The default (31 Oct testing feedback): the trainee's own volunteers see it without an admin
+  // picking them. Worked out when the note is read, so it follows changes to Regular Pairings.
+  paired: { label: "Share with this trainee's volunteers", hint: 'Their regular volunteers, and anyone paired with them in the last 2 weeks.', done: "shared with the trainee's volunteers" },
   all: { label: 'Share with all volunteers', hint: 'Everyone paired with this trainee, and every regular.', done: 'shared with all volunteers' },
   regular: { label: 'Share with regular volunteers only', hint: 'Regulars can read it; volunteers can\'t.', done: 'shared with regular volunteers only' },
   selected: { label: 'Share with selected volunteers', hint: 'Only the volunteers you pick (they see it when they open this trainee).', done: 'shared with the volunteers you picked' },
