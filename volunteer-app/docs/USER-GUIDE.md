@@ -1,6 +1,6 @@
 # Using the MINDS Volunteer App
 
-For volunteers, regular volunteers and admins (Version 3). Setup and code are covered in the
+For volunteers, regular volunteers and admins (Version 4.8). Setup and code are covered in the
 [README](../README.md).
 
 ## Finding your way around
@@ -42,7 +42,7 @@ The same labels are used everywhere in the app:
 | --- | --- | --- |
 | **Volunteer** | Everyone starts here | An admin pairs you with a trainee for each session. You see the details of your paired trainee that admins allow. |
 | **Regular** | After 10 attended sessions (automatic), or when an admin promotes you | You can read about any trainee. An admin can give you one or more fixed trainees, who you're paired with every time you say you're coming. |
-| **Admin** | Volunteers with admin access (becoming an admin makes someone a regular) | The Admin menu, on top of everything above. |
+| **Admin** | Volunteers with admin access. Admins are always regulars | The Admin menu, on top of everything above. |
 
 ## For every volunteer
 
@@ -80,9 +80,8 @@ Good to know:
 Open **Admin** (phone) or **Dashboard** in the sidebar (computer). The Dashboard's **Home** tab has **Create Session**, **Session Management** (pick a session, then **Pair**, **Who's coming**, **Scan** or **Clock in**: each session's actions are here, once) and **Upcoming Sessions** (who's coming, paired and to pair by project, and **Copy Info** for Telegram). It also has:
 
 - **Create New Session** (pick a date and go).
-- **Session Management:** choose a session, then **Pair**, **Who's coming**, **Scan**,
-  **Clock in** (Scan and Clock in work on the day) or **Regular pairings**.
-- **Records** shortcuts: Volunteers, Trainees, Hours, Dashboard, Settings.
+- **Session Management:** choose a session, then **Pair**, **Who's coming**, **Scan** or
+  **Clock in** (Scan and Clock in work on the day).
 - **Upcoming Sessions:** a card per session with who's coming, paired and still to pair for each
   project, and **Copy Info** (session, venue and who's coming with their trainees, ready to paste
   into Telegram).
@@ -101,7 +100,7 @@ Then six sections, plus **More**:
 | Check who has been with whom | **Pairing** → **History**: sessions together for every pair, and each regular's fixed trainees over time |
 | Clock people in | **Scan** for the session (on the day). If a phone is flat: **Clock in** → **Clock in** / **Clock out** by hand, or add a walk-in |
 | Look after volunteers | **Volunteers** → **People**: filter (Active / Deactivated / Everyone, and by profile), search, **Add volunteer**, **Deactivate**. A volunteer's page has **Promote to regular** / **Move back to volunteer**, **Make an admin** / **Remove admin access**, **Reset password** and **Deactivate** / **Reactivate**. Admins are always regulars: an admin's page has no **Move back to volunteer**; use **Remove admin access** first (they stay a regular), and then the button appears; **Edit** saves details (and updates their Google contact, after a warning). Each change warns first; admin changes need the **admin password**. Deactivating cancels their upcoming sessions (their hours, notes and history stay) |
-| Fix attendance, export hours | **Volunteers** → **Attendance** (fix a missed scan) and **Hours** (export CSV) |
+| Fix attendance, export hours | **Volunteers** → **Attendance** (fix a missed scan; rows marked **Auto clock-out** were closed at the session's end time by automatic clock-out, so check them) and **Hours** (export CSV) |
 | Add a trainee | **Trainees** → **Add trainee**: MINDS's House Visit Form. The ✱ questions are required (Project, Full Name, NRIC, Date of Birth, Spoken Language, Gender, Short Name, Caregiver 1's name and contact); the rest can be filled in later |
 | Look after trainees | **Trainees** → a trainee: all their details, **Change photo** / **Remove**, **New house visit**, **What volunteers see** (just for them), **Edit**, their regular volunteers and notes. Tapping a trainee anywhere in the volunteer screens also brings admins here |
 | Decide who reads a note | On the trainee's page → **Who can read**: this trainee's volunteers (the default: their regulars and anyone paired with them in the last 2 weeks), all volunteers, regulars only, selected volunteers, or private (admins only). A note shared with selected volunteers shows **Shared with selected volunteers**: press and hold it (right-click on a computer) to see who |
@@ -110,7 +109,7 @@ Then six sections, plus **More**:
 | Record a house visit | **More** → **House visits** → **New visit** (or **New house visit** on a trainee's page). **Find Trainee** prefills MINDS's House Visit Form with what's known; **+ Start New Blank Visit** is for a trainee who isn't in the sheet yet (they're added with the next Trainee ID). **Submit** saves the visit and updates the trainee's details |
 | Change the guide | **Settings** → **Guide & projects**: **Edit** a section, **Add text**, or **Add Files**: choose **Import from device** (choose a file or drag it into the box; a preview shows, and **Remove** clears a wrong one) or **Import from Google Drive** (paste the link). Drag the ⠿ handle to reorder. **Preview as a volunteer** shows the result |
 | Edit projects and venues | **Settings** → **Guide & projects** (projects: RSPID (CTDC), RSPID (WGS) and West End; registration offers these plus the RSPID Alumni options) and **Venues** |
-| Change the admin password | **Settings** → **Admin password**: the current one, then the new one twice. Tell the other admins |
+| Change the admin password | **Settings** → **Admin password**: the current one, then the new one twice. Tell the other admins. It's separate from your sign-in password: a wrong one shows **Wrong admin password** with the tries left (5, then a 15-minute wait). Forgotten? The Apps Script project's owner runs `resetAdminPassword()` |
 | Use a different Google Sheet | **Settings** → **Google Sheets**: for the volunteer database, or the trainee & house visit database (MINDS's House Visit responses), **Create New Sheet**, search Google Drive and **Link**, or paste a URL and **Connect**. Setup runs by itself afterwards |
 | Check or repair the setup | **Settings** → **Advanced settings**: **Check the setup** (read only), **Run setup** and **Save all volunteers to Google Contacts** (both need the admin password), and **Turn on / Turn off automatic clock-out** (anyone still clocked in an hour after their session ends is clocked out at the end time; they show **Auto clock-out** in Attendance). Each shows a report and goes in the Activity log |
 
@@ -123,6 +122,12 @@ decides how they fit.
   them straight away. Everyone else shows as unpaired until an admin pairs them. A pairing an
   admin sets for one session is never overwritten by a fixed-trainee change.
 - **Trainees without a regular** are highlighted, because ideally each has at least one.
+- **Admins are always regulars.** An admin's page has no **Move back to volunteer**; remove their
+  admin access first (they stay a regular), and then the button appears.
+- **Automatic clock-out** (when an admin has turned it on): once an hour, anyone still clocked in
+  an hour after their session ended is clocked out at the session's end time.
+- **Who reads a note by default:** the trainee's own volunteers, worked out when the note is
+  opened, so it follows changes to pairings.
 - **Becoming a regular:** counted from sessions someone was clocked out of. Volunteers don't
   see the count; admins see it on the volunteer's page. If an admin set someone's profile by
   hand, the automatic rule leaves them alone.

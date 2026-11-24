@@ -15,6 +15,32 @@ MINDS's other apps"). Shared controls are applied app-wide so new screens get th
 own calendar picker, as in the outing app. `ui.js` `searchBox` has the Overseas clear (✕) button;
 the pairing board shows the Overseas "Saved / Saving…" state.
 
+## Version 4.8 (31 October testing): design decisions
+
+- **The guide lock is a nudge, not proof.** "I've read the guide" unlocks when a marker after
+  the last section scrolls into view (`IntersectionObserver` in `views/content.js`). The server
+  can't tell whether anyone read it; it only records that they reached the end.
+- **Automatic clock-out is a time-driven trigger**, not something done on the next request:
+  open records must close even when nobody uses the app. `autoClockOut()` (`gas/AutoClock.gs`)
+  runs hourly under the script lock and closes records open `AUTO_CLOCK_OUT_AFTER_MINUTES` after
+  the session's end, **at the end time** (not "now", which would inflate hours). Records clocked
+  in after the session ended are left for an admin, because there's no sensible time to use.
+  Creating the trigger needs the `script.scriptapp` permission, so it's switched on from
+  Advanced settings rather than at deploy time.
+- **Spots are switched off, not deleted** (`CONFIG.SESSION_SPOTS`). The Capacity column and its
+  values stay, so MINDS can turn limits back on without losing them; `sessionCap_()` is the
+  only place that reads it.
+- **"This trainee's volunteers" is worked out when a note is read** (`isTraineesVolunteer_` in
+  `Trainees.gs`): their regulars (Regular Pairings) and anyone paired with them in the last
+  `FEEDBACK_WINDOW_DAYS`. Storing a list of names at review time would go stale as pairings
+  change. It is the default audience for reviewed, admin-added and auto-shared notes.
+- **Slow replies are built after the lock.** Saving a session rebuilds its page in `afterLock`
+  (as removing a volunteer already did), so other admins' saves don't queue behind it, and the
+  session page hides a removed volunteer at once, putting them back if the save fails.
+- **The website is built and published in separate jobs** (`.github/workflows/volunteer-app-pages.yml`):
+  with both in one job, `deploy-pages` sometimes couldn't find the artifact it had just been
+  given (actions/deploy-pages#451), and re-running everything uploads a second one.
+
 ## Version 3 (October 2026): what changed in the design
 
 Version 3 follows Mr Sadil's call 2 feedback and MINDS's "Template Prompts for Creating
@@ -60,7 +86,9 @@ Mode" or the separate staff dashboard; those are replaced as follows.
 - **Volunteer types live on the person** (`Volunteer Type` column). Promotion after
   `REGULAR_AFTER_SESSIONS` attended sessions happens in the same locked write as the
   clock-out that reaches it. `Type Set By` records whether a person or the rule set it; the
-  rule never overrides a person.
+  rule never overrides a person. One exception since 4.8: **admins are always regulars**
+  (`volunteerType_` says so whatever the sheet holds, `setVolunteerType_` refuses to move an
+  admin back, and setup repairs such rows), so an admin can't become a new volunteer.
 - **No confirmation step.** Saying "I'm coming" writes a `confirmed` booking. Older
   `pending` rows are treated as coming.
 - **Pairing is explicit, not guessed.** The Version 1 picker (continuity, then fewest
@@ -130,7 +158,9 @@ Mode" or the separate staff dashboard; those are replaced as follows.
   generates it and shows it once; admins change it in the app with the current one;
   `resetAdminPassword()` in the editor makes a new one. Only a salted hash is kept, in a script
   property. 5 wrong tries lock it for that admin for 15 minutes. The app asks for it on
-  `PASSWORD_REQUIRED` and retries.
+  `PASSWORD_REQUIRED` and keeps asking until it's right or cancelled; a wrong password says so,
+  with the tries left (4.8.1: it used to repeat "Enter the admin password", which looked like
+  the app forgetting it). A stray space at either end is forgiven.
 
 ## Why not bolt Sheets and QR onto the existing Node app?
 
@@ -349,8 +379,9 @@ trips, house visits, the old Prototype 1 modules) lives in a separate page,
 
 ## Next steps worth considering
 
-- Telegram reminders the day before a session (Apps Script time-driven trigger
-  + Telegram Bot API).
+- Reminders the day before a session (asked for in the 31 Oct testing): a daily time-driven
+  trigger, like automatic clock-out, sending by email (MailApp; daily quotas apply) or a
+  Telegram bot (free, but each volunteer has to start the bot once). See FUTURE-CONTRIBUTIONS.md.
 - Same-gender or interest-based pairing rules (see above).
 - Charts on the dashboard overview (hours per month, sales over time).
 - Move the two CDN libraries into the repo once you have npm access, so the

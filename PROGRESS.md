@@ -7,13 +7,13 @@ session; the [session log](#session-log) at the bottom covers both.
 
 | Item | Value |
 | --- | --- |
-| Goal | Volunteer management PWA for MINDS: registration, Volunteer Guide, booking, automatic trainee pairing, QR clock-in/out, feedback → trainee notes, venues, profile editing. Plus a staff dashboard (`web/admin/`) on the same backend and sheet: overview, attendance fixes, hours report + CSV, volunteers, trainees (add/edit), fundraising, outings, overseas trips, house visits |
+| Goal | Volunteer management web app for MINDS: registration with MINDS's form, the Volunteer Guide, saying you're coming, pairing by admins (plus regulars' fixed trainees), QR clock-in/out, notes and updates about trainees, house visits, hours. One app for volunteers, regulars and admins (Admin menu: sessions, pairing, volunteers, trainees, settings) |
 | Stack | Google Apps Script API + Google Sheets; HTML / vanilla JS / Tailwind PWA on GitHub Pages; GitHub Actions + clasp |
-| Run locally | `cd volunteer-app && npm run dev` → http://localhost:5173 (phone app) and http://localhost:5173/admin/ (staff dashboard); real `gas/*.gs` against an in-memory sheet |
-| Tests | `cd volunteer-app && npm test` → 56 backend tests (37 phone app in `tests/gas.test.js`, 19 dashboard in `tests/dashboard.test.js`) |
-| Docs | [README](volunteer-app/README.md), [USER-GUIDE](volunteer-app/docs/USER-GUIDE.md), [DESIGN-NOTES](volunteer-app/DESIGN-NOTES.md) |
-| Status | Working prototype, tested locally (phone app in a phone-sized browser; dashboard by a scripted Chromium walkthrough at 1440/1024/800 px). Not yet run end to end on real Google Apps Script with real phones |
-| Next steps | 1) Connect to a real Google Sheet (README Part 3) using `docs/demo-data/MINDS-Volunteer-Demo-Data.xlsx`, run `setup()`, try the phone app on real phones and the dashboard on a laptop. 2) A human click-through of the dashboard. 3) Agree with MINDS which trainee fields volunteers see (PDPA) |
+| Run locally | `cd volunteer-app && npm run dev` → http://localhost:5173; the real `gas/*.gs` against an in-memory sheet |
+| Tests | `cd volunteer-app && npm test` → 136 tests; before merging, `node dev/check-deploy.mjs` → "ready to deploy" |
+| Docs | [README](volunteer-app/README.md), [USER-GUIDE](volunteer-app/docs/USER-GUIDE.md), [DESIGN-NOTES](volunteer-app/DESIGN-NOTES.md), [VERSION-4](VERSION-4.md), [TODO](TODO.md), [FUTURE-CONTRIBUTIONS](FUTURE-CONTRIBUTIONS.md) |
+| Status | **Version 4.8.1**, live on Exp (GitHub Pages + Apps Script, deployed from `main` by GitHub Actions). Load-tested with 100 volunteers and 10 admins; user testing on 31 Oct, feedback done except reminders. Not yet on Prod (waiting for MINDS's Google account) |
+| Next steps | 1) Reminders (email or Telegram, MINDS to choose). 2) Turn on automatic clock-out on Exp and watch a session. 3) Real-phone checks (TODO.md 3.1, 7). 4) Prod setup once MINDS provides the account (TODO.md 3.5). See TODO.md and FUTURE-CONTRIBUTIONS.md |
 
 ## Prototype 1 (`prototype-1/`) — complete
 
@@ -205,4 +205,6 @@ account, no user management; not production-ready.
 | 2026-10-31 | 73 | v4.6.1 from real-iPhone screenshots: date boxes fit and say Any date / Choose a date on iPhone (controls.js, iOS only); Lovable's pairing size rules removed from input.css and styles.css (board measures as v4.3.1), name full width with +Trn/+Vol below, smaller under 380 px; table buttons nowrap; Hours toolbar rule scoped; Activity log readable (createVisit + 17 labels). New dev/check-fit.py. 131 tests; all checks clean except the documented 320 px chips. |
 | 2026-10-31 | 74 | v4.7: back to the 4.3 design (website files from be0e49a, its stylesheet plus one "Kept" block) keeping All pages, bottom tabs, shrinkable sidebar and organised information (grouped Me / volunteer details, Sections menu, House Visit rows), with all fixes since. Consistency: pairing headings both left, All pages own icon, Sections icon, answers left-aligned, small buttons on one line (Hours row wraps). All checks clean (320 px chips known). |
 | 2026-10-31 | 75 | v4.7.1: iPhone date box in a row shrank to 34 px (New session): .date-wrap fills its row; blocks holding a date box keep 10rem on iOS (Attendance/Hours on iPad). check-fit.py --ios (imitates Safari's empty date boxes; reproduced the bug), too-small check, sign-in/registration and pop-ups covered. Pop-up buttons nowrap. Pairing filter ALL → UNPAIRED → PAIRED. All checks clean. |
-
+| 2026-11-24 | 76 | v4.8 from the 31 Oct testing feedback: the guide's button unlocks at the end; press-and-hold opens on the first try (the release click closed the new card); Remove is instant and session saves rebuild after the lock; automatic clock-out (hourly trigger, Advanced settings switch, `script.scriptapp` scope); session spots off (`SESSION_SPOTS`); notes default to "this trainee's volunteers" (`paired`, worked out when read). Then admins are always regulars (no Move back to volunteer while an admin). 135 tests; browser checks against the demo. PR #36 |
+| 2026-11-25 | 77 | v4.8.1: the website deploy failed ("No artifacts named github-pages", then "Multiple artifacts" after re-runs): build and deploy split into two jobs, Pages actions v5. Wrong admin password now says so with the tries left, and the pop-up keeps asking until right or cancelled; stray spaces forgiven. 136 tests. PR #37 |
+| 2026-11-25 | 78 | Docs refreshed to 4.8.1 (READMEs, user guide, Exp setup, design notes, AGENTS deploy rules, VERSION-4 §14, TODO with the 31 Oct feedback); new FUTURE-CONTRIBUTIONS.md for the next team |
