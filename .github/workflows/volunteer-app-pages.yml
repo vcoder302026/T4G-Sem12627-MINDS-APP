@@ -24,18 +24,19 @@ concurrency:
   group: pages
   cancel-in-progress: true
 
+# Two jobs, like GitHub's own Pages starter workflows: "build" uploads the site, then "deploy"
+# publishes it. With both in one job, deploy-pages sometimes couldn't find the artifact it had
+# just been given ("No artifacts named github-pages were found", 24 Nov 2026; see
+# actions/deploy-pages#451). If only the deploy fails, "Re-run failed jobs" reuses the upload.
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     defaults:
       run:
         working-directory: volunteer-app
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
       - name: Build Tailwind CSS
@@ -81,8 +82,17 @@ jobs:
           EOF
           grep -n "APP_ENVIRONMENT = \|_API_URL = " web/js/config.js
       - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v3
+      # v5 leaves out hidden files (names starting with "."); web/ has none.
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: volunteer-app/web
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
       - id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
