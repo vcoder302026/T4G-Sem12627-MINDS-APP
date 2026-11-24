@@ -16,13 +16,16 @@ volunteer hours, attendance and pairing.
 It runs on **Google Apps Script + Google Sheets** (MINDS's own sheets, including the House
 Visit form responses), with the web app on GitHub Pages.
 
-**Status: Version 4.7.1**, tested on the Exp environment with 100 volunteers and 10 admins at once.
+**Status: Version 4.8.1** (November 2026), live on the Exp environment: load-tested with 100
+volunteers and 10 admins at once, then a round of testing with users on 31 October whose feedback
+is in. Production waits on MINDS's Google account (see [TODO.md](TODO.md)).
 
 | Read this | For |
 | --- | --- |
 | **[volunteer-app/README.md](volunteer-app/README.md)** | Features, running the demo, setting it up on Google, configuration, speed and load testing, troubleshooting |
 | **[User guide](volunteer-app/docs/USER-GUIDE.md)** | How volunteers, regulars and admins use the app, step by step |
-| **[VERSION-4.md](VERSION-4.md)** | What Version 4 changed (MINDS's 29 October call, then the speed work) and how to upgrade |
+| **[VERSION-4.md](VERSION-4.md)** | What Version 4 changed (MINDS's 29 October call, the speed work, the 31 October testing feedback) and how to upgrade |
+| **[FUTURE-CONTRIBUTIONS.md](FUTURE-CONTRIBUTIONS.md)** | Picking the project up: getting set up, where things are in the code, how to change and deploy safely, and what to build next |
 | [Exp setup guide](volunteer-app/docs/EXP-SETUP.md) | Setting up a test environment from scratch, with mock data |
 | [TODO.md](TODO.md) | What's still open, and questions for MINDS |
 
@@ -33,7 +36,7 @@ Try the app on your computer with demo data (no Google account needed; Node.js 2
 ```bash
 git clone https://github.com/vcoder302026/T4G-Sem12627-MINDS-APP.git
 cd T4G-Sem12627-MINDS-APP/volunteer-app
-npm test         # 131 tests
+npm test         # 136 tests
 npm run dev      # → http://localhost:5173
 ```
 
@@ -59,6 +62,7 @@ volunteer-app/        the MINDS Volunteer App
 .github/workflows/    publish the web app and deploy the backend when main changes
 prototype-1/          Prototype 1: the team's earlier offline staff app (Node.js, SQLite)
 AGENTS.md             rules for changing the app (MINDS's template, consistency, checks)
+FUTURE-CONTRIBUTIONS.md  for the next team: setup, code map, workflow, what to build next
 VERSION-4.md          what Version 4 changed (VERSION-1–3.md, STEVEN-UPDATE.md: earlier)
 TODO.md               what's still open
 PROGRESS.md           progress log
@@ -73,7 +77,7 @@ PLAN.md               Prototype 1's build plan
 | [Version 1](VERSION-1.md) | Oct 2026 | The volunteer app on Google Apps Script and Sheets |
 | [Version 2](VERSION-2.md), [STEVEN-UPDATE](STEVEN-UPDATE.md) | Oct 2026 (update: 27 Oct) | MINDS's registration form, trainee sheet, pairing, House Visit Form |
 | [Version 3](VERSION-3.md) | 28 Oct 2026 | Pairing board like the WERONE outing app, every phone size, warnings, standard projects |
-| **[Version 4](VERSION-4.md)** | 29–30 Oct 2026 | Short names, Google Contacts on save, files on notes, one trainee & house visit database, Add trainee with the House Visit Form, the Dashboard, speed and live updates (4.1–4.3), design updates with Lovable (4.4–4.6; 4.7 back to the 4.3 design, keeping All pages, bottom tabs, the shrinkable sidebar and organised information) |
+| **[Version 4](VERSION-4.md)** | 29 Oct – Nov 2026 | Short names, Google Contacts on save, files on notes, one trainee & house visit database, Add trainee with the House Visit Form, the Dashboard, speed and live updates (4.1–4.3), design updates with Lovable (4.4–4.6; 4.7 back to the 4.3 design, keeping All pages, bottom tabs, the shrinkable sidebar and organised information); 4.8 the 31 Oct testing feedback (guide must be read to the end, automatic clock-out, notes shared with the trainee's own volunteers by default, no session spots, admins always regulars, faster removals); 4.8.1 a sturdier website deploy and a clear wrong-admin-password message |
 
 ## Working together
 
@@ -83,5 +87,9 @@ PLAN.md               Prototype 1's build plan
   `node dev/check-deploy.mjs` ("ready to deploy"). For layout changes, also run the
   `dev/check-*.py` scripts (volunteer app README, Part 2, Step 6). The rules for changes are in
   [AGENTS.md](AGENTS.md).
+- If a change adds a Google permission (`oauthScopes` in `volunteer-app/gas/appsscript.json`),
+  the Apps Script project's owner must run any function once in the editor after the deploy and
+  approve it; until then the app can't reach the backend.
 - Use fictional data only. Never commit real volunteer or trainee details, `.clasp.json`,
   `.clasprc.json`, the `APP_SECRET`, or Apps Script URLs and Sheet IDs.
+- New to the project? Start with [FUTURE-CONTRIBUTIONS.md](FUTURE-CONTRIBUTIONS.md).

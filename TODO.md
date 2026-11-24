@@ -1,19 +1,54 @@
 # To do
 
-What's still open after Version 3 (October 2026): decisions MINDS needs to make, features
-not built yet, and things to check before real volunteers use the app. Tick items off as
+What's still open after Version 4.8.1 (November 2026): decisions MINDS needs to make, features
+not built yet, and things to check before real volunteers use the app. For how to pick these up,
+see [FUTURE-CONTRIBUTIONS.md](FUTURE-CONTRIBUTIONS.md). Tick items off as
 they're done, and move finished ones into `PROGRESS.md`.
 
-Sources: the October meeting minutes and call 2 with MINDS, `VERSION-3.md` §6, and the
-"Limits of this prototype" section of `volunteer-app/README.md`.
+Sources: the October meeting minutes and call 2 with MINDS, `VERSION-3.md` §6, the 31 October
+testing feedback (`VERSION-4.md` §13), and the "Limits of this prototype" section of
+`volunteer-app/README.md`.
 
 **Contents**
 
+- [Latest: 31 October testing feedback](#latest-31-october-testing-feedback)
 1. [Waiting for MINDS to decide](#1-waiting-for-minds-to-decide)
 2. [Not built yet](#2-not-built-yet)
 3. [Built, but check before launch](#3-built-but-check-before-launch)
 4. [Tidy-ups](#4-tidy-ups)
 5. [Left out on purpose](#5-left-out-on-purpose)
+6. [From MINDS's web app template](#6-from-mindss-web-app-template-not-built-yet)
+7. [Check on a real iPhone](#7-check-on-a-real-iphone-from-471)
+
+---
+
+## Latest: 31 October testing feedback
+
+Done in Version 4.8 / 4.8.1 (`VERSION-4.md` §13–14):
+- [x] "I've read the guide" unlocks only at the end of the guide
+- [x] Press and hold on a name opens the card on the first try
+- [x] Removing a volunteer from a session is instant; cancelling a session no longer holds up other admins
+- [x] Simple user guide for new admins (`volunteer-app/docs/USER-GUIDE.md`)
+- [x] Automatic clock-out at the session's end time (Advanced settings switch)
+- [x] Session spots removed (`SESSION_SPOTS: false`; can be switched back on)
+- [x] Notes go to the trainee's own volunteers by default
+- [x] Admins are always regulars; only **Remove admin access** on an admin's page
+- [x] Website deploy fixed; a wrong admin password says so
+
+Still open:
+- [ ] **Reminders** the day before a session. Decide with MINDS: **email** (simplest; Apps Script
+  MailApp has a daily quota, roughly 100 a day on a personal Gmail account, more on Workspace) or
+  a **Telegram bot** (free; each volunteer starts the bot once). Two kinds:
+  - [ ] volunteers: "You're coming to … tomorrow, paired with …"
+  - [ ] admins: the next day's numbers, who's unpaired, and a **Things to bring** checklist
+    (a new field on sessions and outings)
+- [ ] Turn on automatic clock-out on Exp and watch a session or two (check the **Auto clock-out**
+  rows in Attendance); then decide whether 60 minutes after the session is right
+- [ ] Press and hold on a real iPhone and Android phone (see 3.1)
+- [ ] Tell MINDS that notes now go to the trainee's own volunteers by default, and confirm that's
+  what they want (PDPA: fewer people see each note than before)
+- [ ] Optional: cancelling a session also cancels its bookings and tells the volunteers (today
+  they just stop seeing it)
 
 ---
 
@@ -120,7 +155,7 @@ people what to do. Keep, shorten or remove?
 ### 3.1 Test on real phones (live HTTPS site)
 - [ ] QR scanning with two phones, and with a pass shown on a laptop screen (the jsQR decoder
   was only tested with a simulated camera)
-- [ ] Press-and-hold for contact details on iPhone and Android
+- [ ] Press-and-hold for contact details on iPhone and Android (the "needs two tries" bug was fixed in 4.8 in an emulated phone)
 - [ ] Guide PDFs in the Google Drive preview on iPhone Safari
 - [ ] Offline: scan with no signal, then upload; QR pass with no signal
 - [ ] Dark mode on the newer screens (pairing board, Admin home, trainee pages, guide editor,
@@ -145,15 +180,24 @@ people what to do. Keep, shorten or remove?
 - [ ] Note the admin password `setup()` shows in the Execution log, give it to the admins, and
   have them change it (Settings → Admin password)
 
-### 3.4 Upgrade the live Exp setup to Version 3
-- [ ] Follow `VERSION-3.md` §4: push the `.gs` files, run setup (once in Apps Script, then from
-  Admin → Settings → Advanced settings), publish a new version, merge into `main`
+### 3.4 Exp is on Version 4.8.1
+- [x] Exp upgraded (deploys run from `main` through GitHub Actions)
 - [ ] Try the House Visit Form against a **copy** of the House Visit responses, not the live sheet
+
+### 3.5 Before production
+- [ ] Set up the Prod Apps Script project and sheets as in `volunteer-app/README.md` Part 3, with
+  MINDS's Google account (1.4)
+- [ ] Approve every permission in the editor once (including triggers, for automatic clock-out),
+  note the admin password from `setup()`, and decide whether to turn automatic clock-out on
+- [ ] Do 3.1 and 3.3 first
 
 ---
 
 ## 4. Tidy-ups
 
+- [ ] The backend workflow (`.github/workflows/volunteer-app-gas.yml`) still uses `actions/checkout@v4`
+  and `actions/setup-node@v4`, which GitHub warns about (Node 20 is deprecated). Move them to v5, as
+  the website workflow did in 4.8.1.
 - [ ] Rebuild Tailwind with internet access (`npm run build:css`) and commit `web/styles.css`.
   Version 2 added a few hand-written fallback rules at the end of it so the local demo looks
   right without a rebuild; the CI deploy rebuilds it anyway.
@@ -184,17 +228,13 @@ people what to do. Keep, shorten or remove?
 - [ ] Decide with MINDS whether the single-page layout is acceptable, or whether they want the
   template's one-page-per-area structure (large change)
 
-## Wording to confirm
+## 7. Check on a real iPhone (from 4.7.1)
 
-
-## Check on a real iPhone after deploying 4.7.1
-
-- New session: the date box fills the row and says "Choose a date"; Attendance and Hours From / To on an iPad.
-- Pairing: the column button goes ALL → UNPAIRED → PAIRED.
-
-- Activity log (Dashboard → Activity log): From / To fit the screen and say "Any date" when empty;
+- [ ] New session: the date box fills the row and says "Choose a date"; Attendance and Hours From / To on an iPad.
+- [ ] Pairing: the column button goes ALL → UNPAIRED → PAIRED.
+- [ ] Activity log (Dashboard → Activity log): From / To fit the screen and say "Any date" when empty;
   picking a date shows it. Same for Attendance and Hours date ranges.
-- Pairing board: cards compact, names on one line, +Trn / +Vol beside the project.
+- [ ] Pairing board: cards compact, names on one line, +Trn / +Vol beside the project.
 - Known limit: on 320 px phones (2016 iPhone SE) a long trainee name in a pairing chip wraps
   between words.
 

@@ -84,8 +84,8 @@ where it differs on purpose:
 | Keep text short: no explanation lines under titles, no hint text under options or obvious fields; admins know the workflow | Yes. Only add text that carries information, gives a format, or prevents a mistake (and keep it to a few words) |
 | Warnings before major actions | Short: "Warning: You are <action>. Do you wish to continue?" (`ui.js` `majorActionPrompt`) |
 | Linking Google Sheets from the app (create new, search Drive, paste URL; verify tabs) | Yes, as in CSL Attendance's "Manage Google Sheet": Admin → Settings → Google Sheets (`gas/DataSources.gs`) |
-| Advanced Settings page for one-time setup/migration, with a data-loss warning, inside the admin area | Yes: Admin → Settings → Advanced settings (`gas/Maintenance.gs`). **Add future one-time jobs there.** |
-| Show/hide eye on every password field; Enter submits; wrong-password message near the field | Yes |
+| Advanced Settings page for one-time setup/migration, with a data-loss warning, inside the admin area | Yes: Admin → Settings → Advanced settings (`gas/Maintenance.gs`). **Add future one-time jobs there**, and switches for scheduled jobs (like **Turn on / off automatic clock-out**) |
+| Show/hide eye on every password field; Enter submits; wrong-password message near the field | Yes. The shared admin password's pop-up says **Wrong admin password** with the tries left |
 | Passwords in Script Properties | The shared admin password, yes (hashed). Volunteer passwords are per person, hashed in the hidden `_Auth` tab |
 | Skeletons over spinners | Yes (`ui.js` `loading`) |
 | Rolodex picker; drag-and-drop engine (touch + mouse) | Yes for times (HH · MM wheel, `web/js/controls.js`); dates use the browser's calendar, as MINDS chose. Drag and drop: `web/js/dnd.js` |
@@ -96,6 +96,23 @@ where it differs on purpose:
 | Default passwords `P@ssw0rd` | Not used: `setup()` generates a random admin password (safer for personal data) |
 | CacheService write-through caching, polling with stale-payload rejection | Not yet: worth adding if many admins use the pairing board at once |
 | One-click code backup to a Google Doc | Not yet (see TODO.md) |
+
+### Deploying safely (learned from Version 4.8)
+
+- **New Google permissions:** adding a line to `oauthScopes` in `gas/appsscript.json` can't be
+  approved by the deploy. Say so in the pull request; straight after the deploy, the project's
+  owner runs any function once in the Apps Script editor and approves it.
+- **Scheduled jobs** (time-driven triggers) are created from an Advanced settings switch, never
+  at deploy time, and must run under `withLock_` and bump the data version when they change rows
+  (see `gas/AutoClock.gs`). Add any new Apps Script service to the fake services in
+  `dev/gas-harness.js` so it can be tested.
+- **Website deploy:** build and publish stay in separate jobs. If only **deploy** fails, use
+  **Re-run failed jobs**; **Re-run all jobs** uploads a second artifact and fails.
+- **Styles:** `web/styles.css` is committed and only rebuilt by the deploy. A Tailwind class
+  that isn't already in it won't show in the local demo or pass `check-deploy.mjs`: reuse an
+  existing class, or add a named rule in `web/src/input.css`.
+- **Turning features off:** prefer a switch in `gas/Config.gs` (like `SESSION_SPOTS`) to deleting
+  code or columns, so MINDS can change their mind without losing data.
 
 If a request conflicts with these apps, follow the request and note the difference in
 `volunteer-app/DESIGN-NOTES.md`.

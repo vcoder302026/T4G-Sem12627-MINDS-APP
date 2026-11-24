@@ -1,6 +1,7 @@
 # MINDS Volunteer Management: Version 4
 
-Changes from the call with MINDS on 29 October 2026. Version 3 is described in
+Changes from the call with MINDS on 29 October 2026, the speed work that followed, and the
+31 October testing feedback (§13–14). Version 3 is described in
 [VERSION-3.md](VERSION-3.md); step-by-step use is in the
 [user guide](volunteer-app/docs/USER-GUIDE.md).
 
@@ -334,3 +335,18 @@ Checked: `check-deploy.mjs` ready to deploy (135 tests: new ones for spots off, 
 audience, auto clock-out and the admin → regular sequence); the admin buttons (make admin, remove
 admin access, move back), the guide lock, long press, instant Remove, the review default and
 the Advanced settings buttons in a phone-sized browser against the local demo.
+
+## 14. Version 4.8.1: after deploying 4.8 (24–25 Nov)
+
+| What happened | Fix |
+| --- | --- |
+| The website deploy for 4.8 failed: "No artifacts named github-pages were found", although the site had been uploaded. Re-running everything then failed with "Multiple artifacts named github-pages" | The web workflow now builds and uploads the site in a **build** job and publishes it in a separate **deploy** job, as GitHub's own Pages workflows do (actions/deploy-pages#451). Pages actions moved to v5 (Node 24), checkout and setup-node to v5. A failed deploy is re-run with **Re-run failed jobs**, which reuses the upload |
+| The admin password pop-up kept coming back. A wrong password gave the same "Enter the admin password…" message as a missing one | A wrong admin password now says so: "That admin password isn't right. It's the shared admin password, not your sign-in password. N tries left…", with how to reset it. The pop-up is titled **Wrong admin password** and keeps asking until it's right or cancelled. A stray space or line break at either end (copied from the Execution log) is forgiven (`gas/AdminPassword.gs`, `web/admin/js/views/people.js`) |
+
+**Lessons for later updates** (also in FUTURE-CONTRIBUTIONS.md): approve new Google permissions
+in the Apps Script editor straight after the deploy; only ever re-run the failed job of the
+website deploy; and check a "permission" or "password" problem against the deployed code before
+changing anything.
+
+Checked: 136 tests; `check-deploy.mjs` ready to deploy; a wrong admin password twice, then the
+right one, in the browser against the local demo.

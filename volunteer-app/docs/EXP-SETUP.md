@@ -56,7 +56,7 @@ fundraising / outing / trip examples. Session dates are around 28 October 2026.
 1. Go to https://script.google.com → **New project**. Name it **MINDS Volunteer App (Exp)**.
 2. **Project Settings (⚙️) → IDs:** copy the **Script ID**.
 
-### 4. Upload the Version 3 code with clasp
+### 4. Upload the code with clasp
 
 1. Turn on the Apps Script API (once): https://script.google.com/home/usersettings →
    **Google Apps Script API: On**.
@@ -157,7 +157,8 @@ The People API it needs was turned on by `npm run gas:push` (step 4): in the App
 ### 6. Run setup (once, in the editor)
 
 1. Open **Setup.gs**, choose **`checkConfig`** in the function list, click **Run**.
-   **Review permissions → your account → Advanced → Go to … → Allow**. The Execution log lists
+   **Review permissions → your account → Advanced → Go to … → Allow**. (The list includes
+   managing the project's own triggers, used by automatic clock-out.) The Execution log lists
    what setup will do, without changing anything.
 2. Choose **`setup`** → **Run**. It adds the Trainee IDs to the House Visit sheet, checks every
    tab, and creates the **admin password**.
@@ -283,10 +284,13 @@ As Ada:
 2. **Settings → Admin password**: change the generated one (step 6) to one you'll share.
 3. **Settings → Google Sheets**: the volunteer and trainee databases show as connected.
 4. **Trainees → What volunteers see**: check what volunteers may see about trainees.
-5. **Settings → Advanced settings → Save all volunteers to Google Contacts** (with the admin
+5. Optional: **Settings → Advanced settings → Turn on automatic clock-out** (with the admin
+   password). Anyone still clocked in an hour after a session ends is then clocked out at its end
+   time, once an hour.
+6. **Settings → Advanced settings → Save all volunteers to Google Contacts** (with the admin
    password). The 35 mock volunteers were imported, not registered, so they aren't contacts yet;
    this saves them all. The report says how many were saved.
-6. Check it worked: open https://contacts.google.com with the Apps Script account. The label
+7. Check it worked: open https://contacts.google.com with the Apps Script account. The label
    **MINDS Volunteers (Exp)** on the left lists them. (The imported mock volunteers only have a Full
    Name, so it's all in First name, e.g. "Ada Admin"; editing someone in the app with First and Last
    name splits it.) In the app, a
@@ -303,7 +307,12 @@ As Ada:
 - **Notes:** as Rex → Mock Trainee 1 → **Send update**; as Ada → Trainees → **Notes to review**.
 - **House visit:** More → House visits → **New visit** (find a trainee, or **+ Start New Blank
   Visit**). Check the House Visit sheet afterwards.
-- **Warnings:** make Vera an admin, then remove it (asks for the admin password).
+- **Warnings:** make Vera an admin, then remove it (asks for the admin password). While she's an
+  admin, her page has no **Move back to volunteer**; it appears once admin access is removed. A
+  wrong admin password says **Wrong admin password** with the tries left.
+- **The guide:** register a new volunteer: **I've read the guide** unlocks only at the end.
+- **Notes:** a note reviewed with the default **Who can read** is seen by that trainee's
+  volunteers (paired in the last 2 weeks, or their regular), not by everyone.
 - **Google Contacts:** register a new test volunteer; they appear under **MINDS Volunteers (Exp)**
   in Google Contacts within a few seconds. Change their phone under **Me → Edit**: the contact
   updates.
