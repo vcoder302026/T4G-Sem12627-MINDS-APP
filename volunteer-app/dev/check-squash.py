@@ -13,7 +13,7 @@ BASE = 'http://localhost:5326'
 SIZES = [(280, 653), (360, 740), (412, 924), (768, 1024), (1024, 1366)]
 ADMIN = ['admin', 'today', 'pairings', 'pairings/regular', 'pairings/history', 'volunteers', 'attendance', 'hours', 'trainees', 'trainee/T-0001',
          'review', 'visibility', 'overview', 'log', 'guide-edit', 'venues', 'admin-password', 'sheets', 'advanced', 'visits', 'visit-new/T-0001', 'new-session']
-VOL = ['home', 'pass', 'sessions', 'me', 'edit-me', 'guide', 'info/T-0001']
+VOL = ['home', 'pass', 'sessions', 'sessions/past', 'me', 'edit-me', 'guide', 'info/T-0001']
 CHECK = r"""(() => {
   const out = [];
   const seen = new Set();

@@ -32,7 +32,7 @@ SIZES = [(320, 640), (375, 812), (393, 852), (430, 932), (768, 1024)]
 ADMIN = ['admin', 'overview', 'log', 'today', 'new-session', 'pairings', 'pairings/regular', 'pairings/history', 'volunteers',
          'attendance', 'hours', 'trainees', 'trainee/T-0001', 'trainee-new', 'review', 'visibility', 'guide-edit', 'venues',
          'admin-password', 'sheets', 'advanced', 'visits', 'visit-new/T-0001', 'fundraising']
-VOL = ['home', 'pass', 'sessions', 'me', 'edit-me', 'guide', 'info/T-0001']
+VOL = ['home', 'pass', 'sessions', 'sessions/past', 'me', 'edit-me', 'guide', 'info/T-0001']
 
 CHECK = r"""(() => {
   const out = new Set();
