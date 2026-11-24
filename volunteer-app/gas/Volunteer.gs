@@ -291,6 +291,7 @@ function pastSessions_(p, user) {
         clockOut: first ? first.clockOut : '',
         hours: done.length ? Math.round(done.reduce((sum, a) => sum + (Number(a.hours) || 0), 0) * 100) / 100 : null,
         noShow: !atts.length,
+        autoClockOut: done.some((a) => /auto/i.test(String(a.method || ''))), // closed by automatic clock-out (AutoClock.gs)
         rating: (fbs.find((f) => f.rating !== '' && f.rating !== null && f.rating !== undefined) || {}).rating || '',
         sessionFeedback: fbs.map((f) => f.sessionFeedback).filter(Boolean).join('\n'),
         notes: fbs.filter((f) => f.traineeObservation).map((f) => ({

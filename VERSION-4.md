@@ -350,3 +350,23 @@ changing anything.
 
 Checked: 136 tests; `check-deploy.mjs` ready to deploy; a wrong admin password twice, then the
 right one, in the browser against the local demo.
+
+## 15. Past sessions in the Sessions tab (25 Nov)
+
+The Sessions tab has an **Upcoming | Past** switch (`#/sessions/past`). **Past** lists past
+sessions, newest first (60 at a time, **Show older sessions** for more, cancelled sessions left
+out), with a search box. Tapping a session opens it:
+
+| Who | Sees |
+| --- | --- |
+| Admins | Every past session and everyone who signed up or was clocked in: who they were paired with, clock-in and out and hours (**Did not come**, **Auto clock-out**), rating, session feedback and trainee notes (**Waiting for review** until reviewed), plus a summary per session: came, hours, no-shows, notes |
+| Volunteers and regulars | Only sessions they signed up for or attended, and only their own row |
+
+Backend: one read-only action, `pastSessions` (`gas/Volunteer.gs`), built from the Sessions,
+Bookings, Attendance and Feedback tabs; nothing new is stored and no new permissions are needed.
+The phone keeps a copy for a fast first draw (`minds.pastSessions`), cleared at sign-out. Only
+classes already in `web/styles.css` are used, so no stylesheet rebuild is needed.
+
+Checked: 137 tests; `check-deploy.mjs` ready to deploy; `check-squash.py` (now including
+`sessions/past`) flags nothing on the page; the page in the browser against the local demo as an
+admin and as a volunteer.

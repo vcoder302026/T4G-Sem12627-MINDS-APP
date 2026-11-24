@@ -408,6 +408,7 @@ describe('signing up and pairing (volunteers, regulars, admins)', () => {
     const one = past.people.find((x) => x.name === 'Vol One');
     assert.deepEqual(one.trainees, [{ id: 'T-0002', name: 'Bea Lim' }]);
     assert.equal(one.hours, 2.5);
+    assert.equal(one.autoClockOut, false);
     assert.equal(one.rating, 4);
     assert.equal(one.sessionFeedback, 'Good fun.');
     assert.equal(one.notes[0].text, 'Loved drawing.');

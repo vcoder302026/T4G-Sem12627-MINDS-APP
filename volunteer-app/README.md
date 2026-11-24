@@ -5,7 +5,7 @@ It replaces paper attendance and manual hour logging. Volunteers say which sessi
 coming to and show a QR pass, admins pair them with trainees and scan the pass to clock them
 in and out, and the hours are recorded in a Google Sheet straight away.
 
-**One app for everyone.** Volunteers see Home, QR pass, Sessions and Me; regular volunteers
+**One app for everyone.** Volunteers see Home, QR pass, Sessions (**Upcoming** and **Past**) and Me; regular volunteers
 also see Trainees. Admins see all of that plus the **Admin** menu: sessions, pairing,
 scanning, volunteers, trainees, attendance, hours, house visits, the activity log and
 settings. On a phone the menu is the tab bar; on a computer it becomes a sidebar with the same

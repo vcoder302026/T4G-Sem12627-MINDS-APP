@@ -349,7 +349,7 @@ function pastPersonRow(x, showName) {
   return el('div', { class: 'space-y-2 p-4' },
     el('div', { class: 'flex flex-wrap items-center gap-2' },
       showName ? el('h4', { class: 'mr-auto font-bold text-slate-900 dark:text-white' }, x.name, x.walkIn ? el('span', { class: 'ml-2' }, badge('Walk-in', 'slate')) : null) : null,
-      time),
+      time, x.autoClockOut ? badge('Auto clock-out', 'slate') : null),
     paired, ...notes);
 }
 
