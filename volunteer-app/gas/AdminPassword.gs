@@ -52,13 +52,21 @@ function checkAdminPassword_(admin, password, message) {
     throw new AppError('TOO_MANY_ATTEMPTS', 'Too many wrong admin passwords. Wait 15 minutes and try again.');
   }
   const stored = PropertiesService.getScriptProperties().getProperty(ADMIN_PASSWORD_PROP) || '';
+  if (!stored) throw new AppError('PASSWORD_REQUIRED', 'There is no admin password yet. Run setup() in Apps Script to create one.');
   const dot = stored.indexOf('.');
-  const ok = dot > 0 && typeof password === 'string' && password
-    && safeEqual_(hashPassword_(password, stored.slice(0, dot)), stored.slice(dot + 1));
+  const matches = (pw) => dot > 0 && safeEqual_(hashPassword_(pw, stored.slice(0, dot)), stored.slice(dot + 1));
+  const given = typeof password === 'string' ? password : '';
+  // Also accept it with a stray space or line break at either end (copied from the Execution log).
+  const ok = given && (matches(given) || (given.trim() !== given && given.trim() && matches(given.trim())));
   if (!ok) {
-    if (password) cache.put(failKey, String(fails + 1), 900);
-    throw new AppError('PASSWORD_REQUIRED', stored ? message || 'Enter the admin password to make or remove an admin.'
-      : 'There is no admin password yet. Run setup() in Apps Script to create one.');
+    if (!given) throw new AppError('PASSWORD_REQUIRED', message || 'Enter the admin password to make or remove an admin.');
+    // A wrong password says so (31 Oct testing: it used to repeat "Enter the admin password…",
+    // so it looked like the app kept forgetting it).
+    cache.put(failKey, String(fails + 1), 900);
+    const left = CONFIG.LOGIN_MAX_FAILURES - (fails + 1);
+    throw new AppError('PASSWORD_REQUIRED', "That admin password isn't right. It's the shared admin password, not your sign-in password. "
+      + (left > 0 ? `${left} ${left === 1 ? 'try' : 'tries'} left before a 15-minute wait.` : 'No tries left: wait 15 minutes.')
+      + ' Forgotten? Ask the project owner to run resetAdminPassword() in Apps Script.');
   }
   cache.remove(failKey);
 }
@@ -66,7 +74,7 @@ function checkAdminPassword_(admin, password, message) {
 /** Admin → Settings → Admin password: change it by giving the current one and a new one. */
 function changeAdminPassword_(p, admin) {
   onlyFields_(p, ['currentPassword', 'newPassword']);
-  checkAdminPassword_(admin, p.currentPassword, 'The current admin password is not right.');
+  checkAdminPassword_(admin, p.currentPassword, 'Enter the current admin password.');
   const next = password_(p.newPassword, 'New admin password');
   if (next === p.currentPassword) throw err_.validation('The new admin password is the same as the current one.');
   setAdminActionPassword_(next);

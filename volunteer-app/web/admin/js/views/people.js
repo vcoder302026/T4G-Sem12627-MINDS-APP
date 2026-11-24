@@ -43,13 +43,19 @@ function showTempPassword(name, email, password) {
  * server asks for the shared admin password: ask for it, then try again.
  */
 async function withAdminPassword(action, payload) {
-  try {
-    return await call(action, payload);
-  } catch (err) {
-    if (err.code !== 'PASSWORD_REQUIRED') throw err;
-    const pw = await passwordPrompt('Admin password needed', err.message);
-    if (!pw) throw new Error('Not changed.');
-    return call(action, { ...payload, adminPassword: pw });
+  let tryPayload = payload;
+  for (;;) {
+    try {
+      return await call(action, tryPayload);
+    } catch (err) {
+      if (err.code !== 'PASSWORD_REQUIRED') throw err; // incl. "Too many wrong admin passwords"
+      // The server's message says whether the password was wrong (and how many tries are left)
+      // or just needed. Ask again until it's right or they cancel.
+      const wrong = Boolean(tryPayload.adminPassword);
+      const pw = await passwordPrompt(wrong ? 'Wrong admin password' : 'Admin password needed', err.message);
+      if (!pw) throw new Error('Not changed.');
+      tryPayload = { ...payload, adminPassword: pw };
+    }
   }
 }
 

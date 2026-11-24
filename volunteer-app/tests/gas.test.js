@@ -857,6 +857,20 @@ describe('admins are always regular volunteers', () => {
 });
 
 describe('the admin password (separate from sign-in passwords)', () => {
+  test('a wrong admin password says so, with the tries left; a stray space is forgiven', () => {
+    const userId = vol.user.userId;
+    const asked = fails(rt.call('setRole', { userId, role: 'admin' }, leader), 'PASSWORD_REQUIRED');
+    assert.doesNotMatch(asked.message, /isn't right/, 'no password given: just asks for it');
+    let wrong = fails(rt.call('setRole', { userId, role: 'admin', adminPassword: 'not-the-one' }, leader), 'PASSWORD_REQUIRED');
+    assert.match(wrong.message, /^That admin password isn't right\. It's the shared admin password, not your sign-in password\. 4 tries left/);
+    wrong = fails(rt.call('setRole', { userId, role: 'admin', adminPassword: 'not-the-one' }, leader), 'PASSWORD_REQUIRED');
+    assert.match(wrong.message, /3 tries left/);
+    ok(rt.call('setRole', { userId, role: 'admin', adminPassword: ` ${ADMIN_PW}\n` }, leader)); // pasted from the log
+    // A right password resets the count.
+    wrong = fails(rt.call('setRole', { userId, role: 'volunteer', adminPassword: 'not-the-one' }, leader), 'PASSWORD_REQUIRED');
+    assert.match(wrong.message, /4 tries left/);
+  });
+
   test('every change to who is an admin needs it: make, remove, deactivate, reactivate, add as admin', () => {
     const userId = vol.user.userId;
     const need = (payload) => fails(rt.call('updatePerson', { userId, ...payload }, leader), 'PASSWORD_REQUIRED');
