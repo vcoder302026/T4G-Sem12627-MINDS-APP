@@ -79,7 +79,7 @@ function sessionPayload(form, parts) {
     endTime: f.endTime,
     venue: f.venue,
     project: parts.projectValues(),
-    capacity: f.capacity === '' ? 0 : Number(f.capacity),
+    ...(f.capacity === undefined ? {} : { capacity: f.capacity === '' ? 0 : Number(f.capacity) }), // only when spots are on
     notes: f.notes || '',
     traineeIds: f.traineeIds ? f.traineeIds.split(',').filter(Boolean) : [],
   };
@@ -179,17 +179,28 @@ export function renderSession(root, app, ctx, sessionId) {
       else if (a) attendance = badge(`In since ${clockTime(a.clockIn)}`, 'emerald', 'clock');
       else if (b.noShow) attendance = badge('No-show', 'red');
       let remove = null;
+      let rowEl = null;
       if (!a && !isPast) {
         remove = el('button', { class: 'text-sm font-bold text-red-600 hover:underline dark:text-red-400' }, 'Remove');
         remove.addEventListener('click', async () => {
           if (!(await majorActionPrompt({ action: `taking ${v.name} off ${s.title}` }))) return;
-          busy(remove, 'Removing…', async () => { const res = await call('updateBooking', { bookingId: b.bookingId, status: 'cancelled' }); apply(res); toast(res.message); });
+          // Take the row off straight away and save in the background; put it back if the save
+          // fails (31 Oct testing: removing someone felt laggy while it waited for the server).
+          rowEl.hidden = true;
+          try {
+            const res = await call('updateBooking', { bookingId: b.bookingId, status: 'cancelled' });
+            apply(res);
+            toast(res.message);
+          } catch (err) {
+            rowEl.hidden = false;
+            toast(err.message || 'Something went wrong.', 'error');
+          }
         });
       }
       const name = el('div', { class: 'min-w-0 flex-1' },
         personName(v.name, v.userId, 'block truncate font-bold text-slate-900 dark:text-white'),
         el('span', { class: 'mt-0.5 flex flex-wrap gap-1' }, typeBadges(v), b.walkIn ? badge('Walk-in', 'purple') : null, b.feedbackGiven ? badge('Feedback in', 'indigo') : null));
-      return el('div', { class: 'flex items-start gap-3 p-4' },
+      rowEl = el('div', { class: 'flex items-start gap-3 p-4' },
         el('span', { class: 'flex size-10 shrink-0 items-center justify-center rounded-xl bg-indigo-100 text-sm font-extrabold text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300' }, initials(v.name)),
         el('div', { class: 'min-w-0 flex-1' },
           el('div', { class: 'flex items-start gap-2' }, name, remove),
@@ -198,6 +209,7 @@ export function renderSession(root, app, ctx, sessionId) {
               traineeLabels(traineesOf(b), true)]
             : badge('Not paired yet', 'amber', 'alert')),
           attendance ? el('div', { class: 'mt-1.5' }, attendance) : null));
+      return rowEl;
     };
 
     const parts = sessionFormFields(app, s, d);
@@ -209,7 +221,7 @@ export function renderSession(root, app, ctx, sessionId) {
         field('endTime', 'Ends', { type: 'time', value: s.endTime })),
       parts.venue,
       parts.project,
-      field('capacity', 'Volunteer slots', { type: 'number', min: 0, max: 500, value: s.capacity, hint: '0 means no limit.' }),
+      d.sessionSpots ? field('capacity', 'Volunteer slots', { type: 'number', min: 0, max: 500, value: s.capacity, hint: '0 means no limit.' }) : null,
       field('notes', 'Notes for volunteers', { type: 'textarea', value: s.notes || '' }),
       parts.trainees,
       el('button', { type: 'submit', class: 'btn btn-primary w-full' }, 'Save changes'));
@@ -351,7 +363,7 @@ export function renderNewSession(root, app, ctx) {
         el('summary', { class: 'section-head section-green cursor-pointer list-none select-none' }, 'More options (optional)',
           icon('down', 'size-5 transition-transform duration-200 group-open:rotate-180')),
         el('div', { class: 'space-y-4 p-4' },
-          field('capacity', 'Volunteer slots', { type: 'number', min: 0, max: 500, inputmode: 'numeric', optional: true, placeholder: 'Leave empty for no limit' }),
+          home.sessionSpots ? field('capacity', 'Volunteer slots', { type: 'number', min: 0, max: 500, inputmode: 'numeric', optional: true, placeholder: 'Leave empty for no limit' }) : null,
           field('notes', 'Notes for volunteers', { type: 'textarea', optional: true, placeholder: 'What to wear or bring, where to meet' }),
           parts.trainees)),
       el('div', { class: 'h-20' }),
@@ -371,7 +383,7 @@ export function renderNewSession(root, app, ctx) {
         endTime: slot ? slot.endTime : f.endTime,
         venue: venueSelect.value,
         project: parts.projectValues(),
-        capacity: f.capacity === '' || f.capacity === undefined ? 0 : Number(f.capacity),
+        ...(f.capacity === undefined ? {} : { capacity: f.capacity === '' ? 0 : Number(f.capacity) }), // only when spots are on
         notes: f.notes || '',
         traineeIds: f.traineeIds ? f.traineeIds.split(',').filter(Boolean) : [],
       };

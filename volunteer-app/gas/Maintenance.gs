@@ -27,6 +27,18 @@ const MAINTENANCE_TASKS = {
     changesData: true,
     run: () => syncAllContactsInternal_(),
   },
+  autoClockOutOn: {
+    label: 'Turn on automatic clock-out',
+    about: 'Every hour, volunteers still clocked in an hour after their session ends are clocked out at the session\'s end time (AutoClock.gs). Admins can still correct the times in Attendance.',
+    changesData: true,
+    run: () => installAutoClockOut_(),
+  },
+  autoClockOutOff: {
+    label: 'Turn off automatic clock-out',
+    about: 'Stops the hourly automatic clock-out. Records already clocked out stay as they are.',
+    changesData: false,
+    run: () => removeAutoClockOut_(),
+  },
 };
 
 /** The list shown on the Advanced Settings page. */

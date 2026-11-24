@@ -60,7 +60,22 @@ function noteVisibleTo_(n, user, kind) {
   if (audience === 'all') return true;
   if (audience === 'regular') return kind === 'regular';
   if (audience === 'selected') return noteSharedWith_(n).indexOf(user.userId) >= 0;
+  if (audience === 'paired') return isTraineesVolunteer_(user, n.traineeId);
   return false;
+}
+
+/**
+ * Is this person one of the trainee's own volunteers: their regular (Regular Pairings), or
+ * paired with them for a session in the last FEEDBACK_WINDOW_DAYS (the same window that lets a
+ * volunteer open the trainee's page)? Used by the "paired" note audience.
+ */
+function isTraineesVolunteer_(user, traineeId) {
+  if (!user || !user.userId) return false;
+  const id = String(traineeId);
+  if (standingRows_().some((x) => x.userId === user.userId && String(x.traineeId) === id)) return true;
+  const from = addDays_(todayStr_(), -CONFIG.FEEDBACK_WINDOW_DAYS);
+  return table_('bookings').rows().some((b) => b.userId === user.userId && b.status !== 'cancelled'
+    && hasTrainee_(b, id) && String(b.sessionDate) >= from);
 }
 
 /** Validates { audience, userIds } from an admin. Returns the cells to write. */
@@ -204,13 +219,13 @@ function writeLatestObservation_(trainee, text, author, dateStr) {
   return Object.keys(patch).length > 0;
 }
 
-/** An admin adds a note straight onto a trainee's profile, shared with everyone unless they choose otherwise. */
+/** An admin adds a note straight onto a trainee's profile, shared with the trainee's volunteers unless they choose otherwise. */
 function addTraineeNote_(p, admin) {
   onlyFields_(p, ['traineeId', 'note', 'audience', 'userIds', 'files']);
   const trainee = traineeById_(str_(p.traineeId, 'Trainee', { required: true, max: 40 }));
   if (!trainee) throw err_.notFound('Trainee not found.');
   const text = str_(p.note, 'Note', { required: true, max: LIMITS.NOTES });
-  addNote_(trainee, text, admin.name, 'Leader', admin.name, '', todayStr_(), noteSharing_(p, 'all'), saveNoteFiles_(p.files));
+  addNote_(trainee, text, admin.name, 'Leader', admin.name, '', todayStr_(), noteSharing_(p, 'paired'), saveNoteFiles_(p.files));
   return traineeDetail_({ traineeId: String(trainee.id) });
 }
 
@@ -273,7 +288,7 @@ function reviewObservation_(p, admin) {
   const f = feedback.find((x) => x.feedbackId === id_(p.feedbackId, 'Feedback'));
   if (!f) throw err_.notFound('Feedback not found.');
   if (f.noteStatus !== 'pending') throw err_.conflict('This note has already been reviewed.');
-  let fallback = 'all';
+  let fallback = 'paired'; // the trainee's own volunteers (Config.gs → NOTE_AUDIENCES)
   if (p.decision !== undefined) fallback = oneOf_(p.decision, 'Decision', ['share', 'private']) === 'private' ? 'private' : 'all';
   const share = noteSharing_(p, fallback);
   const trainee = traineeById_(f.traineeId);

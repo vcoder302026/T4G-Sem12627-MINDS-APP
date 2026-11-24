@@ -179,8 +179,10 @@ export function renderVolunteer(root, app, ctx, userId) {
       refresh();
     });
     const regular = p.volunteerType === 'regular';
-    const typeBtn = el('button', { class: 'btn btn-secondary btn-sm' }, icon('sparkle', 'size-4'), regular ? 'Move back to volunteer' : 'Promote to regular');
-    typeBtn.addEventListener('click', async () => {
+    // Admins are always regulars: no "Move back to volunteer" while they're an admin. Remove their
+    // admin access first (roleBtn); then this button appears to move them back.
+    const typeBtn = p.role === 'admin' ? null : el('button', { class: 'btn btn-secondary btn-sm' }, icon('sparkle', 'size-4'), regular ? 'Move back to volunteer' : 'Promote to regular');
+    if (typeBtn) typeBtn.addEventListener('click', async () => {
       if (!(await majorActionPrompt({ action: regular ? `moving ${p.name} back to volunteer` : `promoting ${p.name} to regular` }))) return;
       busy(typeBtn, 'Saving…', async () => {
         const res = await call('setVolunteerType', { userId, volunteerType: regular ? 'volunteer' : 'regular' });
@@ -445,7 +447,7 @@ export function renderTrainee(root, app, ctx, traineeId) {
     const noteForm = el('form', { class: 'space-y-2 border-t border-slate-100 p-4 dark:border-neutral-800' },
       el('textarea', { name: 'note', class: 'input min-h-[60px]', rows: 2, placeholder: 'Add a note about this trainee', 'aria-label': 'New note' }),
       noteFiles.el,
-      el('details', {}, el('summary', { class: 'cursor-pointer text-sm font-bold text-indigo-600 dark:text-indigo-400' }, 'Who can read it? (all volunteers)'),
+      el('details', {}, el('summary', { class: 'cursor-pointer text-sm font-bold text-indigo-600 dark:text-indigo-400' }, "Who can read it? (this trainee's volunteers)"),
         el('div', { class: 'mt-2' }, newShare.el)),
       el('button', { type: 'submit', class: 'btn btn-primary btn-sm' }, 'Add note'));
     noteForm.addEventListener('submit', (e) => {

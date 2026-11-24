@@ -311,3 +311,26 @@ Checked: `check-deploy.mjs` ready to deploy (131 tests); `check-fit.py --ios` at
 430 and 768 px and `check-fit.py` all fit (except the known 320 px pairing chips);
 `check-squash.py`, `check-phones.py`, `check-scroll.py` clean; the filter cycle tested in a browser.
 
+
+## 13. Version 4.8: final testing feedback (31 Oct)
+
+| Feedback | Change |
+| --- | --- |
+| Volunteers press "I've read this" without reading | The guide's button is locked ("Scroll to the end to continue") until the end of the guide comes into view (`web/js/views/content.js`) |
+| Press and hold on a name needed two tries | The click that ends a long press landed on the new card's backdrop and closed it. Any click in that moment is now ignored (`web/js/quickview.js`) |
+| Removing a volunteer / cancelling a session lagged | **Remove** takes the row off at once and saves in the background (it comes back with a message if the save fails). Saving a session (e.g. **Cancel session**) rebuilds the page after the lock is released, like removing a volunteer already did, so other admins' saves don't wait (`gas/Admin.gs`) |
+| Auto clock-out | Advanced settings → **Turn on automatic clock-out** adds an hourly job (`gas/AutoClock.gs`): records still open `AUTO_CLOCK_OUT_AFTER_MINUTES` (60) after the session ends are clocked out at the end time, marked "Automatic (session end)" and shown as **Auto clock-out** in Attendance |
+| Spots per session not needed | `SESSION_SPOTS: false` in `gas/Config.gs`: no "Volunteer slots" box, no "N spots left" / "Full", no limit on sign-ups. Set it to `true` to bring it back; existing limits in the sheet are kept |
+| Feedback seen by the trainee's volunteers by default | A new note audience, **this trainee's volunteers** (`paired`), is the default when reviewing or adding a note, and for notes shared automatically. Worked out when the note is read: the trainee's regulars (Regular Pairings) and anyone paired with them in the last `FEEDBACK_WINDOW_DAYS`, so it follows pairing changes |
+| An admin could be moved back to volunteer | Admins are always regulars. An admin's page shows only **Remove admin access** (no **Move back to volunteer**); once that's done they stay a regular and the button appears. The server refuses the change for an admin, `volunteerType_` counts every admin as a regular even if the sheet says otherwise, and **Run setup** fixes such rows (it used to keep ones a person had set back) |
+| Reminders | Not built yet: needs a choice of email (MailApp daily limits) or a Telegram bot |
+
+**Upgrading:** `appsscript.json` adds the `script.scriptapp` permission (needed to create the
+hourly trigger). After the push, the owner of the Apps Script project opens the editor, runs any
+function once (e.g. `autoClockOut`) and approves the new permission, then turns automatic
+clock-out on in the app. No sheet changes and no setup run are needed.
+
+Checked: `check-deploy.mjs` ready to deploy (135 tests: new ones for spots off, the default note
+audience, auto clock-out and the admin → regular sequence); the admin buttons (make admin, remove
+admin access, move back), the guide lock, long press, instant Remove, the review default and
+the Advanced settings buttons in a phone-sized browser against the local demo.

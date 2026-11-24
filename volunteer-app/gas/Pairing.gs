@@ -50,15 +50,18 @@ function namesText_(names) {
 /* ---------------- volunteer types ---------------- */
 
 function volunteerType_(u) {
+  if (u && u.role === 'admin') return 'regular'; // admins are always regulars, whatever the sheet says
   return u && u.volunteerType === 'regular' ? 'regular' : 'volunteer';
 }
 
 /**
- * Admins are regular volunteers by default: called whenever someone becomes an
- * admin. Returns true if it changed them. An admin can still move them back by hand.
+ * Admins are always regular volunteers: called whenever someone becomes an admin,
+ * and by setup. Returns true if it changed their row. An admin can't be moved back
+ * to volunteer; removing their admin access leaves them a regular, and only then
+ * can they be moved back (setVolunteerType_).
  */
 function makeRegularAsAdmin_(u) {
-  if (!u || volunteerType_(u) === 'regular') return false;
+  if (!u || u.volunteerType === 'regular') return false; // the sheet itself, not volunteerType_ (which says regular for every admin)
   table_('users').update(u, { volunteerType: 'regular', typeSetBy: 'Made an admin', typeSetAt: fmtDateTime_(now_()) });
   return true;
 }
@@ -93,6 +96,9 @@ function setVolunteerType_(p, admin) {
   const target = users.find((u) => u.userId === id_(p.userId, 'User'));
   if (!target) throw err_.notFound('Volunteer not found.');
   const type = oneOf_(p.volunteerType, 'Volunteer type', ['volunteer', 'regular']);
+  if (type === 'volunteer' && target.role === 'admin') {
+    throw err_.conflict(`Admins are always regular volunteers. Remove ${target.name}'s admin access first.`);
+  }
   if (volunteerType_(target) === type) return { person: personOut_(target, true), message: `${target.name} is already ${type === 'regular' ? 'a regular' : 'a volunteer'}.` };
   users.update(target, { volunteerType: type, typeSetBy: admin.name, typeSetAt: fmtDateTime_(now_()) });
   let message = `${target.name} is now ${type === 'regular' ? 'a regular' : 'a volunteer'}.`;
@@ -315,7 +321,7 @@ function comeToSession_(sessionId, user) {
   const bookings = table_('bookings');
   const active = bookings.filter((b) => b.sessionId === sessionId && b.status !== 'cancelled');
   if (active.some((b) => b.userId === user.userId)) throw err_.conflict(`You're already coming to ${s.title}.`);
-  const cap = Number(s.capacity) || 0;
+  const cap = sessionCap_(s);
   if (cap && active.length >= cap) throw err_.conflict(`Sorry, ${s.title} is full.`);
   const stampNow = fmtDateTime_(now_());
   const booking = bookings.insert({
