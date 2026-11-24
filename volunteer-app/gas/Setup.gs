@@ -189,9 +189,8 @@ function refreshVolunteerTypes_() {
       filled += 1;
     }
     if (maybePromote_(u.userId)) promoted += 1;
-    // Admins are regular volunteers by default, unless a person deliberately set them back.
-    const setByPerson = u.typeSetBy && !/^(automatic|made an admin)/i.test(String(u.typeSetBy));
-    if (u.role === 'admin' && !setByPerson && makeRegularAsAdmin_(u)) promoted += 1;
+    // Admins are always regular volunteers (an older version let a person set an admin back).
+    if (u.role === 'admin' && makeRegularAsAdmin_(u)) promoted += 1;
   });
   const parts = [];
   if (filled) parts.push(`set ${filled} volunteer type(s) to "volunteer"`);

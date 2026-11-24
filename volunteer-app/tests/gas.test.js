@@ -817,7 +817,7 @@ describe('adding sessions', () => {
 });
 
 
-describe('admins are regular volunteers by default', () => {
+describe('admins are always regular volunteers', () => {
   test('every way of becoming an admin makes them a regular; setup() fixes existing admins', () => {
     assert.equal(ok(rt.call('me', {}, leader)).user.volunteerType, 'regular', 'the first admin (makeFirstAdmin)');
     const res = ok(rt.call('updatePerson', { userId: vol.user.userId, role: 'admin', adminPassword: ADMIN_PW }, leader));
@@ -828,21 +828,31 @@ describe('admins are regular volunteers by default', () => {
     assert.equal(ok(rt.call('me', {}, sam.token)).user.volunteerType, 'regular');
     const added = ok(rt.call('createVolunteer', { name: 'New Admin', email: 'na@example.com', phone: '+65 9000 2222', role: 'admin', adminPassword: ADMIN_PW }, leader));
     assert.equal(added.person.volunteerType, 'regular');
-    // Losing admin access doesn't undo it; an admin can move them back by hand, and setup() respects that.
+    // An admin can't be moved back to volunteer (31 Oct testing feedback)...
+    const blocked = fails(rt.call('setVolunteerType', { userId: sam.user.userId, volunteerType: 'volunteer' }, leader), 'CONFLICT');
+    assert.match(blocked.message, /Remove Sam Ong's admin access first/);
+    assert.equal(ok(rt.call('me', {}, sam.token)).user.volunteerType, 'regular');
+    // ...only after their admin access is removed: they stay a regular, and can then be moved back.
     ok(rt.call('setRole', { userId: sam.user.userId, role: 'volunteer', adminPassword: ADMIN_PW }, leader));
     assert.equal(ok(rt.call('me', {}, sam.token)).user.volunteerType, 'regular');
-    ok(rt.call('setVolunteerType', { userId: vol.user.userId, volunteerType: 'volunteer' }, leader));
-    // An admin from before this rule (type "volunteer", not set by anyone) is fixed by setup()
+    ok(rt.call('setVolunteerType', { userId: sam.user.userId, volunteerType: 'volunteer' }, leader));
+    assert.equal(ok(rt.call('me', {}, sam.token)).user.volunteerType, 'volunteer');
+    // An admin whose row says "volunteer" (edited in the sheet, or set back by an older version)
+    // still counts as a regular everywhere, and setup() fixes the row, even when a person set it.
+    const volRow = rt.records(SHEET, 'Volunteers').findIndex((r) => r['User ID'] === vol.user.userId);
     const row = rt.records(SHEET, 'Volunteers').findIndex((r) => r['User ID'] === sam.user.userId);
     ok(rt.call('setRole', { userId: sam.user.userId, role: 'admin', adminPassword: ADMIN_PW }, leader));
     const tab = rt.tab(SHEET, 'Volunteers');
     const header = tab.getRange(1, 1, 1, tab.getLastColumn()).getValues()[0];
     tab.getRange(row + 2, header.indexOf('Volunteer Type') + 1).setValue('volunteer');
     tab.getRange(row + 2, header.indexOf('Type Set By') + 1).setValue('');
+    tab.getRange(volRow + 2, header.indexOf('Volunteer Type') + 1).setValue('volunteer');
+    tab.getRange(volRow + 2, header.indexOf('Type Set By') + 1).setValue('Leader Lee');
+    assert.equal(ok(rt.call('me', {}, vol.token)).user.volunteerType, 'regular', 'an admin counts as a regular before setup');
     rt.run('setup');
     const after = rt.records(SHEET, 'Volunteers');
     assert.equal(after.find((r) => r['User ID'] === sam.user.userId)['Volunteer Type'], 'regular', 'setup() made the old admin a regular');
-    assert.equal(after.find((r) => r['User ID'] === vol.user.userId)['Volunteer Type'], 'volunteer', 'a deliberate choice is kept');
+    assert.equal(after.find((r) => r['User ID'] === vol.user.userId)['Volunteer Type'], 'regular', 'even one a person had set back');
   });
 });
 

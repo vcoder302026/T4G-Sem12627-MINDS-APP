@@ -322,6 +322,7 @@ Checked: `check-deploy.mjs` ready to deploy (131 tests); `check-fit.py --ios` at
 | Auto clock-out | Advanced settings → **Turn on automatic clock-out** adds an hourly job (`gas/AutoClock.gs`): records still open `AUTO_CLOCK_OUT_AFTER_MINUTES` (60) after the session ends are clocked out at the end time, marked "Automatic (session end)" and shown as **Auto clock-out** in Attendance |
 | Spots per session not needed | `SESSION_SPOTS: false` in `gas/Config.gs`: no "Volunteer slots" box, no "N spots left" / "Full", no limit on sign-ups. Set it to `true` to bring it back; existing limits in the sheet are kept |
 | Feedback seen by the trainee's volunteers by default | A new note audience, **this trainee's volunteers** (`paired`), is the default when reviewing or adding a note, and for notes shared automatically. Worked out when the note is read: the trainee's regulars (Regular Pairings) and anyone paired with them in the last `FEEDBACK_WINDOW_DAYS`, so it follows pairing changes |
+| An admin could be moved back to volunteer | Admins are always regulars. An admin's page shows only **Remove admin access** (no **Move back to volunteer**); once that's done they stay a regular and the button appears. The server refuses the change for an admin, `volunteerType_` counts every admin as a regular even if the sheet says otherwise, and **Run setup** fixes such rows (it used to keep ones a person had set back) |
 | Reminders | Not built yet: needs a choice of email (MailApp daily limits) or a Telegram bot |
 
 **Upgrading:** `appsscript.json` adds the `script.scriptapp` permission (needed to create the
@@ -330,5 +331,6 @@ function once (e.g. `autoClockOut`) and approves the new permission, then turns 
 clock-out on in the app. No sheet changes and no setup run are needed.
 
 Checked: `check-deploy.mjs` ready to deploy (135 tests: new ones for spots off, the default note
-audience, and auto clock-out); the guide lock, long press, instant Remove, the review default and
+audience, auto clock-out and the admin → regular sequence); the admin buttons (make admin, remove
+admin access, move back), the guide lock, long press, instant Remove, the review default and
 the Advanced settings buttons in a phone-sized browser against the local demo.

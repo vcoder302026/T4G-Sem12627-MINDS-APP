@@ -179,8 +179,10 @@ export function renderVolunteer(root, app, ctx, userId) {
       refresh();
     });
     const regular = p.volunteerType === 'regular';
-    const typeBtn = el('button', { class: 'btn btn-secondary btn-sm' }, icon('sparkle', 'size-4'), regular ? 'Move back to volunteer' : 'Promote to regular');
-    typeBtn.addEventListener('click', async () => {
+    // Admins are always regulars: no "Move back to volunteer" while they're an admin. Remove their
+    // admin access first (roleBtn); then this button appears to move them back.
+    const typeBtn = p.role === 'admin' ? null : el('button', { class: 'btn btn-secondary btn-sm' }, icon('sparkle', 'size-4'), regular ? 'Move back to volunteer' : 'Promote to regular');
+    if (typeBtn) typeBtn.addEventListener('click', async () => {
       if (!(await majorActionPrompt({ action: regular ? `moving ${p.name} back to volunteer` : `promoting ${p.name} to regular` }))) return;
       busy(typeBtn, 'Saving…', async () => {
         const res = await call('setVolunteerType', { userId, volunteerType: regular ? 'volunteer' : 'regular' });
