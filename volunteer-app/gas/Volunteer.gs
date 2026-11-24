@@ -244,3 +244,73 @@ function submitFeedback_(p, user) {
     home: volunteerHome_({}, user),
   };
 }
+
+/**
+ * Past sessions (Sessions tab → Past). Each session lists who came, who they
+ * were paired with, their hours, and the feedback and trainee notes given.
+ * Admins see every past session and everyone in it; a volunteer sees only the
+ * sessions they signed up for or attended, and only their own row.
+ */
+function pastSessions_(p, user) {
+  onlyFields_(p, ['limit']);
+  const limit = p.limit === undefined ? 60 : int_(p.limit, 'Limit', 1, 500);
+  const admin = user.role === 'admin';
+  const today = todayStr_();
+  const users = byKey_(table_('users').rows(), 'userId');
+  const bookings = table_('bookings').rows().filter((b) => b.status !== 'cancelled');
+  const attendance = table_('attendance').rows();
+  const feedback = table_('feedback').rows();
+  const mine = (row) => admin || row.userId === user.userId;
+
+  const past = table_('sessions').rows().filter((s) => s.date < today && s.status !== 'cancelled');
+  const shown = admin ? past : past.filter((s) =>
+    bookings.some((b) => b.sessionId === s.sessionId && b.userId === user.userId)
+    || attendance.some((a) => a.sessionId === s.sessionId && a.userId === user.userId));
+  const sessions = sortBy_(shown, (s) => `${s.date} ${s.startTime}`).reverse();
+
+  const out = sessions.slice(0, limit).map((s) => {
+    const sb = bookings.filter((b) => b.sessionId === s.sessionId);
+    const sa = attendance.filter((a) => a.sessionId === s.sessionId);
+    const sf = feedback.filter((f) => f.sessionId === s.sessionId);
+    // One row per person: everyone who signed up, plus anyone clocked in without a sign-up.
+    const ids = [];
+    sb.forEach((b) => { if (ids.indexOf(b.userId) === -1) ids.push(b.userId); });
+    sa.forEach((a) => { if (ids.indexOf(a.userId) === -1) ids.push(a.userId); });
+    const people = ids.map((userId) => {
+      const b = sb.find((x) => x.userId === userId) || null;
+      const atts = sa.filter((a) => a.userId === userId);
+      const done = atts.filter((a) => a.clockOut);
+      const fbs = sf.filter((f) => f.userId === userId);
+      const first = atts[0] || null;
+      return {
+        userId,
+        name: (users[userId] || {}).name || (b && b.volunteerName) || (first && first.volunteerName) || 'Volunteer',
+        trainees: bookingTrainees_(b).map((t) => ({ id: t.id, name: t.name })),
+        walkIn: Boolean(b && b.walkIn === 'Yes'),
+        clockIn: first ? first.clockIn : '',
+        clockOut: first ? first.clockOut : '',
+        hours: done.length ? Math.round(done.reduce((sum, a) => sum + (Number(a.hours) || 0), 0) * 100) / 100 : null,
+        noShow: !atts.length,
+        autoClockOut: done.some((a) => /auto/i.test(String(a.method || ''))), // closed by automatic clock-out (AutoClock.gs)
+        rating: (fbs.find((f) => f.rating !== '' && f.rating !== null && f.rating !== undefined) || {}).rating || '',
+        sessionFeedback: fbs.map((f) => f.sessionFeedback).filter(Boolean).join('\n'),
+        notes: fbs.filter((f) => f.traineeObservation).map((f) => ({
+          traineeName: f.traineeName || '',
+          text: f.traineeObservation,
+          status: f.noteStatus || '',
+        })),
+      };
+    }).filter(mine);
+    const came = people.filter((x) => !x.noShow);
+    return Object.assign(sessionOut_(s), {
+      people: sortBy_(people, (x) => String(x.name).toLowerCase()),
+      counts: {
+        volunteers: came.length,
+        noShows: people.length - came.length,
+        hours: Math.round(came.reduce((sum, x) => sum + (x.hours || 0), 0) * 100) / 100,
+        notes: people.reduce((n, x) => n + x.notes.length + (x.sessionFeedback ? 1 : 0), 0),
+      },
+    });
+  });
+  return { today, admin, sessions: out, more: sessions.length > limit };
+}

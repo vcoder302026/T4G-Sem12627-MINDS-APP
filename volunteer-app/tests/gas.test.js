@@ -387,6 +387,41 @@ describe('signing up and pairing (volunteers, regulars, admins)', () => {
     assert.equal(ok(rt.call('volunteerHome', {}, vol.token)).history[0].trainee.canView, true, 'regulars can open any trainee');
   });
 
+  test('past sessions: admins see everyone\'s pairing, hours and notes; volunteers see only their own', () => {
+    const s = createSession();
+    const v2 = volunteer('v2@example.com', 'Vol Two');
+    const b1 = book(s.sessionId);
+    const b2 = book(s.sessionId, v2);
+    confirm(b1, { traineeId: 'T-0002' });
+    rt.setNow(at('10:00'));
+    ok(rt.call('manualClock', { bookingId: b1 }, leader));
+    rt.setNow(at('12:30'));
+    ok(rt.call('manualClock', { bookingId: b1 }, leader));
+    ok(rt.call('submitFeedback', { bookingId: b1, rating: 4, sessionFeedback: 'Good fun.', observations: [{ traineeId: 'T-0002', note: 'Loved drawing.' }] }, vol.token));
+    assert.equal(ok(rt.call('pastSessions', {}, leader)).sessions.length, 0, 'today\'s session is not past yet');
+
+    rt.setNow(at('09:00', '2026-10-20'));
+    const all = ok(rt.call('pastSessions', {}, leader));
+    assert.equal(all.admin, true);
+    const past = all.sessions.find((x) => x.sessionId === s.sessionId);
+    assert.deepEqual(past.counts, { volunteers: 1, noShows: 1, hours: 2.5, notes: 2 });
+    const one = past.people.find((x) => x.name === 'Vol One');
+    assert.deepEqual(one.trainees, [{ id: 'T-0002', name: 'Bea Lim' }]);
+    assert.equal(one.hours, 2.5);
+    assert.equal(one.autoClockOut, false);
+    assert.equal(one.rating, 4);
+    assert.equal(one.sessionFeedback, 'Good fun.');
+    assert.equal(one.notes[0].text, 'Loved drawing.');
+    assert.equal(past.people.find((x) => x.name === 'Vol Two').noShow, true);
+
+    const mine = ok(rt.call('pastSessions', {}, vol.token));
+    assert.equal(mine.admin, false);
+    assert.deepEqual(mine.sessions[0].people.map((x) => x.name), ['Vol One'], 'a volunteer sees only their own row');
+    const other = createSession({ title: 'Not mine', date: '2026-10-19' }); // a session nobody here signed up for
+    assert.ok(other);
+    assert.ok(!ok(rt.call('pastSessions', {}, v2.token)).sessions.some((x) => x.title === 'Not mine'));
+  });
+
   test('admins see pairing history: sessions together, and each regular\'s trainees over time', () => {
     const attendWith = (date, traineeId) => {
       rt.setNow(at('09:00', date));

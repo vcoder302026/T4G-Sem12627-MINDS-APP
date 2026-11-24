@@ -21,6 +21,7 @@ function routes_() {
     changePassword: { auth: 'user', write: true, fn: changePassword_ },
     updateProfile: { auth: 'user', write: true, fn: updateProfile_ },
     volunteerHome: { auth: 'user', fn: volunteerHome_ },
+    pastSessions: { auth: 'user', fn: pastSessions_ }, // Sessions tab → Past: pairings, hours and notes (admins: everyone)
     bookSession: { auth: 'user', write: true, fn: bookSession_ },
     bookSessions: { auth: 'user', write: true, fn: bookSessions_ },
     cancelBooking: { auth: 'user', write: true, fn: cancelBooking_ },

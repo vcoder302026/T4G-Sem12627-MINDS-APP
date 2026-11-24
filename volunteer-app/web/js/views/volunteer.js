@@ -212,7 +212,19 @@ export function renderPass(root, app, ctx) {
 
 /* ---------------- Sessions ---------------- */
 
-export function renderSessions(root, app, ctx) {
+/** Upcoming | Past switch at the top of the Sessions tab. */
+function sessionsSwitch(active) {
+  const tab = (key, label, href) => el('a', {
+    href,
+    class: `flex-1 rounded-lg px-4 py-2 text-center text-sm font-bold ${active === key ? 'bg-white text-indigo-700 shadow-sm dark:bg-neutral-800 dark:text-indigo-300' : 'muted'}`,
+    'aria-current': active === key ? 'page' : null,
+  }, label);
+  return el('div', { class: 'mb-4 flex gap-1 rounded-xl bg-slate-100 p-1 dark:bg-neutral-900', role: 'tablist' },
+    tab('upcoming', 'Upcoming', '#/sessions'), tab('past', 'Past', '#/sessions/past'));
+}
+
+export function renderSessions(root, app, ctx, param) {
+  if (param === 'past') return renderPastSessions(root, app, ctx);
   let query = '';
   let latest = null;
   const chosen = new Set();
@@ -300,12 +312,112 @@ export function renderSessions(root, app, ctx) {
     drawBar();
   };
   mount(root,
+    sessionsSwitch('upcoming'),
     el('h1', { class: 'page-title' }, 'Upcoming sessions'),
     el('p', { class: 'mb-4 mt-1 text-sm muted' }, "Tick the sessions you can come to."),
     searchBox('Search by activity, venue, project or day', (q) => { query = q; drawList(); }),
     host, bar);
   ctx.onLeave(() => bar.remove());
   return withHome(host, app, ctx, (h) => { latest = h; drawList(); });
+}
+
+/* ---------------- Sessions → Past ---------------- */
+
+const PAST_KEY = 'minds.pastSessions';
+
+/** One person's row inside a past session: who they were with, their hours, and the notes they gave. */
+function pastPersonRow(x, showName) {
+  let time;
+  if (x.noShow) time = badge('Did not come', 'red');
+  else if (x.hours === null) time = badge(`In ${clockTime(x.clockIn)}, not clocked out`, 'amber');
+  else time = badge(`${clockTime(x.clockIn)}–${clockTime(x.clockOut)} · ${fmtHours(x.hours)}`, 'emerald', 'clock');
+  const paired = x.trainees.length
+    ? el('p', { class: 'text-sm' }, el('span', { class: 'muted' }, 'Paired with '), el('span', { class: 'font-bold' }, x.trainees.map((t) => t.name).join(', ')))
+    : el('p', { class: 'text-sm muted' }, 'Not paired with a trainee');
+  const notes = [];
+  if (x.rating) notes.push(el('p', { class: 'text-sm' }, el('span', { class: 'muted' }, 'Rating: '), el('span', { class: 'font-bold' }, `${x.rating} / 5`)));
+  if (x.sessionFeedback) {
+    notes.push(el('div', { class: 'rounded-lg bg-slate-50 p-3 text-sm dark:bg-neutral-900' },
+      el('p', { class: 'mb-1 text-xs font-bold uppercase tracking-wider muted' }, 'Session feedback'),
+      el('p', { class: 'whitespace-pre-line' }, x.sessionFeedback)));
+  }
+  x.notes.forEach((n) => notes.push(el('div', { class: 'rounded-lg bg-amber-50 p-3 text-sm dark:bg-amber-950/30' },
+    el('p', { class: 'mb-1 text-xs font-bold uppercase tracking-wider muted' }, `Note about ${n.traineeName || 'trainee'}`,
+      n.status === 'pending' ? el('span', { class: 'ml-2 normal-case' }, badge('Waiting for review', 'amber')) : null),
+    el('p', { class: 'whitespace-pre-line' }, n.text))));
+  if (!x.noShow && !notes.length) notes.push(el('p', { class: 'text-sm muted' }, 'No feedback or notes given.'));
+  return el('div', { class: 'space-y-2 p-4' },
+    el('div', { class: 'flex flex-wrap items-center gap-2' },
+      showName ? el('h4', { class: 'mr-auto font-bold text-slate-900 dark:text-white' }, x.name, x.walkIn ? el('span', { class: 'ml-2' }, badge('Walk-in', 'slate')) : null) : null,
+      time, x.autoClockOut ? badge('Auto clock-out', 'slate') : null),
+    paired, ...notes);
+}
+
+function pastSessionCard(s, admin, today) {
+  const c = s.counts;
+  const chips = [badge(`${c.volunteers} came`, 'indigo', 'users'), badge(fmtHours(c.hours), 'emerald', 'clock')];
+  if (c.noShows) chips.push(badge(`${c.noShows} no-show${c.noShows === 1 ? '' : 's'}`, 'red'));
+  if (c.notes) chips.push(badge(`${c.notes} note${c.notes === 1 ? '' : 's'}`, 'amber'));
+  const people = s.people.length
+    ? el('div', { class: 'divide-y divide-slate-100 dark:divide-neutral-800' }, s.people.map((x) => pastPersonRow(x, admin)))
+    : el('p', { class: 'p-4 text-sm muted' }, 'Nobody signed up for this session.');
+  return el('details', { class: 'card group mt-3 overflow-hidden' },
+    el('summary', { class: 'flex cursor-pointer list-none items-start justify-between gap-3 p-4 select-none' },
+      el('div', { class: 'min-w-0 flex-1' },
+        el('p', { class: 'text-xs font-bold uppercase tracking-wider muted' }, fmtDay(s.date, today)),
+        el('h3', { class: 'font-bold text-slate-900 dark:text-white' }, s.title),
+        el('p', { class: 'text-sm text-slate-700 dark:text-neutral-300' }, [fmtTimes(s), s.venue].filter(Boolean).join(', ')),
+        admin ? el('div', { class: 'mt-2 flex flex-wrap gap-1.5' }, chips) : null),
+      icon('down', 'size-5 shrink-0 transition-transform duration-200 group-open:rotate-180')),
+    el('div', { class: 'border-t border-slate-100 dark:border-neutral-800' }, people));
+}
+
+function renderPastSessions(root, app, ctx) {
+  let query = '';
+  let data = null;
+  let limit = 60;
+  const host = el('div', {});
+  const draw = () => {
+    if (!data) return;
+    const matches = fuzzyFilter(data.sessions, query, (s) => [s.title, s.venue, s.project, s.date, fmtDay(s.date, data.today),
+      ...s.people.map((x) => x.name), ...s.people.flatMap((x) => x.trainees.map((t) => t.name))]);
+    let more = null;
+    if (data.more && !query.trim()) {
+      more = el('button', { class: 'btn btn-secondary mt-4 w-full' }, 'Show older sessions');
+      more.addEventListener('click', () => busy(more, 'Loading…', async () => { limit += 60; await load(); }));
+    }
+    if (!data.sessions.length) {
+      mount(host, emptyState('calendar', data.admin ? 'No past sessions yet' : 'No past sessions yet',
+        data.admin ? 'Sessions appear here once their day has passed.' : 'Sessions you sign up for appear here once their day has passed.'));
+    } else if (!matches.length) {
+      mount(host, emptyState('search', 'No session matches that search', 'Try a name, a venue or a date.'));
+    } else {
+      mount(host, matches.map((s) => pastSessionCard(s, data.admin, data.today)), more);
+    }
+  };
+  const load = async () => {
+    const res = await call('pastSessions', { limit });
+    data = res;
+    try { localStorage.setItem(PAST_KEY, JSON.stringify(res)); } catch { /* storage full or blocked */ }
+    if (ctx.alive()) draw();
+  };
+  const admin = app.isAdmin;
+  mount(root,
+    sessionsSwitch('past'),
+    el('h1', { class: 'page-title' }, 'Past sessions'),
+    el('p', { class: 'mb-4 mt-1 text-sm muted' }, 'Tap a session for pairings, hours and notes.'),
+    searchBox(admin ? 'Search by session, venue, date, volunteer or trainee' : 'Search by session, venue, date or trainee', (q) => { query = q; draw(); }),
+    host);
+  try {
+    const cached = JSON.parse(localStorage.getItem(PAST_KEY) || 'null');
+    if (cached && cached.admin === admin) { data = cached; draw(); }
+  } catch { /* nothing saved */ }
+  if (!data) mount(host, loading());
+  return load().catch((err) => {
+    if (!ctx.alive()) return;
+    if (!data) mount(host, errorBlock(err, () => app.rerender()));
+    else if (!isNetworkError(err)) toast(err.message, 'error');
+  });
 }
 
 /* ---------------- Me ---------------- */
