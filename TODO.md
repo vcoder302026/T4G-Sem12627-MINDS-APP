@@ -5,7 +5,7 @@ not built yet, and things to check before real volunteers use the app. For how t
 see [FUTURE-CONTRIBUTIONS.md](FUTURE-CONTRIBUTIONS.md). Tick items off as
 they're done, and move finished ones into `PROGRESS.md`.
 
-Sources: the October meeting minutes and call 2 with MINDS, `VERSION-3.md` §6, the 31 October
+Sources: the [meeting minutes](volunteer-app/docs/MINDS-Meeting-Minutes.pdf) (calls and testing with MINDS, 16–31 October), `VERSION-3.md` §6, the 31 October
 testing feedback (`VERSION-4.md` §13), and the "Limits of this prototype" section of
 `volunteer-app/README.md`.
 
