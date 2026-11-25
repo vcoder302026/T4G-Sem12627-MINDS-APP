@@ -1,6 +1,6 @@
 # To do
 
-What's still open after Version 4.8.1 (November 2026): decisions MINDS needs to make, features
+What's still open after Version 4.9 (November 2026): decisions MINDS needs to make, features
 not built yet, and things to check before real volunteers use the app. For how to pick these up,
 see [FUTURE-CONTRIBUTIONS.md](FUTURE-CONTRIBUTIONS.md). Tick items off as
 they're done, and move finished ones into `PROGRESS.md`.
@@ -34,6 +34,9 @@ Done in Version 4.8 / 4.8.1 (`VERSION-4.md` §13–14):
 - [x] Notes go to the trainee's own volunteers by default
 - [x] Admins are always regulars; only **Remove admin access** on an admin's page
 - [x] Website deploy fixed; a wrong admin password says so
+
+Done in Version 4.9 (`VERSION-4.md` §15):
+- [x] Past sessions: your own on **Sessions → Past**; every past session's pairings, hours and notes on **All sessions → Past sessions**
 
 Still open:
 - [ ] **Reminders** the day before a session. Decide with MINDS: **email** (simplest; Apps Script
@@ -180,7 +183,7 @@ people what to do. Keep, shorten or remove?
 - [ ] Note the admin password `setup()` shows in the Execution log, give it to the admins, and
   have them change it (Settings → Admin password)
 
-### 3.4 Exp is on Version 4.8.1
+### 3.4 Exp is on Version 4.9
 - [x] Exp upgraded (deploys run from `main` through GitHub Actions)
 - [ ] Try the House Visit Form against a **copy** of the House Visit responses, not the live sheet
 

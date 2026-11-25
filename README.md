@@ -16,7 +16,7 @@ volunteer hours, attendance and pairing.
 It runs on **Google Apps Script + Google Sheets** (MINDS's own sheets, including the House
 Visit form responses), with the web app on GitHub Pages.
 
-**Status: Version 4.8.1** (November 2026), live on the Exp environment: load-tested with 100
+**Status: Version 4.9** (November 2026), live on the Exp environment: load-tested with 100
 volunteers and 10 admins at once, then a round of testing with users on 31 October whose feedback
 is in. Production waits on MINDS's Google account (see [TODO.md](TODO.md)).
 
@@ -36,7 +36,7 @@ Try the app on your computer with demo data (no Google account needed; Node.js 2
 ```bash
 git clone https://github.com/vcoder302026/T4G-Sem12627-MINDS-APP.git
 cd T4G-Sem12627-MINDS-APP/volunteer-app
-npm test         # 136 tests
+npm test         # 137 tests
 npm run dev      # → http://localhost:5173
 ```
 
@@ -77,7 +77,7 @@ PLAN.md               Prototype 1's build plan
 | [Version 1](VERSION-1.md) | Oct 2026 | The volunteer app on Google Apps Script and Sheets |
 | [Version 2](VERSION-2.md), [STEVEN-UPDATE](STEVEN-UPDATE.md) | Oct 2026 (update: 27 Oct) | MINDS's registration form, trainee sheet, pairing, House Visit Form |
 | [Version 3](VERSION-3.md) | 28 Oct 2026 | Pairing board like the WERONE outing app, every phone size, warnings, standard projects |
-| **[Version 4](VERSION-4.md)** | 29 Oct – Nov 2026 | Short names, Google Contacts on save, files on notes, one trainee & house visit database, Add trainee with the House Visit Form, the Dashboard, speed and live updates (4.1–4.3), design updates with Lovable (4.4–4.6; 4.7 back to the 4.3 design, keeping All pages, bottom tabs, the shrinkable sidebar and organised information); 4.8 the 31 Oct testing feedback (guide must be read to the end, automatic clock-out, notes shared with the trainee's own volunteers by default, no session spots, admins always regulars, faster removals); 4.8.1 a sturdier website deploy and a clear wrong-admin-password message |
+| **[Version 4](VERSION-4.md)** | 29 Oct – Nov 2026 | Short names, Google Contacts on save, files on notes, one trainee & house visit database, Add trainee with the House Visit Form, the Dashboard, speed and live updates (4.1–4.3), design updates with Lovable (4.4–4.6; 4.7 back to the 4.3 design, keeping All pages, bottom tabs, the shrinkable sidebar and organised information); 4.8 the 31 Oct testing feedback (guide must be read to the end, automatic clock-out, notes shared with the trainee's own volunteers by default, no session spots, admins always regulars, faster removals); 4.8.1 a sturdier website deploy and a clear wrong-admin-password message; 4.9 past sessions (your own on Sessions → Past; everyone's pairings, hours and notes on All sessions) |
 
 ## Working together
 

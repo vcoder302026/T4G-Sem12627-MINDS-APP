@@ -41,6 +41,21 @@ the pairing board shows the Overseas "Saved / Saving…" state.
   with both in one job, `deploy-pages` sometimes couldn't find the artifact it had just been
   given (actions/deploy-pages#451), and re-running everything uploads a second one.
 
+
+## Version 4.9 (past sessions): design decisions
+
+- **Personal tabs stay personal.** **Sessions → Past** shows only your own sessions and your own
+  row, for every role, admins included: it sits with Home, QR pass and Me, which are about you.
+  Everyone's pairings, hours and notes are on **All sessions → Past sessions**, an admin page.
+- **Two actions, not one with a flag.** `pastSessions` (signed in) and `allPastSessions`
+  (admin password) share `pastSessionsFor_` in `gas/Volunteer.gs`. Keeping everyone's data
+  behind the admin route means a volunteer can't ask for it, whatever the page sends.
+- **Read from what's already stored.** Rows are built from Sessions, Bookings, Attendance and
+  Feedback when asked; nothing new is written, so there's no new column, tab or permission.
+  Automatic clock-outs are spotted from the attendance row's method.
+- **Separate phone caches** (`minds.myPastSessions`, `minds.allPastSessions`), both cleared at
+  sign-out. The personal one was renamed from `minds.pastSessions` so an admin's personal tab can
+  never show an old copy that held everyone's rows.
 ## Version 3 (October 2026): what changed in the design
 
 Version 3 follows Mr Sadil's call 2 feedback and MINDS's "Template Prompts for Creating

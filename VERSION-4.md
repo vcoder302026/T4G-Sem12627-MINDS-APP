@@ -1,7 +1,7 @@
 # MINDS Volunteer Management: Version 4
 
 Changes from the call with MINDS on 29 October 2026, the speed work that followed, and the
-31 October testing feedback (§13–14). Version 3 is described in
+31 October testing feedback (§13–14), and past sessions in Version 4.9 (§15). Version 3 is described in
 [VERSION-3.md](VERSION-3.md); step-by-step use is in the
 [user guide](volunteer-app/docs/USER-GUIDE.md).
 
@@ -351,10 +351,12 @@ changing anything.
 Checked: 136 tests; `check-deploy.mjs` ready to deploy; a wrong admin password twice, then the
 right one, in the browser against the local demo.
 
-## 15. Past sessions in the Sessions tab (25 Nov)
+## 15. Version 4.9: past sessions (25 Nov)
 
-The Sessions tab has an **Upcoming | Past** switch (`#/sessions/past`). **Past** lists past
-sessions, newest first (60 at a time, **Show older sessions** for more, cancelled sessions left
+Two places now show past sessions (PR #39, then #40, which made the Sessions tab personal and
+moved everyone's details to All sessions). The Sessions tab has an **Upcoming | Past** switch
+(`#/sessions/past`), and **All sessions** ends with **Past sessions**. Both list past sessions,
+newest first (60 at a time, **Show older sessions** for more, cancelled sessions left
 out), with a search box. Tapping a session opens it:
 
 | Who | Sees |
@@ -371,4 +373,4 @@ classes already in `web/styles.css` are used, so no stylesheet rebuild is needed
 
 Checked: 137 tests; `check-deploy.mjs` ready to deploy; `check-squash.py` (now including
 `sessions/past`) flags nothing on the page; the page in the browser against the local demo as an
-admin and as a volunteer.
+admin and as a volunteer. Deployed to Exp by GitHub Actions (website and Apps Script both green).
