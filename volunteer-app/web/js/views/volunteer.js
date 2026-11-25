@@ -323,7 +323,8 @@ export function renderSessions(root, app, ctx, param) {
 
 /* ---------------- Sessions → Past ---------------- */
 
-const PAST_KEY = 'minds.pastSessions';
+const PAST_KEY = 'minds.myPastSessions'; // renamed so an old cache with everyone's rows is never shown here
+export const ALL_PAST_KEY = 'minds.allPastSessions';
 
 /** One person's row inside a past session: who they were with, their hours, and the notes they gave. */
 function pastPersonRow(x, showName) {
@@ -353,7 +354,7 @@ function pastPersonRow(x, showName) {
     paired, ...notes);
 }
 
-function pastSessionCard(s, admin, today) {
+export function pastSessionCard(s, admin, today) {
   const c = s.counts;
   const chips = [badge(`${c.volunteers} came`, 'indigo', 'users'), badge(fmtHours(c.hours), 'emerald', 'clock')];
   if (c.noShows) chips.push(badge(`${c.noShows} no-show${c.noShows === 1 ? '' : 's'}`, 'red'));
@@ -369,13 +370,20 @@ function pastSessionCard(s, admin, today) {
         el('p', { class: 'text-sm text-slate-700 dark:text-neutral-300' }, [fmtTimes(s), s.venue].filter(Boolean).join(', ')),
         admin ? el('div', { class: 'mt-2 flex flex-wrap gap-1.5' }, chips) : null),
       icon('down', 'size-5 shrink-0 transition-transform duration-200 group-open:rotate-180')),
-    el('div', { class: 'border-t border-slate-100 dark:border-neutral-800' }, people));
+    el('div', { class: 'border-t border-slate-100 dark:border-neutral-800' }, people,
+      admin ? el('div', { class: 'border-t border-slate-100 p-4 dark:border-neutral-800' },
+        el('a', { href: `#/session/${s.sessionId}`, class: 'link text-sm' }, 'Open the session page')) : null));
 }
 
-function renderPastSessions(root, app, ctx) {
+/**
+ * A searchable list of past sessions. action 'pastSessions' = your own (Sessions tab, every role);
+ * 'allPastSessions' = everyone's (admin, All sessions). Returns { node, load }.
+ */
+export function pastSessionsList(ctx, action, cacheKey) {
   let query = '';
   let data = null;
   let limit = 60;
+  const all = action === 'allPastSessions';
   const host = el('div', {});
   const draw = () => {
     if (!data) return;
@@ -384,40 +392,49 @@ function renderPastSessions(root, app, ctx) {
     let more = null;
     if (data.more && !query.trim()) {
       more = el('button', { class: 'btn btn-secondary mt-4 w-full' }, 'Show older sessions');
-      more.addEventListener('click', () => busy(more, 'Loading…', async () => { limit += 60; await load(); }));
+      more.addEventListener('click', () => busy(more, 'Loading…', async () => { limit += 60; await fetchList(); }));
     }
     if (!data.sessions.length) {
-      mount(host, emptyState('calendar', data.admin ? 'No past sessions yet' : 'No past sessions yet',
-        data.admin ? 'Sessions appear here once their day has passed.' : 'Sessions you sign up for appear here once their day has passed.'));
+      mount(host, emptyState('calendar', 'No past sessions yet',
+        all ? 'Sessions appear here once their day has passed.' : 'Sessions you sign up for appear here once their day has passed.'));
     } else if (!matches.length) {
       mount(host, emptyState('search', 'No session matches that search', 'Try a name, a venue or a date.'));
     } else {
-      mount(host, matches.map((s) => pastSessionCard(s, data.admin, data.today)), more);
+      mount(host, matches.map((s) => pastSessionCard(s, all, data.today)), more);
     }
   };
-  const load = async () => {
-    const res = await call('pastSessions', { limit });
+  const fetchList = async () => {
+    const res = await call(action, { limit });
     data = res;
-    try { localStorage.setItem(PAST_KEY, JSON.stringify(res)); } catch { /* storage full or blocked */ }
+    try { localStorage.setItem(cacheKey, JSON.stringify(res)); } catch { /* storage full or blocked */ }
     if (ctx.alive()) draw();
   };
-  const admin = app.isAdmin;
+  const node = el('div', {},
+    searchBox(all ? 'Search by session, venue, date, volunteer or trainee' : 'Search by session, venue, date or trainee', (q) => { query = q; draw(); }),
+    host);
+  const load = (retry) => {
+    try {
+      const cached = JSON.parse(localStorage.getItem(cacheKey) || 'null');
+      if (cached && !data) { data = cached; draw(); }
+    } catch { /* nothing saved */ }
+    if (!data) mount(host, loading());
+    return fetchList().catch((err) => {
+      if (!ctx.alive()) return;
+      if (!data) mount(host, errorBlock(err, retry));
+      else if (!isNetworkError(err)) toast(err.message, 'error');
+    });
+  };
+  return { node, load };
+}
+
+function renderPastSessions(root, app, ctx) {
+  const past = pastSessionsList(ctx, 'pastSessions', PAST_KEY);
   mount(root,
     sessionsSwitch('past'),
     el('h1', { class: 'page-title' }, 'Past sessions'),
-    el('p', { class: 'mb-4 mt-1 text-sm muted' }, 'Tap a session for pairings, hours and notes.'),
-    searchBox(admin ? 'Search by session, venue, date, volunteer or trainee' : 'Search by session, venue, date or trainee', (q) => { query = q; draw(); }),
-    host);
-  try {
-    const cached = JSON.parse(localStorage.getItem(PAST_KEY) || 'null');
-    if (cached && cached.admin === admin) { data = cached; draw(); }
-  } catch { /* nothing saved */ }
-  if (!data) mount(host, loading());
-  return load().catch((err) => {
-    if (!ctx.alive()) return;
-    if (!data) mount(host, errorBlock(err, () => app.rerender()));
-    else if (!isNetworkError(err)) toast(err.message, 'error');
-  });
+    el('p', { class: 'mb-4 mt-1 text-sm muted' }, 'Tap a session for your pairing, hours and notes.'),
+    past.node);
+  return past.load(() => app.rerender());
 }
 
 /* ---------------- Me ---------------- */

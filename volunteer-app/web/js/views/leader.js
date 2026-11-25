@@ -16,6 +16,7 @@ const traineeLabels = (list, link) => list.map((t, i) => [i ? ', ' : '', link
   ? el('a', { href: `#/trainee/${encodeURIComponent(t.id)}`, class: 'link' }, traineeLabel(t.name, t.id))
   : traineeLabel(t.name, t.id)]);
 import { projectChecks, venuePicker } from './content.js';
+import { ALL_PAST_KEY, pastSessionsList } from './volunteer.js';
 
 function list(...rows) {
   return el('div', { class: 'card divide-y divide-slate-100 overflow-hidden dark:divide-neutral-900' }, ...rows);
@@ -91,6 +92,13 @@ export function renderToday(root, app, ctx) {
   let query = '';
   let latest = null;
   const host = el('div', {});
+  // Past sessions: every one, each opening to show who came, their pairing, hours and notes.
+  // Open from the start; it can be folded away.
+  const past = pastSessionsList(ctx, 'allPastSessions', ALL_PAST_KEY);
+  const pastBlock = el('details', { class: 'mt-6', open: true },
+    el('summary', { class: 'group-label cursor-pointer' }, 'Past sessions'),
+    el('div', { class: 'mt-2' }, past.node));
+  past.load(() => app.rerender());
   const row = (s, today) => {
     const st = s.stats;
     return el('div', { class: 'flex items-center gap-3 p-4' },
@@ -132,15 +140,12 @@ export function renderToday(root, app, ctx) {
     }
     const todays = a.sessions.filter((s) => s.date === today);
     const upcoming = a.sessions.filter((s) => s.date > today);
-    const past = a.sessions.filter((s) => s.date < today).reverse();
     mount(host, alerts,
       el('h2', { class: 'group-label' }, fmtDay(today, today)),
       todays.length ? list(todays.map((s) => row(s, today))) : el('p', { class: 'text-sm muted' }, 'No sessions today.'),
       el('h2', { class: 'group-label' }, 'Coming up'),
       upcoming.length ? list(upcoming.map((s) => row(s, today))) : el('p', { class: 'text-sm muted' }, 'No sessions yet.'),
-      past.length ? el('details', { class: 'mt-6' },
-        el('summary', { class: 'group-label cursor-pointer' }, `Past week (${past.length})`),
-        list(past.map((s) => row(s, today)))) : null);
+      pastBlock);
   };
 
   mount(root,

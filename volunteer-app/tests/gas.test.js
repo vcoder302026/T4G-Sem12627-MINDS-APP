@@ -387,7 +387,7 @@ describe('signing up and pairing (volunteers, regulars, admins)', () => {
     assert.equal(ok(rt.call('volunteerHome', {}, vol.token)).history[0].trainee.canView, true, 'regulars can open any trainee');
   });
 
-  test('past sessions: admins see everyone\'s pairing, hours and notes; volunteers see only their own', () => {
+  test('past sessions: All sessions shows everyone\'s pairing, hours and notes; the Sessions tab only your own', () => {
     const s = createSession();
     const v2 = volunteer('v2@example.com', 'Vol Two');
     const b1 = book(s.sessionId);
@@ -398,10 +398,10 @@ describe('signing up and pairing (volunteers, regulars, admins)', () => {
     rt.setNow(at('12:30'));
     ok(rt.call('manualClock', { bookingId: b1 }, leader));
     ok(rt.call('submitFeedback', { bookingId: b1, rating: 4, sessionFeedback: 'Good fun.', observations: [{ traineeId: 'T-0002', note: 'Loved drawing.' }] }, vol.token));
-    assert.equal(ok(rt.call('pastSessions', {}, leader)).sessions.length, 0, 'today\'s session is not past yet');
+    assert.equal(ok(rt.call('allPastSessions', {}, leader)).sessions.length, 0, 'today\'s session is not past yet');
 
     rt.setNow(at('09:00', '2026-10-20'));
-    const all = ok(rt.call('pastSessions', {}, leader));
+    const all = ok(rt.call('allPastSessions', {}, leader));
     assert.equal(all.admin, true);
     const past = all.sessions.find((x) => x.sessionId === s.sessionId);
     assert.deepEqual(past.counts, { volunteers: 1, noShows: 1, hours: 2.5, notes: 2 });
@@ -414,6 +414,8 @@ describe('signing up and pairing (volunteers, regulars, admins)', () => {
     assert.equal(one.notes[0].text, 'Loved drawing.');
     assert.equal(past.people.find((x) => x.name === 'Vol Two').noShow, true);
 
+    assert.equal(ok(rt.call('pastSessions', {}, leader)).sessions.length, 0, 'an admin\'s own Sessions tab shows only sessions they went to');
+    assert.equal(rt.call('allPastSessions', {}, vol.token).ok, false, 'volunteers cannot see everyone\'s');
     const mine = ok(rt.call('pastSessions', {}, vol.token));
     assert.equal(mine.admin, false);
     assert.deepEqual(mine.sessions[0].people.map((x) => x.name), ['Vol One'], 'a volunteer sees only their own row');
