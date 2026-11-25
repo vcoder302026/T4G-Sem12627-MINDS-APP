@@ -37,7 +37,7 @@ MINDS's mock House Visit data).</sub>
 connects to Google Apps Script and Google Sheets as described in
 [Part 3](#part-3-integrating-google-apps-script--google-sheets). What changed in Version 4, and
 why, is in [VERSION-4.md](../VERSION-4.md); step-by-step use is in the
-[user guide](docs/USER-GUIDE.md).
+[user guide](docs/USER-GUIDE.md), and for beginners the printable [handbook (PDF)](docs/MINDS-Volunteer-App-Handbook.pdf).
 
 | Part | What it covers |
 | --- | --- |

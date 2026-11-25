@@ -1,6 +1,7 @@
 # Using the MINDS Volunteer App
 
-For volunteers, regular volunteers and admins (Version 4.8). Setup and code are covered in the
+For volunteers, regular volunteers and admins (Version 4.9). A printable, illustrated version for beginners is the
+[handbook (PDF)](MINDS-Volunteer-App-Handbook.pdf). Setup and code are covered in the
 [README](../README.md).
 
 ## Finding your way around
@@ -95,7 +96,7 @@ Then six sections, plus **More**:
 | Add sessions | **All sessions** → **New session** → pick the date. It's a Regular session, 2:30–5:30 pm at Woodlands, for West End and RSPID (WGS), unless you change it. **Add another date** adds the same session on several days |
 | See who's coming | **All sessions** → a session: everyone coming, their trainees, and no-shows after the day. **Edit or close this session** changes times, closes sign-ups or cancels it (with a warning) |
 | Look back at a past session | **All sessions** → **Past sessions** (at the bottom) → tap a session: everyone who signed up, who they were paired with, their clock-in and out times and hours (**Did not come** for no-shows, **Auto clock-out** when the app closed it), and their rating, session feedback and trainee notes (**Waiting for review** until you've reviewed them). Search by session, venue, date, volunteer or trainee. **Open the session page** for the full session |
-| Pair volunteers for a session | **Pairing** → **Sessions to pair** → a session (or **Pair** on the Admin home). The board works like the WERONE outing app's Manual Pair page: **Volunteers** on the left, **Trainees** on the right, a search box for each. Each card shows the name, the **Regular** / **Volunteer** label (and **Admin**), the project, and who they're paired with. **Drag** a card onto a card in the other column, or tap a card (or **+Trn** / **+Vol**) and tick names in the pop-up. **✕** unpairs. Many to many: a volunteer can have several trainees and a trainee several volunteers. Each column's **All** button switches to **Paired** (and back). The red **N unpaired** count and **Saved** sit above the board |
+| Pair volunteers for a session | **Pairing** → **Sessions to pair** → a session (or **Pair** on the Admin home). The board works like the WERONE outing app's Manual Pair page: **Volunteers** on the left, **Trainees** on the right, a search box for each. Each card shows the name, the **Regular** / **Volunteer** label (and **Admin**), the project, and who they're paired with. **Drag** a card onto a card in the other column, or tap a card (or **+Trn** / **+Vol**) and tick names in the pop-up. **✕** unpairs. Many to many: a volunteer can have several trainees and a trainee several volunteers. Each column's button cycles **All → Unpaired → Paired**. The red **N unpaired** count and **Saved** sit above the board |
 | Share the pairings | The session's board → **Pairing list**: a table to screenshot |
 | Give a regular their fixed trainees | **Pairing** → **Regular pairings**: the same board, with regulars on the left. The pop-up shows who they've been with before, then trainees new for them. Their upcoming sessions follow the change |
 | Check who has been with whom | **Pairing** → **History**: sessions together for every pair, and each regular's fixed trainees over time |
