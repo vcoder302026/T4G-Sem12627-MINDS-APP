@@ -21,7 +21,7 @@ This guide doesn't repeat the other docs; it tells you which one to open:
 
 ## 1. Where the project stands (November 2026)
 
-- **Version 4.8.1** runs on the **Exp** environment: the website on GitHub Pages, the backend on
+- **Version 4.9** runs on the **Exp** environment: the website on GitHub Pages, the backend on
   Google Apps Script, the data in Google Sheets. Every merge into `main` deploys both through
   GitHub Actions.
 - It was load-tested with 100 volunteers and 10 admins at once and tested by users on
@@ -48,7 +48,7 @@ You need Git and Node.js 20 or later. For the layout checks, also Python 3 with 
 ```bash
 git clone https://github.com/vcoder302026/T4G-Sem12627-MINDS-APP.git
 cd T4G-Sem12627-MINDS-APP/volunteer-app
-npm test          # 136 tests, all should pass
+npm test          # 137 tests, all should pass
 npm run dev       # http://localhost:5173
 ```
 
@@ -98,9 +98,9 @@ To add a backend action: write the function in the feature's `.gs` file, add one
 | I want to change… | Look in |
 | --- | --- |
 | Registration questions, session defaults, projects, trainee columns, who sees what, switches like `SESSION_SPOTS` | `volunteer-app/gas/Config.gs` (MINDS should be able to change most things here) |
-| A volunteer's screens (Home, Sessions, QR pass, Me) | `web/js/views/volunteer.js`, `profile.js`, `web/js/qr.js` |
+| A volunteer's screens (Home, Sessions with Upcoming and Past, QR pass, Me) | `web/js/views/volunteer.js`, `profile.js`, `web/js/qr.js`; past sessions: `pastSessions_` / `allPastSessions_` in `gas/Volunteer.gs` |
 | The guide | `web/js/views/content.js` (pages), `gas/Content.gs` (server) |
-| Admin home, sessions, scanning | `web/js/views/admin.js`, `leader.js`; `gas/Admin.gs`, `gas/Attendance.gs` |
+| Admin home, sessions (All sessions, including Past sessions), scanning | `web/js/views/admin.js`, `leader.js`; `gas/Admin.gs`, `gas/Attendance.gs` |
 | Pairing boards | `web/js/views/pairing.js`, `web/js/dnd.js`; `gas/Pairing.gs` |
 | Trainees, notes, who can read a note | `web/js/views/trainees.js`; `gas/Trainees.gs`, `gas/TraineeInfo.gs`, `NOTE_AUDIENCES` in `Config.gs` |
 | Volunteers, roles, attendance and hours pages | `web/admin/js/views/people.js`, `attendance.js`; `gas/Profile.gs`, `gas/Dashboard.gs` |
@@ -267,4 +267,4 @@ At the end of your time on the project:
 
 | When | From | To | Notes |
 | --- | --- | --- | --- |
-| Nov 2026 | Tech for Good team, Sem 1 AY2026/27 | | Version 4.8.1 on Exp; see section 1 |
+| Nov 2026 | Tech for Good team, Sem 1 AY2026/27 | | Version 4.9 on Exp; see section 1 |
