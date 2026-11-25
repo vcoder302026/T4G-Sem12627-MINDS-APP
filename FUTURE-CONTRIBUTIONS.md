@@ -10,6 +10,7 @@ This guide doesn't repeat the other docs; it tells you which one to open:
 | [README.md](README.md) | The project in one page, quick start, version history |
 | [volunteer-app/README.md](volunteer-app/README.md) | Every feature, setting up Google (Part 3), configuration, troubleshooting |
 | [volunteer-app/docs/USER-GUIDE.md](volunteer-app/docs/USER-GUIDE.md) | How volunteers, regulars and admins use the app |
+| [Handbook (PDF)](volunteer-app/docs/MINDS-Volunteer-App-Handbook.pdf) | The printable beginners' handbook; rebuild it after screen changes ([how](volunteer-app/docs/handbook/README.md)) |
 | [AGENTS.md](AGENTS.md) | The rules for changing the app (MINDS's template, consistency with their other apps, deploy rules) |
 | [volunteer-app/DESIGN-NOTES.md](volunteer-app/DESIGN-NOTES.md) | Why things are built the way they are |
 | [VERSION-4.md](VERSION-4.md) | What changed most recently, and how each upgrade was deployed |

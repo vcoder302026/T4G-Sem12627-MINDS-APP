@@ -24,6 +24,7 @@ is in. Production waits on MINDS's Google account (see [TODO.md](TODO.md)).
 | --- | --- |
 | **[volunteer-app/README.md](volunteer-app/README.md)** | Features, running the demo, setting it up on Google, configuration, speed and load testing, troubleshooting |
 | **[User guide](volunteer-app/docs/USER-GUIDE.md)** | How volunteers, regulars and admins use the app, step by step |
+| **[Handbook (PDF)](volunteer-app/docs/MINDS-Volunteer-App-Handbook.pdf)** | The same for beginners: a printable, illustrated user & admin handbook |
 | **[VERSION-4.md](VERSION-4.md)** | What Version 4 changed (MINDS's 29 October call, the speed work, the 31 October testing feedback) and how to upgrade |
 | **[FUTURE-CONTRIBUTIONS.md](FUTURE-CONTRIBUTIONS.md)** | Picking the project up: getting set up, where things are in the code, how to change and deploy safely, and what to build next |
 | [Exp setup guide](volunteer-app/docs/EXP-SETUP.md) | Setting up a test environment from scratch, with mock data |
