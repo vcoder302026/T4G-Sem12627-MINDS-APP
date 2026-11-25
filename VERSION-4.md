@@ -359,12 +359,14 @@ out), with a search box. Tapping a session opens it:
 
 | Who | Sees |
 | --- | --- |
-| Admins | Every past session and everyone who signed up or was clocked in: who they were paired with, clock-in and out and hours (**Did not come**, **Auto clock-out**), rating, session feedback and trainee notes (**Waiting for review** until reviewed), plus a summary per session: came, hours, no-shows, notes |
-| Volunteers and regulars | Only sessions they signed up for or attended, and only their own row |
+| Admins, on **All sessions** → **Past sessions** (replaces "Past week") | Every past session and everyone who signed up or was clocked in: who they were paired with, clock-in and out and hours (**Did not come**, **Auto clock-out**), rating, session feedback and trainee notes (**Waiting for review** until reviewed), plus a summary per session: came, hours, no-shows, notes |
+| Everyone, admins included, on **Sessions** → **Past** (their personal tab) | Only sessions they signed up for or attended, and only their own row |
 
-Backend: one read-only action, `pastSessions` (`gas/Volunteer.gs`), built from the Sessions,
+Backend: two read-only actions in `gas/Volunteer.gs`: `pastSessions` (signed in; your own) and
+`allPastSessions` (admin password; everyone's), built from the Sessions,
 Bookings, Attendance and Feedback tabs; nothing new is stored and no new permissions are needed.
-The phone keeps a copy for a fast first draw (`minds.pastSessions`), cleared at sign-out. Only
+The phone keeps a copy of each for a fast first draw (`minds.myPastSessions`,
+`minds.allPastSessions`), cleared at sign-out. Only
 classes already in `web/styles.css` are used, so no stylesheet rebuild is needed.
 
 Checked: 137 tests; `check-deploy.mjs` ready to deploy; `check-squash.py` (now including

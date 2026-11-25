@@ -246,15 +246,24 @@ function submitFeedback_(p, user) {
 }
 
 /**
- * Past sessions (Sessions tab → Past). Each session lists who came, who they
- * were paired with, their hours, and the feedback and trainee notes given.
- * Admins see every past session and everyone in it; a volunteer sees only the
- * sessions they signed up for or attended, and only their own row.
+ * Past sessions. Each session lists who came, who they were paired with,
+ * their hours, and the feedback and trainee notes given.
+ * - pastSessions (Sessions tab → Past, every role, admins included): only the
+ *   sessions this person signed up for or attended, and only their own row.
+ * - allPastSessions (admin: All sessions → Past sessions): every past session
+ *   and everyone in it.
  */
 function pastSessions_(p, user) {
+  return pastSessionsFor_(p, user, false);
+}
+
+function allPastSessions_(p, user) {
+  return pastSessionsFor_(p, user, true);
+}
+
+function pastSessionsFor_(p, user, admin) {
   onlyFields_(p, ['limit']);
   const limit = p.limit === undefined ? 60 : int_(p.limit, 'Limit', 1, 500);
-  const admin = user.role === 'admin';
   const today = todayStr_();
   const users = byKey_(table_('users').rows(), 'userId');
   const bookings = table_('bookings').rows().filter((b) => b.status !== 'cancelled');
