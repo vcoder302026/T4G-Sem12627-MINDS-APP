@@ -1,7 +1,6 @@
 # Future contributions
 
-For whoever picks up the MINDS Volunteer App next, whether that's a new Tech for Good team or
-MINDS's own staff. It covers getting set up, finding your way around the code, making and
+It covers getting set up, finding your way around the code, making and
 deploying a change safely, and what to build next.
 
 This guide doesn't repeat the other docs; it tells you which one to open:
@@ -61,7 +60,7 @@ password is `admin-demo-2026` (only in the demo).
 - [ ] **Editor access** to the Exp Apps Script project, or at least someone who has it. Only the
   project's owner can approve new Google permissions (section 5)
 - [ ] The Exp volunteer sheet and the trainee (House Visit) sheet
-- [ ] The **admin password** for Exp (it's separate from everyone's sign-in password; if nobody
+- [ ] The **admin password** for Exp (admin-09fb-95d6-ed48) (it's separate from everyone's sign-in password; if nobody
   has it, the owner runs `resetAdminPassword()`)
 - [ ] An Exp admin account for yourself (register in the app, then an admin uses **Make an admin**)
 - [ ] MINDS's Drive folder "Team 39 Tech for Good x MINDS", which holds their web app template
@@ -196,10 +195,9 @@ If you use a Google service the harness doesn't fake yet, add a small fake there
 
 ## 6. Decisions to make with MINDS first
 
-Don't build these until MINDS has answered; the questions are in [TODO.md](TODO.md) section 1:
+The questions are in [TODO.md](TODO.md) section 1:
 
 - Which trainee details volunteers and regulars see by default (PDPA)
-- Consent wording for NRIC, address, emergency contact, Google Contacts and trainee photos
 - Whether outings and fundraising stay in this app (they're placeholders under **More**)
 - How session attendance and outing attendance relate
 - Email or Telegram for reminders
@@ -252,19 +250,8 @@ Built the same way as automatic clock-out (`gas/AutoClock.gs`), so most of the p
 
 ---
 
-## 8. Handing over
-
-At the end of your time on the project:
-
-- [ ] `PROGRESS.md`: a row for each working session, and the "current work" table at the top
-- [ ] `TODO.md`: tick what's done, add what you found
-- [ ] A section in `VERSION-4.md` (or a new `VERSION-5.md`) for what changed and how to upgrade
-- [ ] This file: update section 1 and the list in section 7
-- [ ] Hand over access: GitHub, the Apps Script project, the sheets, the admin password (in
-  person or by a private message, never in the repo)
-
 ### Handover log
 
 | When | From | To | Notes |
 | --- | --- | --- | --- |
-| Nov 2026 | Tech for Good team, Sem 1 AY2026/27 | | Version 4.9 on Exp; see section 1 |
+| Nov 2026 | Tech for Good Team 39, Sem 1 AY2026/27 | | Version 4.9 on Exp; see section 1 |
