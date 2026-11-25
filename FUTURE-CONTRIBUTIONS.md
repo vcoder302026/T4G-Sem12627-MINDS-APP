@@ -39,6 +39,18 @@ This guide doesn't repeat the other docs; it tells you which one to open:
 
 ---
 
+### Where things live
+
+The Apps Script and Drive links only open for people they've been shared with: ask the current owner (see the
+[Handover log](#handover-log)) for access. This repository is public, so keep each one's sharing
+set to **Restricted**, and never add passwords, the Web App URL or script IDs for Prod here.
+
+| What | Link | What's in it |
+| --- | --- | --- |
+| Apps Script project (Exp) | [Open in Apps Script](https://script.google.com/d/1w-EB81QtKqWS1uEuX12ZWElMp5mzeXS3CClX4Yc_9U99iwBkmw5bNsUE/edit) | The backend (`volunteer-app/gas/`). Run `setup()` or `resetAdminPassword()` here, approve new permissions after a deploy, and read the Execution log |
+| Google Drive folder | [Team 39 × MINDS Drive](https://drive.google.com/drive/folders/1pqzDAsVHs4shmEvAijmLySF_zvivSKEH) | The project's shared files: the Google Sheets, note files, guide pictures and trainee photos |
+| Meeting minutes | [MINDS-Meeting-Minutes.pdf](volunteer-app/docs/MINDS-Meeting-Minutes.pdf) (in this repo) | What MINDS asked for at each meeting: 16 Oct call, 17 Oct in person, 22 and 29 Oct calls, 31 Oct testing feedback. Pictures in it use mock data only |
+
 ## 2. Getting set up
 
 ### On your computer (about 10 minutes)
@@ -255,4 +267,4 @@ Built the same way as automatic clock-out (`gas/AutoClock.gs`), so most of the p
 
 | When | From | To | Notes |
 | --- | --- | --- | --- |
-| Nov 2026 | Tech for Good Team 39, Sem 1 AY2026/27 | | Version 4.9 on Exp; see section 1 |
+| Nov 2026 | Tech for Good Team 39, Sem 1 AY2026/27 | | Version 4.9 on Exp; see section 1. Re-share the Apps Script project and Drive folder ([Where things live](#where-things-live)) with the next team; the minutes are in the repo |
